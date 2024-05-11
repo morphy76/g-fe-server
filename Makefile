@@ -2,6 +2,7 @@
 GO := go
 DOCKER := docker
 NPM := npm
+NODEMON := nodemon
 
 # Set the flags
 #GOFLAGS := -mod=vendor
@@ -25,6 +26,9 @@ test:
 # Define the build target
 build:
 	@$(GO) build $(GOFLAGS) $(LDFLAGS) -o $(TARGET) $(SOURCES)
+
+watch:
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) /fe ./web/build
 
 #FE Build
 build-fe:

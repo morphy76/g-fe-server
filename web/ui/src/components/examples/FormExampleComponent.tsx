@@ -121,7 +121,7 @@ const FormExample: React.FC<FormExampleProps> = ({ example, onCreate, onUpdate, 
             type="number"
             id={idAge}
             tabIndex={0}
-            {...register('age', { min: 1, max: 200, required: true })}
+            {...register('age', { min: 1, max: 200, required: true, valueAsNumber: true})}
             aria-invalid={errors.age ? "true" : "false"}
           />
         </div>

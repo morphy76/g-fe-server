@@ -4,11 +4,17 @@ import (
 	"g-fe-server/pkg/example"
 )
 
-type MemoryRepository struct {
-	db map[int]example.Example
+type memoryRepository struct {
+	db map[string]example.Example
 }
 
-func (r *MemoryRepository) FindAll() ([]example.Example, error) {
+func NewMemoryRepository() example.Repository {
+	return &memoryRepository{
+		db: make(map[string]example.Example),
+	}
+}
+
+func (r *memoryRepository) FindAll() ([]example.Example, error) {
 	values := make([]example.Example, 0, len(r.db))
 	for _, v := range r.db {
 		values = append(values, v)
@@ -16,18 +22,23 @@ func (r *MemoryRepository) FindAll() ([]example.Example, error) {
 	return values, nil
 }
 
-func (r *MemoryRepository) FindById(id int) (example.Example, error) {
-	return example.Example{}, nil
+func (r *memoryRepository) FindById(id string) (example.Example, error) {
+	return r.db[id], nil
 }
 
-func (r *MemoryRepository) Save(e example.Example) error {
+func (r *memoryRepository) Save(e example.Example) error {
+	r.db[e.Name] = e
 	return nil
 }
 
-func (r *MemoryRepository) Update(e example.Example) error {
+func (r *memoryRepository) Update(e example.Example) error {
+	appo := r.db[e.Name]
+	appo.Age = e.Age
+	r.db[e.Name] = appo
 	return nil
 }
 
-func (r *MemoryRepository) Delete(id int) error {
+func (r *memoryRepository) Delete(id string) error {
+	delete(r.db, id)
 	return nil
 }
