@@ -13,7 +13,7 @@ import (
 
 func HealthHandlers(nonFunctionalRouter *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(CTX_CONTEXT_ROOT_KEY).(string)
+	ctxRoot := context.Value(CTX_CONTEXT_ROOT_KEY).(ContextModel).ContextRoot
 
 	healthRouter := nonFunctionalRouter.PathPrefix("/health").Subrouter()
 	healthRouter.Use(middleware.JSONResponse)

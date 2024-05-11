@@ -1,6 +1,7 @@
 # Set binary commands
 GO := go
 DOCKER := docker
+NPM := npm
 
 # Set the flags
 #GOFLAGS := -mod=vendor
@@ -25,11 +26,13 @@ test:
 build:
 	@$(GO) build $(GOFLAGS) $(LDFLAGS) -o $(TARGET) $(SOURCES)
 
+#FE Build
 build-fe:
-	@echo "TODO"
+	@$(NPM) --prefix ./web/ui i
+	@$(NPM) --prefix ./web/ui run build
 
 run:
-	@$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES)
+	@$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) /fe ./web/build
 
 # Define the clean target
 clean:

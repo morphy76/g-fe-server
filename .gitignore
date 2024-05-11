@@ -6,6 +6,7 @@
 *.dylib
 /g-fe-server
 /go.sum
+/web/build
 
 # Test binary, built with `go test -c`
 *.test

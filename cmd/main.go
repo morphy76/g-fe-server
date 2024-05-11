@@ -14,8 +14,8 @@ import (
 
 func main() {
 
-	if len(os.Args) == 1 {
-		fmt.Println("Usage: main <context root>")
+	if len(os.Args) < 3 {
+		fmt.Println("Usage: main <context root> <static path>")
 		os.Exit(1)
 	}
 
@@ -25,7 +25,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	serverContext := context.WithValue(context.Background(), handlers.CTX_CONTEXT_ROOT_KEY, ctxRoot)
+	staticPath := os.Args[2]
+	if strings.Contains(staticPath, " ") {
+		fmt.Println("Invalid static path")
+		os.Exit(1)
+	}
+
+	ctxModel := handlers.ContextModel{
+		ContextRoot: ctxRoot,
+		StaticPath:  staticPath,
+	}
+
+	serverContext := context.WithValue(context.Background(), handlers.CTX_CONTEXT_ROOT_KEY, ctxModel)
 
 	rootRouter := mux.NewRouter()
 

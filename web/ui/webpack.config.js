@@ -14,7 +14,8 @@ const isProduction = process.env.NODE_ENV == 'production';
 const config = {
   entry: './src/index.tsx',
   output: {
-    path: path.resolve(__dirname, '../../../target/frontend/'),
+    path: path.resolve(__dirname, '../build/'),
+    publicPath: './',
   },
   watchOptions: {
     ignored: /node_modules/,
