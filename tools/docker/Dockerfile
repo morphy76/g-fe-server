@@ -1,5 +1,5 @@
-# Builder image
-FROM golang:1.22.2 AS builder
+# Builder image: BFF
+FROM golang:1.22.2 AS ps-builder
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update \
@@ -16,14 +16,27 @@ COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \
     make test build
 
+# Builder image: FE
+FROM node:lts AS fe-builder
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update \
+    && apt-get install -y make
+WORKDIR /app
+COPY . .
+RUN --mount=type=cache,target=/root/.npm \
+    make build-fe
+
 # Final image
 FROM gcr.io/distroless/base-nossl-debian12:nonroot
-COPY --from=builder /app/g-fe-server /g-fe-server
-CMD ["/g-fe-server"]
+COPY --from=ps-builder /app/g-fe-server /g-fe-server
+COPY --from=fe-builder /app/web/build /static
+ENV STATIC_PATH=/static
+CMD [ "/g-fe-server" ]
 LABEL Name=g-fe-server \
       Version=0.0.1 \
       Maintainer="Riccardo Pasquini <riccardo.pasquini@gmail.com>" \
       Vendor="sixdeex.net" \
       Description="Go frontend server" \
       License="WHOCARES" \
-      Usage="docker run --rm -d -p 8080:8080 g-fe-server"
+      Usage="docker run --rm -d -p 8080:8080 -e CONTEXT_ROOT=/fe g-fe-server:0.0.1"
