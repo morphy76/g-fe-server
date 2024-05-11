@@ -31,6 +31,10 @@ build-fe:
 	@$(NPM) --prefix ./web/ui i
 	@$(NPM) --prefix ./web/ui run build
 
+watch-fe:
+	@$(NPM) --prefix ./web/ui i
+	@$(NPM) --prefix ./web/ui run watch
+
 run:
 	@$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) /fe ./web/build
 

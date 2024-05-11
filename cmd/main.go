@@ -9,7 +9,8 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"g-fe-server/internal/http/handlers"
+	handlers "g-fe-server/internal/http"
+	app_context "g-fe-server/internal/http/context"
 )
 
 func main() {
@@ -31,12 +32,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctxModel := handlers.ContextModel{
+	ctxModel := app_context.ContextModel{
 		ContextRoot: ctxRoot,
 		StaticPath:  staticPath,
 	}
 
-	serverContext := context.WithValue(context.Background(), handlers.CTX_CONTEXT_ROOT_KEY, ctxModel)
+	serverContext := context.WithValue(context.Background(), app_context.CTX_CONTEXT_ROOT_KEY, ctxModel)
 
 	rootRouter := mux.NewRouter()
 

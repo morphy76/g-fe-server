@@ -6,21 +6,16 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"g-fe-server/internal/example"
+	app_context "g-fe-server/internal/http/context"
+	"g-fe-server/internal/http/health"
 	"g-fe-server/internal/http/middleware"
+	"g-fe-server/internal/http/static"
 )
-
-type ContxtModelKey string
-
-type ContextModel struct {
-	ContextRoot string
-	StaticPath  string
-}
-
-const CTX_CONTEXT_ROOT_KEY ContxtModelKey = "contextModel"
 
 func Handler(parent *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(CTX_CONTEXT_ROOT_KEY).(ContextModel).ContextRoot
+	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).ContextRoot
 
 	contextRouter := parent.PathPrefix(ctxRoot).Subrouter()
 
@@ -36,6 +31,7 @@ func Handler(parent *mux.Router, context context.Context) {
 	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 
-	HandleStatic(staticRouter, context)
-	HealthHandlers(nonFunctionalRouter, context)
+	static.HandleStatic(staticRouter, context)
+	health.HealthHandlers(nonFunctionalRouter, context)
+	example.ExampleHandlers(apiRouter, context)
 }

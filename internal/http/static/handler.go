@@ -1,4 +1,4 @@
-package handlers
+package static
 
 import (
 	"context"
@@ -8,12 +8,14 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+
+	app_context "g-fe-server/internal/http/context"
 )
 
 func HandleStatic(staticRouter *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(CTX_CONTEXT_ROOT_KEY).(ContextModel).ContextRoot
-	staticPath := context.Value(CTX_CONTEXT_ROOT_KEY).(ContextModel).StaticPath
+	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).ContextRoot
+	staticPath := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).StaticPath
 
 	defaultFile := filepath.Join(staticPath, "index.html")
 
