@@ -1,0 +1,16 @@
+{
+  "examples.title": "Exemples en <enlarge>direct</enlarge> <i>[{count}]</i>",
+  "examples.list.confirm.delete": "Voulez-vous vraiment supprimer cet exemple [{name}]?",
+  "examples.form.legend.existing": "Modifier l'exemple",
+  "examples.form.legend.new": "Nouvel exemple",
+  "examples.form.name": "Nom",
+  "examples.form.age": "Âge",
+  "examples.form.submit.existing": "Mettre à jour",
+  "examples.form.submit.new": "Créer",
+  "examples.form.reset.existing": "Annuler",
+  "examples.form.reset.new": "Effacer",
+  "examples.form.close": "Fermer",
+  "examples.form.errors.required.name": "Le nom est obligatoire",
+  "examples.form.errors.invalid.age": "L'âge doit être positif",
+  "examples.form.saved": "Exemple enregistré"
+}

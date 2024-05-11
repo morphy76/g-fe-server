@@ -1,0 +1,16 @@
+{
+  "examples.title": "<enlarge>Live</enlarge> Examples <i>[{count}]</i>",
+  "examples.list.confirm.delete": "Are you sure you want to delete the example [{name}]?",
+  "examples.form.legend.existing": "Edit Example",
+  "examples.form.legend.new": "New Example",
+  "examples.form.name": "Name",
+  "examples.form.age": "Age",
+  "examples.form.submit.existing": "Update",
+  "examples.form.submit.new": "Create",
+  "examples.form.reset.existing": "Discard",
+  "examples.form.reset.new": "Clear",
+  "examples.form.close": "Close",
+  "examples.form.errors.required.name": "Name is required",
+  "examples.form.errors.invalid.age": "Age must be positive",
+  "examples.form.saved": "Example saved"
+}

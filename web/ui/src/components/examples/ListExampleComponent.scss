@@ -1,0 +1,72 @@
+@import '../../assets/mixins/flex_container.scss';
+@import '../../assets/mixins/default_variables.scss';
+@import '../../assets/mixins/utils.scss';
+
+.list_example_wrapper {
+  @include flex_container($align: stretch);
+  align-self: stretch;
+  min-width: 195px;
+
+  header {
+    align-self: center;
+    font-size: 1.2rem;
+  }
+
+  .loading {
+    align-self: center;
+    color: var(--text-color-dark-secondary, $text-color-dark-secondary);
+  }
+
+  ul {
+    @include flex_container($direction: column, $align: stretch);
+    padding: 0;
+
+    span {
+      @include flex_container($direction: row, $align: center);
+      margin: 1px 0px;
+  
+      &:hover {
+        outline: 1px solid var(--border-color-dark-main, $border-color-dark-main);
+      }
+
+      button {
+        @include flex_container($direction: row, $justify: space-between, $align: center);
+        @include clickable();
+        background-color: transparent;
+        border: none;
+
+        &:first-of-type {
+          flex: 1 0 auto;
+        }
+
+        &:last-of-type {
+          flex: 0 1 auto;
+        }
+  
+        span:first-of-type {
+          font-weight: bold;
+        }
+  
+        span:last-of-type {
+          margin-left: 0.5em;
+          font-size: 0.9rem;
+          font-style: italic;
+        }
+      }
+  
+      &:nth-child(even) {
+        background-color: var(--background-color-light-main, $background-color-light-main);
+      }
+
+      &:nth-child(odd) {
+        background-color: var(--background-color-light-secondary, $background-color-light-secondary);
+      }
+    }
+
+  }
+
+  .error {
+    align-self: center;
+    color: var(--text-color-error, $text-color-error);
+  }
+}

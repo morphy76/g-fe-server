@@ -1,0 +1,33 @@
+@import '../assets/mixins/typography.scss';
+@import '../assets/mixins/flex_container.scss';
+@import '../assets/mixins/default_variables.scss';
+
+.base_container {
+  @include typography();
+  @include flex_container();
+}
+
+.responsive_container {
+  container-type: inline-size;
+}
+
+@container (width <= 640px) {
+  .container {
+    @extend .base_container;
+    margin: 0.2em 2% 0 2%;
+  }
+}
+
+@container (width > 640px) and (width <= 1024px) {
+  .container {
+    @extend .base_container;
+    margin: 0.75em 10% 0 10%;
+  }
+}
+
+@container (width > 1024px) {
+  .container {
+    @extend .base_container;
+    margin: 1em 20% 0 20%;
+  }
+}

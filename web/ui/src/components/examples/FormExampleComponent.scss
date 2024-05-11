@@ -1,0 +1,87 @@
+@import '../../assets/mixins/flex_container.scss';
+@import '../../assets/mixins/default_variables.scss';
+@import '../../assets/mixins/forms.scss';
+
+
+@container (width < 490px) {
+  .responsive_fieldset {
+    @include flex_container($direction: column, $justify: flex-start, $align: center);
+  }
+
+  .responsive_field {
+    @include flex_container($direction: column, $align: stretch);
+    width: 100%;
+  }
+}
+
+@container (width >= 490px) {
+  .responsive_fieldset {
+    @include flex_container($direction: row, $justify: space-between, $align: flex-end);
+    margin-bottom: 1rem;
+  }
+
+  .responsive_field {
+    @include flex_container($direction: column, $align: stretch);
+    width: 5rem;
+  }
+}
+
+.form_text {
+  font-size: 0.75rem;
+}
+
+.form_example_wrapper {
+  align-self: stretch;
+  min-width: 195px;
+  container-type: inline-size;
+
+  fieldset {
+    gap: 1rem;
+
+    legend {
+      font-size: 0.9rem;
+      font-weight: bold;
+      margin-bottom: 0.5em;
+    }
+
+    div {
+
+      label {
+        @extend .form_text;
+        font-style: italic;
+        margin-bottom: 0.1rem;
+      }
+
+      input {
+        @include form_input;
+        padding: 0.5em;
+      }
+
+      &:first-of-type {
+        flex: 1 1 0;
+      }
+      &:last-of-type {
+        @include flex_container($direction: row, $justify: flex-end, $align: center);
+        gap: 1rem;
+        flex: 1 1 0;
+
+        button {
+          @include form_input;
+          flex: 0.1 0 auto;
+          padding: 0.5em;
+          margin-top: 1em;
+        }
+      }
+    }
+  }
+
+  .form_saved {
+    @extend .form_text;
+    color: var(--text-color-success, $text-color-success);
+  }
+
+  .error_message {
+    @extend .form_text;
+    color: var(--text-color-error, $text-color-error);
+  }
+}

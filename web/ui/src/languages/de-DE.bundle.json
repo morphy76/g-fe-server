@@ -1,0 +1,16 @@
+{
+  "examples.title": "<enlarge>Live</enlarge>-Beispiele <i>[{count}]</i>",
+  "examples.list.confirm.delete": "Möchten Sie das Beispiel wirklich löschen [{name}]?",
+  "examples.form.legend.existing": "Beispiel bearbeiten",
+  "examples.form.legend.new": "Neues Beispiel",
+  "examples.form.name": "Vorname",
+  "examples.form.age": "Alter",
+  "examples.form.submit.existing": "Aktualisieren",
+  "examples.form.submit.new": "Erstellen",
+  "examples.form.reset.existing": "Verwerfen",
+  "examples.form.reset.new": "Leeren",
+  "examples.form.close": "Schließen",
+  "examples.form.errors.required.name": "Der Vorname ist ein Pflichtfeld",
+  "examples.form.errors.invalid.age": "Das Alter muss eine positive Zahl sein",
+  "examples.form.saved": "Beispiel gespeichert"
+}

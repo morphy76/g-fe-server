@@ -1,0 +1,16 @@
+{
+  "examples.title": "Ejemplos en <enlarge>vivo</enlarge> <i>[{count}]</i>",
+  "examples.list.confirm.delete": "¿Estás seguro que quieres eliminar este ejemplo [{name}]?",
+  "examples.form.legend.existing": "Editar Ejemplo",
+  "examples.form.legend.new": "Nuevo Ejemplo",
+  "examples.form.name": "Nombre",
+  "examples.form.age": "Edad",
+  "examples.form.submit.existing": "Actualizar",
+  "examples.form.submit.new": "Crear",
+  "examples.form.reset.existing": "Descartar",
+  "examples.form.reset.new": "Limpiar",
+  "examples.form.close": "Cerrar",
+  "examples.form.errors.required.name": "Nombre es requerido",
+  "examples.form.errors.invalid.age": "La edad debe ser positiva",
+  "examples.form.saved": "Ejemplo guardado"
+}

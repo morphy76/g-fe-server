@@ -1,0 +1,29 @@
+# Builder image
+FROM golang:1.22.2 AS builder
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update \
+    && apt-get install -y ca-certificates curl \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    && apt-get update \
+    && apt-get install -y docker-ce-cli
+ARG DOCKER_HOST=tcp://127.0.0.1:12345
+WORKDIR /app
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    make test build
+
+# Final image
+FROM gcr.io/distroless/base-nossl-debian12:nonroot
+COPY --from=builder /app/g-fe-server /g-fe-server
+CMD ["/g-fe-server"]
+LABEL Name=g-fe-server \
+      Version=0.0.1 \
+      Maintainer="Riccardo Pasquini <riccardo.pasquini@gmail.com>" \
+      Vendor="sixdeex.net" \
+      Description="Go frontend server" \
+      License="WHOCARES" \
+      Usage="docker run --rm -d -p 8080:8080 g-fe-server"

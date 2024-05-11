@@ -1,0 +1,12 @@
+@import './default_variables.scss';
+
+@mixin typography {
+    font-family: var(--font-family-main, $font-family-main);
+    color: var(--text-color-dark-main, $text-color-dark-main);
+}
+
+@mixin ellipsis {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}

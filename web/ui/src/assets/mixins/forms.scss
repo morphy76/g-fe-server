@@ -1,0 +1,13 @@
+@import './default_variables.scss';
+
+@mixin form_input($radius: 10px) {
+  font-family: var(--font-family-main, $font-family-main);
+  border-radius: $radius;
+  border: 1px solid var(--border-color-dark-main, $border-color-dark-main);
+  outline: none;
+}
+
+p[role='alert'] {
+  color: var(--text-color-error, $text-color-error);
+  font-size: 0.8rem;
+}

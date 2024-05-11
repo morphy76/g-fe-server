@@ -1,0 +1,22 @@
+# Ignora i file e le cartelle generate dal compilatore Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Ignora i file binari
+bin/
+
+# Ignora i file di log
+*.log
+
+# Ignora i file di configurazione locali
+.env
+
+# Ignora i file di cache
+.cache/
+
+# Ignora i file di backup
+*.bak
+*.backup
