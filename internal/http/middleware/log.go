@@ -51,3 +51,11 @@ func RequestLogger(next http.Handler) http.Handler {
 			Msg("HTTP Request")
 	})
 }
+
+func ExtractLoggerFromContext(ctx context.Context, forPackage string) zerolog.Logger {
+	return (ctx.Value(CTX_LOGGER_KEY).(zerolog.Logger)).With().Str("package", forPackage).Logger()
+}
+
+func ExtractLoggerFromRequest(r *http.Request, forPackage string) zerolog.Logger {
+	return ExtractLoggerFromContext(r.Context(), forPackage)
+}

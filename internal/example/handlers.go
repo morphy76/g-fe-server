@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/rs/zerolog"
 
 	app_context "g-fe-server/internal/http/context"
 	"g-fe-server/internal/http/middleware"
@@ -40,7 +39,7 @@ func ExampleHandlers(apiRouter *mux.Router, context context.Context) {
 
 func onList(w http.ResponseWriter, r *http.Request) {
 
-	useLog := useLogger(r)
+	useLog := middleware.ExtractLoggerFromRequest(r, "example")
 	useLog.Debug().Msg("Start listing examples")
 
 	examples, err := repository.FindAll()
@@ -119,8 +118,4 @@ func onPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func useLogger(r *http.Request) zerolog.Logger {
-	return (r.Context().Value(middleware.CTX_LOGGER_KEY).(zerolog.Logger)).With().Str("package", "example").Logger()
 }

@@ -19,6 +19,8 @@ import (
 
 func main() {
 
+	start := time.Now()
+
 	zerolog.TimeFieldFormat = time.RFC3339
 	debug := flag.Bool("trace", false, "sets log level to trace")
 	ctxRootArg := flag.String("ctx", "", "presentation server context root")
@@ -87,7 +89,13 @@ func main() {
 		})
 	}
 
-	log.Debug().Str("host", useHost).Str("port", usePort).Msg("Server started")
+	log.Debug().
+		Str("host", useHost).
+		Str("port", usePort).
+		Str("ctx", ctxRoot).
+		Str("serving", staticPath).
+		Int64("setup_ns", time.Since(start).Nanoseconds()).
+		Msg("Server started")
 	err := http.ListenAndServe(fmt.Sprintf("%s:%s", useHost, usePort), rootRouter)
 	if err != nil {
 		panic(err)
