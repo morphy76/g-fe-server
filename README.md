@@ -126,5 +126,15 @@ TODO
 
 TODO
 
+```shell
+minikube start -p go --cpus=8 --memory=32g
+eval $(minikube docker-env -p go)
+make deploy
+kubectl config use-context go
+kubectl create ns fe
+helm dependency build tools/helm/g-fe-server
+helm upgrade --install -n fe fe-server tools/helm/g-fe-server
+```
+
 - service mesh
 

@@ -52,9 +52,12 @@ func onList(repository example.Repository) http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(examples)
+		if len(examples) > 0 {
+			json.NewEncoder(w).Encode(examples)
+		} else {
+			w.Write([]byte("[]"))
+		}
 	}
 }
 

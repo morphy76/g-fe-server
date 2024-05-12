@@ -36,14 +36,29 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: CONTEXT_ROOT
+              value: {{ .Values.server.contextRoot | quote }}
+            - name: DB_TYPE
+              value: {{ .Values.server.db.type | quote }}
+            - name: DB_MONGO_URI
+              value: {{ .Values.server.db.mongodb.uri | quote }}
+            - name: DB_MONGO_NAME
+              value: {{ .Values.server.db.mongodb.db | quote }}
+            - name: DB_MONGO_COLLECTION
+              value: {{ .Values.server.db.mongodb.collection | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
+            httpGet:
+              path: "{{ tpl .Values.server.contextRoot . }}/g/health"
+              port: http
           readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
+            httpGet:
+              path: "{{ tpl .Values.server.contextRoot . }}/g/health"
+              port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- with .Values.volumeMounts }}

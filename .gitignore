@@ -8,6 +8,7 @@ deploy.env
 /g-fe-server
 /go.sum
 /web/build
+tools/helm/g-fe-server/charts/mongodb-15.1.7.tgz
 
 # Test binary, built with `go test -c`
 *.test
@@ -42,3 +43,6 @@ __debug_bin*
 # React
 node_modules
 package-lock.json
+
+# Helm
+Chart.lock

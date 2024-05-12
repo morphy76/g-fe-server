@@ -28,7 +28,7 @@ const (
 	EnvEntryPort              EnvEntry = "PORT"
 	EnvEntryHost              EnvEntry = "HOST"
 	EnvEntryDBType            EnvEntry = "DB_TYPE"
-	EnvEntryDBMongoUri        EnvEntry = "DB_MONGO_URL"
+	EnvEntryDBMongoUri        EnvEntry = "DB_MONGO_URI"
 	EnvEntryDBMongoDb         EnvEntry = "DB_MONGO_NAME"
 	EnvEntryDBMongoCollection EnvEntry = "DB_MONGO_COLLECTION"
 )

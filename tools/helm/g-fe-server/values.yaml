@@ -1,11 +1,18 @@
-# Default values for g-fe-server.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# No care so far for secrets (mongodb password, etc)
+
+server:
+  contextRoot: /fe
+  db:
+    type: 1 # 0: in-memory, 1: mongodb
+    mongodb:
+      uri: mongodb://go_user:go_password@fe-server-mongodb-headless:27017/go_db?replicaSet=rs_fe&w=1
+      db: go_db
+      collection: examples
 
 replicaCount: 1
 
 image:
-  repository: nginx
+  repository: g-fe-server
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -15,79 +22,37 @@ nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
-  # Specifies whether a service account should be created
   create: true
-  # Automatically mount a ServiceAccount's API credentials?
   automount: true
-  # Annotations to add to the service account
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
   name: ""
 
 podAnnotations: {}
 podLabels: {}
 
 podSecurityContext: {}
-  # fsGroup: 2000
 
 securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
 
 service:
   type: ClusterIP
-  port: 80
+  port: 8080
 
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
-
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
-
-livenessProbe:
-  httpGet:
-    path: /
-    port: http
-readinessProbe:
-  httpGet:
-    path: /
-    port: http
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 32Mi
 
 autoscaling:
-  enabled: false
+  enabled: true
   minReplicas: 1
-  maxReplicas: 100
+  maxReplicas: 10
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
-# Additional volumes on the output Deployment definition.
 volumes: []
 # - name: foo
 #   secret:
@@ -105,3 +70,22 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+mongodb:
+  architecture: replicaset
+  replicaCount: 2
+  auth:
+    replicaSetKey: whatever
+    rootPassword: root
+    usernames:
+      - go_user
+    passwords:
+      - go_password
+    databases:
+      - go_db
+  replicaSetName: rs_fe
+  initdbScripts:
+    000-init-go_db.js: |
+      use go_db;
+      db.createCollection('examples', {});
+      db.examples.createIndex({ name: 1 }, { unique: true });
