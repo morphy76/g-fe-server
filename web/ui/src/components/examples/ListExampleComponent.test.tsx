@@ -1,10 +1,9 @@
-import React from 'react';
+import React, { act } from 'react';
 import { ps_client } from "../../features/axios";
 import MockAdapter from "axios-mock-adapter";
 import { render } from '@testing-library/react';
 import ListExample from './ListExampleComponent';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import { act } from 'react-dom/test-utils';
 import { LoggerContextProvider } from '../../features/react-logger';
 import { IntlProvider } from 'react-intl';
 
@@ -48,7 +47,7 @@ describe('ListExample component', () => {
     ));
 
     const loadingElement = await component.findByText((content) => content.startsWith('Loading...'));
-    await expect(loadingElement).toBeDefined();
+    expect(loadingElement).toBeDefined();
   });
 
   it('should not crash as data is fetched', async () => {
@@ -69,10 +68,10 @@ describe('ListExample component', () => {
     ));
 
     const johnElement = await component.findByText((content) => content.startsWith('John'));
-    await expect(johnElement).toBeDefined();
+    expect(johnElement).toBeDefined();
 
     const janeElement = await component.findByText((content) => content.startsWith('Jane'));
-    await expect(janeElement).toBeDefined();
+    expect(janeElement).toBeDefined();
   });
 
   it('should not crash when the request fails', async () => {
@@ -90,7 +89,7 @@ describe('ListExample component', () => {
     ));
 
     const errorElement = await component.findByText((content) => content.startsWith('Error:'));
-    await expect(errorElement).toBeDefined();
-    await expect(errorElement.textContent).toContain('Network Error');
+    expect(errorElement).toBeDefined();
+    expect(errorElement.textContent).toContain('Network Error');
   });
 });

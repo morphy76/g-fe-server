@@ -10,7 +10,8 @@ export type Example = {
 export const listExamples = async (): Promise<Example[]> => {
   loggerFor('ExampleService').debug('listExamples');
   const res = await ps_client.get('/example');
-  return res.data;
+  const sortedData = res.data.sort((a: Example, b: Example) => a.name.localeCompare(b.name));
+  return sortedData;
 };
 
 export const useListExampleQuery = () => {

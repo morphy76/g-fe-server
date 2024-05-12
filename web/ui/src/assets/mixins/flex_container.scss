@@ -1,4 +1,8 @@
-@mixin flex_container($direction: column, $justify: flex-start, $align: flex-start) {
+@mixin flex_container(
+  $direction: column,
+  $justify: flex-start,
+  $align: flex-start
+) {
     display: flex;
     flex-direction: $direction;
     justify-content: $justify;

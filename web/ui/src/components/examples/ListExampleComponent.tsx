@@ -47,19 +47,12 @@ const ListExample: React.FC<ListExampleProps> = ({ onSelect }) => {
     };
 
     return data?.map((example: Example) => (
-      <span key={`row-${example.name}`}>
-        <button
-          key={example.name}
-          onClick={() => handleClick(example.name)}
-        >
-          <div>{example.name}</div>
-          <div>({example.age})</div>
-        </button>
-        <button
-          key={`del-${example.name}`}
-          onClick={() => handleDelete(example.name)}
-        >Del</button>
-      </span>
+      <ListItemExample
+        key={`row-${example.name}`}
+        item={example}
+        handleClick={handleClick}
+        handleDelete={handleDelete}
+      />
     ));
   }, [data, onSelect, mutateAsync, intl]);
 
@@ -79,6 +72,34 @@ const ListExample: React.FC<ListExampleProps> = ({ onSelect }) => {
       {!isLoading && !isError && <ul>{content}</ul>}
       {isError && <div className={styles.error}>Error: {error.message}</div>}
     </div>
+  );
+};
+
+type ListItemExampleProps = {
+  item: Example;
+  handleClick: (name: string) => void;
+  handleDelete: (name: string) => void;
+};
+const ListItemExample: React.FC<ListItemExampleProps> = ({ item, handleClick, handleDelete }) => {
+
+  const content = useMemo(() => (
+    <>
+      <button
+        key={item.name}
+        onClick={() => handleClick(item.name)}
+      >
+        <div>{item.name}</div>
+        <div>({item.age})</div>
+      </button>
+      <button
+        key={`del-${item.name}`}
+        onClick={() => handleDelete(item.name)}
+      >Del</button>
+    </>
+  ), [item, handleClick, handleDelete]);
+
+  return (
+    <span>{content}</span>
   );
 };
 
