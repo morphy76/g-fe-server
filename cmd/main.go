@@ -36,7 +36,8 @@ const (
 func main() {
 
 	zerolog.TimeFieldFormat = time.RFC3339
-	debug := flag.Bool("trace", false, "sets log level to trace")
+	trace := flag.Bool("trace", false, "sets log level to trace")
+	
 	ctxRootArg := flag.String("ctx", "", "presentation server context root")
 	staticPathArg := flag.String("static", "/static", "static path of the served application")
 	portArg := flag.String("port", "8080", "binding port of the presentation server")
@@ -55,7 +56,7 @@ func main() {
 	}
 
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	if *debug {
+	if *trace {
 		zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	}
 
