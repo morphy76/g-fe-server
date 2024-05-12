@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Check if deploy.env file exists
+if [ -f deploy.env ]; then
+  # Read the deploy tag from deploy.env
+  PREVIOUS_DEPLOY_TAG=$(cat deploy.env)
+  if [[ $PREVIOUS_DEPLOY_TAG == export* ]]; then
+    PREVIOUS_DEPLOY_TAG=$(echo $PREVIOUS_DEPLOY_TAG | cut -d'=' -f2)
+  fi
+else
+  # Set a default deploy tag
+  PREVIOUS_DEPLOY_TAG="g-fe-server:0.0.1"
+fi
+
+SEMVER_REGEX="^([a-zA-Z0-9-]+):([0-9]+)\.([0-9]+)\.([0-9]+)$"
+if [[ $PREVIOUS_DEPLOY_TAG =~ $SEMVER_REGEX ]]; then
+  NAME="${BASH_REMATCH[1]}"
+  MAJOR="${BASH_REMATCH[2]}"
+  MINOR="${BASH_REMATCH[3]}"
+  PATCH="${BASH_REMATCH[4]}"
+  PATCH=$((PATCH + 1))
+  PREVIOUS_DEPLOY_TAG="$NAME:$MAJOR.$MINOR.$PATCH"
+fi
+
+# Ask the user for the deploy tag if not set
+# ./configure <<< "g-fe-server:x.y.z"
+echo "Please enter the deploy tag (default: $PREVIOUS_DEPLOY_TAG):"
+read DEPLOY_TAG
+if [ -z "$DEPLOY_TAG" ]; then
+  DEPLOY_TAG=$PREVIOUS_DEPLOY_TAG
+fi
+
+# Export the deploy tag as an environment variable
+export DEPLOY_TAG=$DEPLOY_TAG
+
+# Print a success message
+echo "DEPLOY_TAG is set to $DEPLOY_TAG"
+
+# Write the environment variable to a file that can be sourced
+echo "export DEPLOY_TAG=$DEPLOY_TAG" > deploy.env

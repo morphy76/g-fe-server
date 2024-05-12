@@ -1,3 +1,5 @@
+-include deploy.env
+
 # Set binary commands
 GO := go
 DOCKER := docker
@@ -7,6 +9,7 @@ NODEMON := nodemon
 # Set the flags
 #GOFLAGS := -mod=vendor
 LDFLAGS := -ldflags="-s -w"
+GCFLAGS := -gcflags="-m -l"
 TESTFLAGS := -v
 # DOCKERBUILDFLAGS := --no-cache
 MONGO_ARGS := -db=1 -db-mongo-uri=mongodb://go:go@127.0.0.1:27017/go_db -db-mongo-name=go_db -db-mongo-collection=examples
@@ -15,7 +18,7 @@ MONGO_ARGS := -db=1 -db-mongo-uri=mongodb://go:go@127.0.0.1:27017/go_db -db-mong
 TARGET := g-fe-server
 TARGET_FE := ./web/build
 DOCKERFILE := ./tools/docker/Dockerfile
-DEPLOY_TAG := g-fe-server:0.0.1
+DEPLOY_TAG ?= g-fe-server:0.0.1
 
 # Define the source files
 SOURCES := ./cmd/main.go
@@ -23,7 +26,7 @@ SOURCES := ./cmd/main.go
 # Define the build target
 build:
 	@$(GO) test $(TESTFLAGS) ./...
-	@$(GO) build $(GOFLAGS) $(LDFLAGS) -o $(TARGET) $(SOURCES)
+	@$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(TARGET) $(SOURCES)
 
 watch:
 	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) -trace
@@ -41,8 +44,10 @@ watch-fe:
 	@$(NPM) --prefix ./web/ui i
 	@$(NPM) --prefix ./web/ui run watch
 
+build-all: clean build build-fe
+
 run: clean build-fe
-	$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE)
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE)
 
 run-mongo: clean build-fe
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) $(MONGO_ARGS)

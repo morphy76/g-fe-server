@@ -131,8 +131,8 @@ func main() {
 func startServer(
 	ctxModel app_context.ContextModel,
 	dbModel app_context.DbModel,
-	useHost string,
-	usePort string,
+	host string,
+	port string,
 	ctxRoot string,
 	staticPath string,
 ) {
@@ -167,13 +167,13 @@ func startServer(
 	}
 
 	log.Debug().
-		Str("host", useHost).
-		Str("port", usePort).
+		Str("host", host).
+		Str("port", port).
 		Str("ctx", ctxRoot).
 		Str("serving", staticPath).
 		Int64("setup_ns", time.Since(start).Nanoseconds()).
 		Msg("Server started")
-	err = http.ListenAndServe(fmt.Sprintf("%s:%s", useHost, usePort), rootRouter)
+	err = http.ListenAndServe(fmt.Sprintf("%s:%s", host, port), rootRouter)
 	if err != nil {
 		panic(err)
 	}

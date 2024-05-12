@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+deploy.env
 /g-fe-server
 /go.sum
 /web/build
