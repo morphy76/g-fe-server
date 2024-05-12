@@ -28,6 +28,8 @@ func Handler(parent *mux.Router, context context.Context) {
 
 	nonFunctionalRouter := contextRouter.PathPrefix("/g").Subrouter()
 
+	apiRouter.Use(middleware.TenantResolver)
+	apiRouter.Use(middleware.RequestLogger)
 	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 

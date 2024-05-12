@@ -3,30 +3,46 @@ package example
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/zerolog"
 
 	app_context "g-fe-server/internal/http/context"
+	"g-fe-server/internal/http/middleware"
 	"g-fe-server/pkg/example"
+)
+
+const (
+	pathParamExampleId = "exampleId"
 )
 
 var repository = NewMemoryRepository()
 
 func ExampleHandlers(apiRouter *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).ContextRoot
+	var (
+		ctxRoot              = context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).ContextRoot
+		apiRoot              = fmt.Sprintf("%s/api/example", ctxRoot)
+		apiParamExampleId    = fmt.Sprintf("{%s}", pathParamExampleId)
+		apiResourceExampleId = fmt.Sprintf("%s/%s", apiRoot, apiParamExampleId)
 
-	itemRouter := apiRouter.PathPrefix("/example").Subrouter()
+		itemRouter = apiRouter.PathPrefix("/example").Subrouter()
+	)
 
-	itemRouter.Methods(http.MethodGet).HandlerFunc(onList).Path("").Name("GET" + ctxRoot + "/api/example")
-	itemRouter.Methods(http.MethodPost).HandlerFunc(onCreate).Name("POST" + ctxRoot + "/api/example")
-	itemRouter.Methods(http.MethodGet).HandlerFunc(onGet).Path("/{exampleId}").Name("GET" + ctxRoot + "/api/example/{exampleId}")
-	itemRouter.Methods(http.MethodDelete).HandlerFunc(onDelete).Path("/{exampleId}").Name("DELETE" + ctxRoot + "/api/example/{exampleId}")
-	itemRouter.Methods(http.MethodPut).HandlerFunc(onPut).Path("/{exampleId}").Name("PUT" + ctxRoot + "/api/example/{exampleId}")
+	itemRouter.Methods(http.MethodGet).HandlerFunc(onList).Path("").Name("GET " + apiRoot)
+	itemRouter.Methods(http.MethodPost).HandlerFunc(onCreate).Name("POST " + apiRoot)
+	itemRouter.Methods(http.MethodGet).HandlerFunc(onGet).Path("/" + apiParamExampleId).Name("GET " + apiResourceExampleId)
+	itemRouter.Methods(http.MethodDelete).HandlerFunc(onDelete).Path("/" + apiParamExampleId).Name("DELETE " + apiResourceExampleId)
+	itemRouter.Methods(http.MethodPut).HandlerFunc(onPut).Path("/" + apiParamExampleId).Name("PUT " + apiResourceExampleId)
 }
 
 func onList(w http.ResponseWriter, r *http.Request) {
+
+	useLog := useLogger(r)
+	useLog.Debug().Msg("Start listing examples")
+
 	examples, err := repository.FindAll()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -36,6 +52,7 @@ func onList(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(examples)
+	useLog.Info().Msg("End listing examples")
 }
 
 func onCreate(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +74,7 @@ func onCreate(w http.ResponseWriter, r *http.Request) {
 
 func onGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	exampleId := vars["exampleId"]
+	exampleId := vars[pathParamExampleId]
 
 	example, err := repository.FindById(exampleId)
 	if err != nil {
@@ -72,7 +89,7 @@ func onGet(w http.ResponseWriter, r *http.Request) {
 
 func onDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	exampleId := vars["exampleId"]
+	exampleId := vars[pathParamExampleId]
 
 	err := repository.Delete(exampleId)
 	if err != nil {
@@ -85,7 +102,7 @@ func onDelete(w http.ResponseWriter, r *http.Request) {
 
 func onPut(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	exampleId := vars["exampleId"]
+	exampleId := vars[pathParamExampleId]
 
 	var example example.Example
 	err := json.NewDecoder(r.Body).Decode(&example)
@@ -102,4 +119,8 @@ func onPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func useLogger(r *http.Request) zerolog.Logger {
+	return (r.Context().Value(middleware.CTX_LOGGER_KEY).(zerolog.Logger)).With().Str("package", "example").Logger()
 }

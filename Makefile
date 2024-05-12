@@ -19,22 +19,18 @@ DEPLOY_TAG := g-fe-server:0.0.1
 # Define the source files
 SOURCES := ./cmd/main.go
 
-all: clean test build
-
-test:
-	@$(GO) test $(TESTFLAGS) ./...
-	@$(NPM) --prefix ./web/ui test
-
 # Define the build target
 build:
+	@$(GO) test $(TESTFLAGS) ./...
 	@$(GO) build $(GOFLAGS) $(LDFLAGS) -o $(TARGET) $(SOURCES)
 
 watch:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) /fe $(TARGET_FE)
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) -trace
 
 #FE Build
 build-fe:
 	@$(NPM) --prefix ./web/ui i
+	@$(NPM) --prefix ./web/ui test
 	@$(NPM) --prefix ./web/ui run build
 
 watch-fe:
@@ -42,7 +38,7 @@ watch-fe:
 	@$(NPM) --prefix ./web/ui run watch
 
 run: clean build-fe
-	@$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) /fe $(TARGET_FE)
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE)
 
 # Define the clean target
 clean:

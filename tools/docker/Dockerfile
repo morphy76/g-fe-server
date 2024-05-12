@@ -14,7 +14,7 @@ ARG DOCKER_HOST=tcp://127.0.0.1:12345
 WORKDIR /app
 COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \
-    make test build
+    make build
 
 # Builder image: FE
 FROM node:lts AS fe-builder

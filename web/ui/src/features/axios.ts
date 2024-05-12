@@ -8,5 +8,7 @@ export const ps_client = axios.create({
   baseURL: localDev ? 'http://localhost:3010' : `${contextRoot}/api`,
   headers: {
     'Content-Type': 'application/json',
+    'X-Tenant': 'almawave.com',
+    'X-Subscription': 'labrd'
   },
 });
