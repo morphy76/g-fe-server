@@ -2,14 +2,14 @@
 
 ## TODO
 
+### Doing
+
 ### Backlog
 
+- godoc
 - openapi
 - github actions
 - http session
-- persistence
-  - Real Mongodb collection
-  - health integration
 - authentication & authorization (must)
   - APIs to access HTTP session (token retrieval: header or session)
   - JWT authenticated APIs
@@ -51,6 +51,16 @@ TODO
 #### routing
 
 TODO
+
+#### mongo
+
+TODO
+
+TBV: is it the right way to propagate the repository?
+
+- persistence
+  - Real Mongodb collection *
+  - health integration
 
 ### react application
 

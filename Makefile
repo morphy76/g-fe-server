@@ -9,6 +9,7 @@ NODEMON := nodemon
 LDFLAGS := -ldflags="-s -w"
 TESTFLAGS := -v
 # DOCKERBUILDFLAGS := --no-cache
+MONGO_ARGS := -db=1 -db-mongo-uri=mongodb://go:go@127.0.0.1:27017/go_db -db-mongo-name=go_db -db-mongo-collection=examples
 
 # Define the target binary name
 TARGET := g-fe-server
@@ -27,6 +28,9 @@ build:
 watch:
 	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) -trace
 
+watch-mongo:
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) -trace $(MONGO_ARGS)
+
 #FE Build
 build-fe:
 	@$(NPM) --prefix ./web/ui i
@@ -39,6 +43,9 @@ watch-fe:
 
 run: clean build-fe
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE)
+
+run-mongo: clean build-fe
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) $(MONGO_ARGS)
 
 # Define the clean target
 clean:

@@ -9,22 +9,40 @@ import (
 
 	app_context "g-fe-server/internal/http/context"
 	"g-fe-server/internal/http/middleware"
+	"g-fe-server/pkg/example"
 )
 
 func HealthHandlers(nonFunctionalRouter *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).ContextRoot
+	var (
+		repository = context.Value(app_context.CTX_REPOSITORY_KEY).(example.Repository)
+		ctxRoot    = context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).ContextRoot
+	)
 
 	healthRouter := nonFunctionalRouter.Path("/health").Subrouter()
 	healthRouter.Use(middleware.JSONResponse)
 
-	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth).Name(ctxRoot + "/g/health")
+	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth(repository)).Name(ctxRoot + "/g/health")
 }
 
-func onHealth(w http.ResponseWriter, r *http.Request) {
+func onHealth(repository example.Repository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(&HealthResponse{
-		Status: Active,
-	})
+		overallStatus := Active
+
+		repositoryStatus := Active
+		repositoryCondition := repository.IsConnected() && repository.Ping()
+		if !repositoryCondition {
+			repositoryStatus = Inactive
+			overallStatus = Inactive
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(&HealthResponse{
+			Status: overallStatus,
+			SubSystems: map[string]HealthResponse{
+				"Repository": {Status: repositoryStatus},
+			},
+		})
+	}
 }
