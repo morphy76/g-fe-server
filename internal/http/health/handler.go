@@ -7,9 +7,9 @@ import (
 
 	"github.com/gorilla/mux"
 
-	app_context "g-fe-server/internal/http/context"
-	"g-fe-server/internal/http/middleware"
-	"g-fe-server/pkg/example"
+	app_context "github.com/morphy76/g-fe-server/internal/http/context"
+	"github.com/morphy76/g-fe-server/internal/http/middleware"
+	"github.com/morphy76/g-fe-server/pkg/example"
 )
 
 func HealthHandlers(nonFunctionalRouter *mux.Router, context context.Context) {

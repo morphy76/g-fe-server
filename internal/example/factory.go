@@ -1,9 +1,9 @@
 package example
 
 import (
-	impl "g-fe-server/internal/example/impl"
-	app_context "g-fe-server/internal/http/context"
-	model "g-fe-server/pkg/example"
+	impl "github.com/morphy76/g-fe-server/internal/example/impl"
+	app_context "github.com/morphy76/g-fe-server/internal/http/context"
+	model "github.com/morphy76/g-fe-server/pkg/example"
 )
 
 const (

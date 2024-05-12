@@ -1,6 +1,6 @@
 package context
 
-import "g-fe-server/pkg/example"
+import "github.com/morphy76/g-fe-server/pkg/example"
 
 type ContxtModelKey string
 type ContextRepositoryKey string

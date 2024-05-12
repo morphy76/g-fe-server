@@ -1,8 +1,9 @@
 package example
 
 import (
-	"g-fe-server/pkg/example"
 	"testing"
+
+	"github.com/morphy76/g-fe-server/pkg/example"
 
 	"context"
 )

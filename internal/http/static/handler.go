@@ -9,7 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	app_context "g-fe-server/internal/http/context"
+	app_context "github.com/morphy76/g-fe-server/internal/http/context"
 )
 
 func HandleStatic(staticRouter *mux.Router, context context.Context) {

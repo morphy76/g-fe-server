@@ -7,11 +7,11 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 
-	"g-fe-server/internal/example"
-	app_context "g-fe-server/internal/http/context"
-	"g-fe-server/internal/http/health"
-	"g-fe-server/internal/http/middleware"
-	"g-fe-server/internal/http/static"
+	"github.com/morphy76/g-fe-server/internal/example"
+	app_context "github.com/morphy76/g-fe-server/internal/http/context"
+	"github.com/morphy76/g-fe-server/internal/http/health"
+	"github.com/morphy76/g-fe-server/internal/http/middleware"
+	"github.com/morphy76/g-fe-server/internal/http/static"
 )
 
 func Handler(parent *mux.Router, context context.Context) {

@@ -3,8 +3,8 @@ package example
 import (
 	"testing"
 
-	impl "g-fe-server/internal/example/impl"
-	app_context "g-fe-server/internal/http/context"
+	impl "github.com/morphy76/g-fe-server/internal/example/impl"
+	app_context "github.com/morphy76/g-fe-server/internal/http/context"
 )
 
 func TestFactorySuite(t *testing.T) {

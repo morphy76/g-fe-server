@@ -1,8 +1,9 @@
 package example
 
 import (
-	"g-fe-server/pkg/example"
 	"time"
+
+	"github.com/morphy76/g-fe-server/pkg/example"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"

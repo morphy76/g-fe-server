@@ -14,10 +14,10 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	factory "g-fe-server/internal/example"
-	handlers "g-fe-server/internal/http"
-	app_context "g-fe-server/internal/http/context"
-	model "g-fe-server/pkg/example"
+	factory "github.com/morphy76/g-fe-server/internal/example"
+	handlers "github.com/morphy76/g-fe-server/internal/http"
+	app_context "github.com/morphy76/g-fe-server/internal/http/context"
+	model "github.com/morphy76/g-fe-server/pkg/example"
 )
 
 type EnvEntry string
@@ -37,7 +37,7 @@ func main() {
 
 	zerolog.TimeFieldFormat = time.RFC3339
 	trace := flag.Bool("trace", false, "sets log level to trace")
-	
+
 	ctxRootArg := flag.String("ctx", "", "presentation server context root")
 	staticPathArg := flag.String("static", "/static", "static path of the served application")
 	portArg := flag.String("port", "8080", "binding port of the presentation server")

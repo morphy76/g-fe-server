@@ -1,7 +1,7 @@
 package example
 
 import (
-	"g-fe-server/pkg/example"
+	"github.com/morphy76/g-fe-server/pkg/example"
 )
 
 type MemoryRepository struct {
