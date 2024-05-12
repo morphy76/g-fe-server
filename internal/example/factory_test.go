@@ -24,7 +24,7 @@ func TestFactorySuite(t *testing.T) {
 	t.Run("Test RepositoryTypeMongoDB", func(t *testing.T) {
 		t.Log("Test Factory RepositoryTypeMongoDB")
 		if repo, err := NewRepository(app_context.DbModel{
-			Type: RepositoryTypeMemoryDB,
+			Type: RepositoryTypeMongoDB,
 		}); err != nil {
 			t.Fatalf("Failed to create the repository: %s", err)
 		} else if _, ok := repo.(*impl.MongoRepository); !ok {

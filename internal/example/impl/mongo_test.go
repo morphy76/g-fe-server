@@ -75,7 +75,7 @@ func TestMongoRepositorySuite(t *testing.T) {
 	repo := &MongoRepository{
 		Uri:  fmt.Sprintf("mongodb://%s:%s@%s:%s/%s", "go", "go", host, usePort.HostPort, db_name),
 		Db:   db_name,
-		Coll: "test_collection",
+		Coll: "examples",
 	}
 	t.Logf("Repository URI: %s", repo.Uri)
 

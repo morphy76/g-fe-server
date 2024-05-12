@@ -7,7 +7,7 @@ import (
 	"context"
 )
 
-func MemoryCleanup(repo *MemoryRepository, t *testing.T, ctx context.Context) func() {
+func MemoryCleanup(repo example.Repository, t *testing.T, ctx context.Context) func() {
 	return func() {
 		t.Log("Cleanup Repository Suite")
 
@@ -24,7 +24,7 @@ func TestMemoryRepositorySuite(t *testing.T) {
 
 	ctx := context.Background()
 
-	repo := &MemoryRepository{}
+	repo := NewMemoryRepository()
 	t.Logf("Repository URI: memory")
 
 	if err := repo.Connect(); err != nil {
