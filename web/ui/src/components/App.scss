@@ -31,3 +31,32 @@
     margin: 1em 20% 0 20%;
   }
 }
+
+.navigation_wrapper {
+  @extend .base_container;
+  align-self: stretch;
+
+  ul {
+    @include flex_container($direction: row, $justify: center);
+    align-self: stretch;
+    list-style: none;
+    padding: 0;
+  }
+
+  li {
+    margin-right: 1em;
+  }
+
+  * > a, * > a:active, * > a:visited, * > a:visited {
+    @include typography();
+  }
+
+  * > a:hover {
+    cursor: pointer
+  }
+}
+
+.navigation_content {
+  @extend .base_container;
+  align-self: stretch;
+}
