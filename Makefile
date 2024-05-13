@@ -12,6 +12,7 @@ LDFLAGS := -ldflags="-s -w"
 GCFLAGS := -gcflags="-m -l"
 TESTFLAGS := -v
 # DOCKERBUILDFLAGS := --no-cache
+NPMFLAGS := --no-audit --no-fund
 MONGO_ARGS := -db=1 -db-mongo-uri=mongodb://go:go@127.0.0.1:27017/go_db -db-mongo-name=go_db -db-mongo-collection=examples
 
 # Define the target binary name
@@ -36,7 +37,7 @@ watch-mongo:
 
 #FE Build
 build-fe:
-	@$(NPM) --prefix ./web/ui i
+	@$(NPM) $(NPMFLAGS) --prefix ./web/ui i
 	@$(NPM) --prefix ./web/ui test
 	@$(NPM) --prefix ./web/ui run build
 
