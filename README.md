@@ -4,6 +4,9 @@
 
 ### Doing
 
+- otel
+- service mesh (istio)
+
 ### Backlog
 
 - godoc
@@ -28,8 +31,6 @@
 - improve responsiveness for mobiles? (fun)
 - microfrontend serve layout (nice)
   - mfe out-of-the-box versioning
-- Building (must)
-  - helm
 - React 19 (fun)
 
 ### Bugs
@@ -136,5 +137,6 @@ helm dependency build tools/helm/g-fe-server
 helm upgrade --install -n fe fe-server tools/helm/g-fe-server
 ```
 
-- service mesh
+- Building (must)
+  - helm
 
