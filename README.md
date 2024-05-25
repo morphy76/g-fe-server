@@ -4,6 +4,8 @@
 
 ### Doing
 
+- http session
+
 ### Backlog
 
 - otel
@@ -11,7 +13,6 @@
 - godoc
 - openapi
 - github actions
-- http session
 - authentication & authorization (must)
   - APIs to access HTTP session (token retrieval: header or session)
   - JWT authenticated APIs
