@@ -16,7 +16,7 @@ import (
 
 func Handler(parent *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).ContextRoot
+	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ServeOptions).ContextRoot
 
 	contextRouter := parent.PathPrefix(ctxRoot).Subrouter()
 	if log.Trace().Enabled() {

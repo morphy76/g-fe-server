@@ -14,8 +14,8 @@ import (
 
 func HandleStatic(staticRouter *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).ContextRoot
-	staticPath := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).StaticPath
+	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ServeOptions).ContextRoot
+	staticPath := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ServeOptions).StaticPath
 
 	defaultFile := filepath.Join(staticPath, "index.html")
 

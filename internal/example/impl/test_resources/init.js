@@ -1,7 +1,8 @@
 db.createUser({
     user: 'go',
     pwd: 'go',
-    roles: [ { role: 'readWrite', db: 'go_db' } ]
+    roles: [ { role: 'readWrite', db: 'go_db' } ],
+    mechanisms: ["SCRAM-SHA-256"]
 });
 
 db.createCollection('examples', {});

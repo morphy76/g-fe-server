@@ -1,6 +1,8 @@
 package example
 
 import (
+	"net/url"
+	"path"
 	"time"
 
 	"github.com/morphy76/g-fe-server/pkg/example"
@@ -12,17 +14,12 @@ import (
 	"context"
 )
 
-// TODO replace with a builder pattern
-const (
-	MONGO_URI_KEY  = "uri"
-	MONGO_DB_KEY   = "db"
-	MONGO_COLL_KEY = "coll"
-)
-
 type MongoRepository struct {
-	Uri        string
-	Db         string
-	Coll       string
+	Url        string
+	Username   string
+	Password   string
+	Collection string
+
 	connected  bool
 	ctx        context.Context
 	client     *mongo.Client
@@ -127,16 +124,26 @@ func (r *MongoRepository) Connect() error {
 
 	r.ctx = context.Background()
 
+	useUrl, err := url.Parse(r.Url)
+	if err != nil {
+		return err
+	}
+
+	var clientOpts *options.ClientOptions
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	opts := options.Client().
-		ApplyURI(r.Uri).
+	if useUrl.User == nil {
+		useCredentials := url.UserPassword(r.Username, r.Password)
+		useUrl.User = useCredentials
+	}
+
+	clientOpts = options.Client().
+		ApplyURI(useUrl.String()).
 		SetServerAPIOptions(serverAPI)
 
-	var err error
-	r.client, err = mongo.Connect(r.ctx, opts)
+	r.client, err = mongo.Connect(r.ctx, clientOpts)
 	r.connected = err == nil
 
-	r.collection = r.client.Database(r.Db).Collection(r.Coll)
+	r.collection = r.client.Database(path.Base(useUrl.Path)).Collection(r.Collection)
 
 	return err
 }

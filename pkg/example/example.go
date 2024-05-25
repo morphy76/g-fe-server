@@ -7,6 +7,11 @@ type Example struct {
 
 type RepositoryType int8
 
+const (
+	RepositoryTypeMemoryDB RepositoryType = iota
+	RepositoryTypeMongoDB  RepositoryType = 1
+)
+
 type Repository interface {
 	FindAll() ([]Example, error)
 	FindById(id string) (Example, error)

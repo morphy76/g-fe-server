@@ -6,20 +6,16 @@ import (
 	model "github.com/morphy76/g-fe-server/pkg/example"
 )
 
-const (
-	RepositoryTypeMemoryDB model.RepositoryType = iota
-	RepositoryTypeMongoDB  model.RepositoryType = 1
-)
-
-func NewRepository(dbModel app_context.DbModel) (model.Repository, error) {
-	switch dbModel.Type {
-	case RepositoryTypeMemoryDB:
+func NewRepository(dbOptions app_context.DbOptions) (model.Repository, error) {
+	switch dbOptions.Type {
+	case model.RepositoryTypeMemoryDB:
 		return impl.NewMemoryRepository(), nil
-	case RepositoryTypeMongoDB:
+	case model.RepositoryTypeMongoDB:
 		return &impl.MongoRepository{
-			Uri:  dbModel.Uri,
-			Db:   dbModel.Db,
-			Coll: dbModel.Collection,
+			Url:        dbOptions.Url,
+			Username:   dbOptions.User,
+			Password:   dbOptions.Password,
+			Collection: dbOptions.Collection,
 		}, nil
 	default:
 		return nil, model.ErrUnknownRepositoryType

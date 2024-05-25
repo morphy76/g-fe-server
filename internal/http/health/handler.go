@@ -16,7 +16,7 @@ func HealthHandlers(nonFunctionalRouter *mux.Router, context context.Context) {
 
 	var (
 		repository = context.Value(app_context.CTX_REPOSITORY_KEY).(example.Repository)
-		ctxRoot    = context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ContextModel).ContextRoot
+		ctxRoot    = context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ServeOptions).ContextRoot
 	)
 
 	healthRouter := nonFunctionalRouter.Path("/health").Subrouter()
