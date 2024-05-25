@@ -4,11 +4,10 @@
 
 ### Doing
 
-- otel
-- service mesh (istio)
-
 ### Backlog
 
+- otel
+- service mesh (istio)
 - godoc
 - openapi
 - github actions
