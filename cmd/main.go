@@ -84,9 +84,9 @@ func startServer(
 	}
 	defer repository.Disconnect()
 
-	serverContext := context.WithValue(context.Background(), app_http.CTX_CONTEXT_ROOT_KEY, serveOptions)
-	sessionContext := context.WithValue(serverContext, app_http.CTX_SESSION_KEY, sessionStore)
-	finalContext := context.WithValue(sessionContext, app_http.CTX_REPOSITORY_KEY, repository)
+	serverContext := context.WithValue(context.Background(), app_http.CTX_CONTEXT_SERVE_KEY, serveOptions)
+	sessionStoreContext := context.WithValue(serverContext, app_http.CTX_SESSION_STORE_KEY, sessionStore)
+	finalContext := context.WithValue(sessionStoreContext, app_http.CTX_REPOSITORY_KEY, repository)
 
 	rootRouter := mux.NewRouter()
 

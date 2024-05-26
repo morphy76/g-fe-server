@@ -6,4 +6,5 @@ type ServeOptions struct {
 	Port        string
 	Host        string
 	SessionKey  string
+	SessionName string
 }

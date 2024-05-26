@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
 
 	"github.com/morphy76/g-fe-server/internal/example"
@@ -18,10 +17,13 @@ import (
 
 func Handler(parent *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(app_http.CTX_CONTEXT_ROOT_KEY).(*options.ServeOptions).ContextRoot
-	sessionStore := context.Value(app_http.CTX_SESSION_KEY).(sessions.Store)
+	ctxRoot := context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions).ContextRoot
 
-	middleware.InjectSession(parent, sessionStore)
+	parent.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r.WithContext(context))
+		})
+	})
 
 	contextRouter := parent.PathPrefix(ctxRoot).Subrouter()
 	if log.Trace().Enabled() {
@@ -46,6 +48,12 @@ func Handler(parent *mux.Router, context context.Context) {
 		log.Trace().Msg("Non functional router registered")
 	}
 
+	staticRouter.Use(middleware.InjectSession)
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Static middleware registered")
+	}
+
+	apiRouter.Use(middleware.InjectSession)
 	apiRouter.Use(middleware.TenantResolver)
 	apiRouter.Use(middleware.RequestLogger)
 	apiRouter.Use(middleware.JSONResponse)

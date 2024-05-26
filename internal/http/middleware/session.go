@@ -1,20 +1,31 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/rs/zerolog/log"
+
+	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/options"
 )
 
-func InjectSession(router *mux.Router, store sessions.Store) {
-	router.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func InjectSession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			session, _ := store.Get(r, "http_session")
-			defer session.Save(r, w)
+		store := r.Context().Value(app_http.CTX_SESSION_STORE_KEY).(sessions.Store)
+		serveOptions := r.Context().Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions)
 
-			next.ServeHTTP(w, r)
-		})
+		session, _ := store.Get(r, serveOptions.SessionName)
+
+		log.Debug().
+			Bool("new session", session.IsNew).
+			Str("session name", session.Name()).
+			Msg("Session injected")
+
+		useRequest := r.WithContext(context.WithValue(r.Context(), app_http.CTX_SESSION_KEY, session))
+
+		next.ServeHTTP(w, useRequest)
 	})
 }

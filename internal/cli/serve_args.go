@@ -29,6 +29,7 @@ const (
 	ENV_PORT         = "PORT"
 	ENV_HOST         = "HOST"
 	ENV_SESSION_KEY  = "SESSION_KEY"
+	ENV_SESSION_NAME = "SESSION_NAME"
 )
 
 func ServeOptionsBuilder() serveOptionsBuilder {
@@ -38,6 +39,7 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 	portArg := flag.String("port", "8080", "binding port of the presentation server. Environment: "+ENV_PORT)
 	hostArg := flag.String("host", "0.0.0.0", "binding host of the presentation server. Environment: "+ENV_HOST)
 	sessionKeyArg := flag.String("session-key", "", "session key. Environment: "+ENV_SESSION_KEY)
+	sessionNameArg := flag.String("session-name", "gofe.sid", "session name. Environment: "+ENV_SESSION_NAME)
 
 	rv := func() (*options.ServeOptions, error) {
 
@@ -75,12 +77,21 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			useSessionKey = string(securecookie.GenerateRandomKey(32))
 		}
 
+		useSessionName, found := os.LookupEnv(ENV_SESSION_NAME)
+		if !found {
+			useSessionName = *sessionNameArg
+		}
+		if len(useSessionName) == 0 {
+			useSessionName = "gofe.sid"
+		}
+
 		return &options.ServeOptions{
 			ContextRoot: ctxRoot,
 			StaticPath:  staticPath,
 			Port:        usePort,
 			Host:        useHost,
 			SessionKey:  useSessionKey,
+			SessionName: useSessionName,
 		}, nil
 	}
 
