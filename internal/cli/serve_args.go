@@ -7,48 +7,67 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	app_context "github.com/morphy76/g-fe-server/internal/http/context"
+	"github.com/morphy76/g-fe-server/internal/options"
 )
 
-type serveOptionsBuilder func() (app_context.ServeOptions, error)
+type serveOptionsBuilder func() (*options.ServeOptions, error)
+
+var errInvalidContextRoot = errors.New("invalid context root")
+var errInvalidStaticPath = errors.New("invalid static path")
+
+func IsInvalidContextRoot(err error) bool {
+	return err == errInvalidContextRoot
+}
+
+func IsInvalidStaticPath(err error) bool {
+	return err == errInvalidStaticPath
+}
+
+const (
+	ENV_CONTEXT_ROOT = "CONTEXT_ROOT"
+	ENV_STATIC_PATH  = "STATIC_PATH"
+	ENV_PORT         = "PORT"
+	ENV_HOST         = "HOST"
+	ENV_SESSION_KEY  = "SESSION_KEY"
+)
 
 func ServeOptionsBuilder() serveOptionsBuilder {
 
-	ctxRootArg := flag.String("ctx", "", "presentation server context root")
-	staticPathArg := flag.String("static", "/static", "static path of the served application")
-	portArg := flag.String("port", "8080", "binding port of the presentation server")
-	hostArg := flag.String("host", "0.0.0.0", "binding host of the presentation server")
-	sessionKeyArg := flag.String("session-key", "", "session key")
+	ctxRootArg := flag.String("ctx", "", "presentation server context root. Environment: "+ENV_CONTEXT_ROOT)
+	staticPathArg := flag.String("static", "/static", "static path of the served application. Environment: "+ENV_STATIC_PATH)
+	portArg := flag.String("port", "8080", "binding port of the presentation server. Environment: "+ENV_PORT)
+	hostArg := flag.String("host", "0.0.0.0", "binding host of the presentation server. Environment: "+ENV_HOST)
+	sessionKeyArg := flag.String("session-key", "", "session key. Environment: "+ENV_SESSION_KEY)
 
-	rv := func() (app_context.ServeOptions, error) {
+	rv := func() (*options.ServeOptions, error) {
 
-		ctxRoot, found := os.LookupEnv("CONTEXT_ROOT")
+		ctxRoot, found := os.LookupEnv(ENV_CONTEXT_ROOT)
 		if !found {
 			ctxRoot = *ctxRootArg
 		}
 		if len(ctxRoot) == 0 || strings.Contains(ctxRoot, " ") || !strings.HasPrefix(ctxRoot, "/") {
-			return app_context.ServeOptions{}, errors.New("invalid context root")
+			return nil, errInvalidContextRoot
 		}
 
-		staticPath, found := os.LookupEnv("STATIC_PATH")
+		staticPath, found := os.LookupEnv(ENV_STATIC_PATH)
 		if !found {
 			staticPath = *staticPathArg
 		}
 		if len(staticPath) == 0 || strings.Contains(staticPath, " ") {
-			return app_context.ServeOptions{}, errors.New("invalid static path")
+			return nil, errInvalidStaticPath
 		}
 
-		usePort, found := os.LookupEnv("PORT")
+		usePort, found := os.LookupEnv(ENV_PORT)
 		if !found {
 			usePort = *portArg
 		}
 
-		useHost, found := os.LookupEnv("HOST")
+		useHost, found := os.LookupEnv(ENV_HOST)
 		if !found {
 			useHost = *hostArg
 		}
 
-		useSessionKey, found := os.LookupEnv("SESSION_KEY")
+		useSessionKey, found := os.LookupEnv(ENV_SESSION_KEY)
 		if !found {
 			useSessionKey = *sessionKeyArg
 		}
@@ -56,7 +75,7 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			useSessionKey = uuid.New().String()
 		}
 
-		return app_context.ServeOptions{
+		return &options.ServeOptions{
 			ContextRoot: ctxRoot,
 			StaticPath:  staticPath,
 			Port:        usePort,

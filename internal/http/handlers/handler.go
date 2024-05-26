@@ -9,16 +9,17 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/morphy76/g-fe-server/internal/example"
-	app_context "github.com/morphy76/g-fe-server/internal/http/context"
-	"github.com/morphy76/g-fe-server/internal/http/health"
+	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
+	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
-	"github.com/morphy76/g-fe-server/internal/http/static"
+	"github.com/morphy76/g-fe-server/internal/options"
 )
 
 func Handler(parent *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ServeOptions).ContextRoot
-	sessionStore := context.Value(app_context.CTX_SESSION_KEY).(sessions.Store)
+	ctxRoot := context.Value(app_http.CTX_CONTEXT_ROOT_KEY).(options.ServeOptions).ContextRoot
+	sessionStore := context.Value(app_http.CTX_SESSION_KEY).(sessions.Store)
 
 	middleware.InjectSession(parent, sessionStore)
 

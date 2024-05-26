@@ -9,13 +9,14 @@ import (
 
 	"github.com/gorilla/mux"
 
-	app_context "github.com/morphy76/g-fe-server/internal/http/context"
+	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/options"
 )
 
 func HandleStatic(staticRouter *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ServeOptions).ContextRoot
-	staticPath := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ServeOptions).StaticPath
+	ctxRoot := context.Value(app_http.CTX_CONTEXT_ROOT_KEY).(options.ServeOptions).ContextRoot
+	staticPath := context.Value(app_http.CTX_CONTEXT_ROOT_KEY).(options.ServeOptions).StaticPath
 
 	defaultFile := filepath.Join(staticPath, "index.html")
 

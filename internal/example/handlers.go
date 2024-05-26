@@ -8,8 +8,9 @@ import (
 
 	"github.com/gorilla/mux"
 
-	app_context "github.com/morphy76/g-fe-server/internal/http/context"
+	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
+	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/morphy76/g-fe-server/pkg/example"
 )
 
@@ -20,8 +21,8 @@ const (
 func ExampleHandlers(apiRouter *mux.Router, context context.Context) {
 
 	var (
-		repository           = context.Value(app_context.CTX_REPOSITORY_KEY).(example.Repository)
-		ctxRoot              = context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ServeOptions).ContextRoot
+		repository           = context.Value(app_http.CTX_REPOSITORY_KEY).(example.Repository)
+		ctxRoot              = context.Value(app_http.CTX_CONTEXT_ROOT_KEY).(options.ServeOptions).ContextRoot
 		apiRoot              = fmt.Sprintf("%s/api/example", ctxRoot)
 		apiParamExampleId    = fmt.Sprintf("{%s}", pathParamExampleId)
 		apiResourceExampleId = fmt.Sprintf("%s/%s", apiRoot, apiParamExampleId)

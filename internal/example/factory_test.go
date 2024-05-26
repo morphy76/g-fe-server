@@ -4,8 +4,7 @@ import (
 	"testing"
 
 	impl "github.com/morphy76/g-fe-server/internal/example/impl"
-	app_context "github.com/morphy76/g-fe-server/internal/http/context"
-	model "github.com/morphy76/g-fe-server/pkg/example"
+	"github.com/morphy76/g-fe-server/internal/options"
 )
 
 func TestFactorySuite(t *testing.T) {
@@ -13,8 +12,8 @@ func TestFactorySuite(t *testing.T) {
 
 	t.Run("Test RepositoryTypeMemoryDB", func(t *testing.T) {
 		t.Log("Test Factory RepositoryTypeMemoryDB")
-		if repo, err := NewRepository(app_context.DbOptions{
-			Type: model.RepositoryTypeMemoryDB,
+		if repo, err := NewRepository(&options.DbOptions{
+			Type: options.RepositoryTypeMemoryDB,
 		}); err != nil {
 			t.Fatalf("Failed to create the repository: %s", err)
 		} else if _, ok := repo.(*impl.MemoryRepository); !ok {
@@ -24,8 +23,8 @@ func TestFactorySuite(t *testing.T) {
 
 	t.Run("Test RepositoryTypeMongoDB", func(t *testing.T) {
 		t.Log("Test Factory RepositoryTypeMongoDB")
-		if repo, err := NewRepository(app_context.DbOptions{
-			Type: model.RepositoryTypeMongoDB,
+		if repo, err := NewRepository(&options.DbOptions{
+			Type: options.RepositoryTypeMongoDB,
 		}); err != nil {
 			t.Fatalf("Failed to create the repository: %s", err)
 		} else if _, ok := repo.(*impl.MongoRepository); !ok {

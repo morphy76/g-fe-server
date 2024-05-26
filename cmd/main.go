@@ -5,23 +5,20 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 
-	"github.com/globalsign/mgo"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	"github.com/kidstuff/mongostore"
 	"github.com/quasoft/memstore"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/morphy76/g-fe-server/internal/cli"
 	"github.com/morphy76/g-fe-server/internal/example"
-	handlers "github.com/morphy76/g-fe-server/internal/http"
-	app_context "github.com/morphy76/g-fe-server/internal/http/context"
-	model "github.com/morphy76/g-fe-server/pkg/example"
+	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/http/handlers"
+	"github.com/morphy76/g-fe-server/internal/options"
 )
 
 func main() {
@@ -48,51 +45,29 @@ func main() {
 
 	dbOptions, err := dbOptionsBuilder()
 	if err != nil {
-		panic(err)
+		flag.Usage()
+		os.Exit(1)
 	}
 
 	serveOptions, err := serveOptionsBuilder()
 	if err != nil {
-		panic(err)
+		flag.Usage()
+		os.Exit(1)
 	}
 
 	var store sessions.Store
-	if dbOptions.Type == model.RepositoryTypeMemoryDB {
+	if dbOptions.Type == options.RepositoryTypeMemoryDB {
 		store = memstore.NewMemStore([]byte(serveOptions.SessionKey))
 	} else {
-		useUrl, err := url.Parse(dbOptions.Url)
-		if err != nil {
-			panic(err)
-		}
-		if useUrl.User == nil {
-			useCredentials := url.UserPassword(dbOptions.User, dbOptions.Password)
-			useUrl.User = useCredentials
-		}
-
-		fmt.Printf("Connecting to %s\n", useUrl.String())
-		dbsess, err := mgo.DialWithInfo(&mgo.DialInfo{
-			Addrs:    []string{"localhost:27017"},
-			Database: "go_db",
-			Username: "go",
-			Password: "go",
-			Timeout:  60 * time.Second,
-		})
-
-		if err != nil {
-			panic(err)
-		}
-		defer dbsess.Close()
-
-		useDbSess := dbsess.DB("go_db").C("sessions")
-		store = mongostore.NewMongoStore(useDbSess, 3600, true, []byte(serveOptions.SessionKey))
+		store = memstore.NewMemStore([]byte(serveOptions.SessionKey))
 	}
 
 	startServer(serveOptions, dbOptions, store)
 }
 
 func startServer(
-	serveOptions app_context.ServeOptions,
-	dbOptions app_context.DbOptions,
+	serveOptions *options.ServeOptions,
+	dbOptions *options.DbOptions,
 	sessionStore sessions.Store,
 ) {
 
@@ -109,9 +84,9 @@ func startServer(
 	}
 	defer repository.Disconnect()
 
-	serverContext := context.WithValue(context.Background(), app_context.CTX_CONTEXT_ROOT_KEY, serveOptions)
-	sessionContext := context.WithValue(serverContext, app_context.CTX_SESSION_KEY, sessionStore)
-	finalContext := context.WithValue(sessionContext, app_context.CTX_REPOSITORY_KEY, repository)
+	serverContext := context.WithValue(context.Background(), app_http.CTX_CONTEXT_ROOT_KEY, serveOptions)
+	sessionContext := context.WithValue(serverContext, app_http.CTX_SESSION_KEY, sessionStore)
+	finalContext := context.WithValue(sessionContext, app_http.CTX_REPOSITORY_KEY, repository)
 
 	rootRouter := mux.NewRouter()
 
@@ -126,7 +101,7 @@ func startServer(
 		})
 	}
 
-	log.Debug().
+	log.Info().
 		Str("host", serveOptions.Host).
 		Str("port", serveOptions.Port).
 		Str("ctx", serveOptions.ContextRoot).

@@ -73,10 +73,9 @@ func TestMongoRepositorySuite(t *testing.T) {
 	usePort := ports["27017/tcp"][0]
 
 	repo := &MongoRepository{
-		Url:        fmt.Sprintf("mongodb://%s:%s/%s", host, usePort.HostPort, db_name),
-		Username:   "go",
-		Password:   "go",
-		Collection: "examples",
+		Url:      fmt.Sprintf("mongodb://%s:%s/%s", host, usePort.HostPort, db_name),
+		Username: "go",
+		Password: "go",
 	}
 	t.Logf("Repository URI: %s", repo.Url)
 

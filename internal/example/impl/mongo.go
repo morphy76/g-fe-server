@@ -14,11 +14,12 @@ import (
 	"context"
 )
 
+const MONGO_COLLECTION = "examples"
+
 type MongoRepository struct {
-	Url        string
-	Username   string
-	Password   string
-	Collection string
+	Url      string
+	Username string
+	Password string
 
 	connected  bool
 	ctx        context.Context
@@ -143,7 +144,7 @@ func (r *MongoRepository) Connect() error {
 	r.client, err = mongo.Connect(r.ctx, clientOpts)
 	r.connected = err == nil
 
-	r.collection = r.client.Database(path.Base(useUrl.Path)).Collection(r.Collection)
+	r.collection = r.client.Database(path.Base(useUrl.Path)).Collection(MONGO_COLLECTION)
 
 	return err
 }

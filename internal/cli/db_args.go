@@ -6,67 +6,76 @@ import (
 	"os"
 	"strconv"
 
-	app_context "github.com/morphy76/g-fe-server/internal/http/context"
-	model "github.com/morphy76/g-fe-server/pkg/example"
+	"github.com/morphy76/g-fe-server/internal/options"
 )
 
-type dbOptionsBuidler func() (app_context.DbOptions, error)
+type dbOptionsBuidler func() (*options.DbOptions, error)
+
+var errUnknownDbType = errors.New("unknown db type")
+var errRequiredMongoDbUrl = errors.New("mongo db url is required")
+
+func IsUnknownDbType(err error) bool {
+	return err == errUnknownDbType
+}
+
+func IsRequiredMongoDbUrl(err error) bool {
+	return err == errRequiredMongoDbUrl
+}
+
+const (
+	ENV_DB_TYPE       = "DB_TYPE"
+	ENV_DB_MONGO_URL  = "DB_MONGO_URL"
+	ENV_DB_MONGO_USER = "DB_MONGO_USER"
+	ENV_DB_MONGO_PASS = "DB_MONGO_PASSWORD"
+)
 
 func DbOptionsBuilder() dbOptionsBuidler {
 
-	dbTypeArg := flag.String("db", "0", "type of the database: 0: memory - 1: mongo")
-	dbMongoUrlArg := flag.String("db-mongo-url", "", "mongo database URL in the form of mongodb://<user>:<pass>@<host>:<port>/<db>?<args>")
-	dbMongoUserArg := flag.String("db-mongo-user", "", "mongo database username")
-	dbMongoPasswordArg := flag.String("db-mongo-password", "", "mongo database password")
-	dbMongoCollectionArg := flag.String("db-mongo-collection", "examples", "mongo collection to use")
+	dbTypeArg := flag.String("db", "0", "type of the database: 0: memory - 1: mongo. Environment: "+ENV_DB_TYPE)
+	dbMongoUrlArg := flag.String("db-mongo-url", "", "mongo database URL in the form of mongodb://<user>:<pass>@<host>:<port>/<db>?<args>. Environment: "+ENV_DB_MONGO_URL)
+	dbMongoUserArg := flag.String("db-mongo-user", "", "mongo database username. Environment: "+ENV_DB_MONGO_USER)
+	dbMongoPasswordArg := flag.String("db-mongo-password", "", "mongo database password. Environment: "+ENV_DB_MONGO_PASS)
 
-	rv := func() (app_context.DbOptions, error) {
+	rv := func() (*options.DbOptions, error) {
 
-		dbType, found := os.LookupEnv("DB_TYPE")
+		dbType, found := os.LookupEnv(ENV_DB_TYPE)
 		if !found {
 			dbType = *dbTypeArg
 		}
 		if dbType != "0" && dbType != "1" {
-			return app_context.DbOptions{}, errors.New("invalid db type")
+			return nil, errUnknownDbType
 		}
 
-		url, found := os.LookupEnv("DB_MONGO_URL")
+		url, found := os.LookupEnv(ENV_DB_MONGO_URL)
 		if !found {
 			url = *dbMongoUrlArg
 		}
 		if url == "" && dbType == "1" {
-			return app_context.DbOptions{}, errors.New("mongo db url is required")
+			return nil, errRequiredMongoDbUrl
 		}
 
-		user, found := os.LookupEnv("DB_MONGO_USER")
+		user, found := os.LookupEnv(ENV_DB_MONGO_USER)
 		if !found {
 			user = *dbMongoUserArg
 		}
 
-		password, found := os.LookupEnv("DB_MONGO_PASSWORD")
+		password, found := os.LookupEnv(ENV_DB_MONGO_PASS)
 		if !found {
 			password = *dbMongoPasswordArg
 		}
 
-		collection, found := os.LookupEnv("DB_MONGO_COLLECTION")
-		if !found {
-			collection = *dbMongoCollectionArg
-		}
-
 		dbTypeAsInt, err := strconv.Atoi(dbType)
 		if err != nil {
-			return app_context.DbOptions{}, err
+			return nil, err
 		}
-		useDbType := model.RepositoryType(dbTypeAsInt)
+		useDbType := options.RepositoryType(dbTypeAsInt)
 
-		return app_context.DbOptions{
-			// TODO change to use mongodb
+		return &options.DbOptions{
 			Type: useDbType,
-			MongoDbOptions: app_context.MongoDbOptions{
-				Url:        url,
-				User:       user,
-				Password:   password,
-				Collection: collection,
+			MongoDbOptions: options.MongoDbOptions{
+				Url:      url,
+				User:     user,
+				Password: password,
 			},
 		}, nil
 	}
