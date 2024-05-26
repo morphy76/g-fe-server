@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/gorilla/securecookie"
 	"github.com/morphy76/g-fe-server/internal/options"
 )
 
@@ -72,7 +72,7 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			useSessionKey = *sessionKeyArg
 		}
 		if len(useSessionKey) == 0 {
-			useSessionKey = uuid.New().String()
+			useSessionKey = string(securecookie.GenerateRandomKey(32))
 		}
 
 		return &options.ServeOptions{

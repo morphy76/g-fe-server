@@ -55,11 +55,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	var store sessions.Store
-	if dbOptions.Type == options.RepositoryTypeMemoryDB {
-		store = memstore.NewMemStore([]byte(serveOptions.SessionKey))
-	} else {
-		store = memstore.NewMemStore([]byte(serveOptions.SessionKey))
+	store := memstore.NewMemStore([]byte(serveOptions.SessionKey))
+	store.Options = &sessions.Options{
+		Path:     serveOptions.ContextRoot,
+		MaxAge:   86400 * 30,
+		HttpOnly: true,
 	}
 
 	startServer(serveOptions, dbOptions, store)

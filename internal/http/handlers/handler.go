@@ -18,7 +18,7 @@ import (
 
 func Handler(parent *mux.Router, context context.Context) {
 
-	ctxRoot := context.Value(app_http.CTX_CONTEXT_ROOT_KEY).(options.ServeOptions).ContextRoot
+	ctxRoot := context.Value(app_http.CTX_CONTEXT_ROOT_KEY).(*options.ServeOptions).ContextRoot
 	sessionStore := context.Value(app_http.CTX_SESSION_KEY).(sessions.Store)
 
 	middleware.InjectSession(parent, sessionStore)
