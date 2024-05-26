@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
 
 	"github.com/morphy76/g-fe-server/internal/example"
@@ -17,6 +18,9 @@ import (
 func Handler(parent *mux.Router, context context.Context) {
 
 	ctxRoot := context.Value(app_context.CTX_CONTEXT_ROOT_KEY).(app_context.ServeOptions).ContextRoot
+	sessionStore := context.Value(app_context.CTX_SESSION_KEY).(sessions.Store)
+
+	middleware.InjectSession(parent, sessionStore)
 
 	contextRouter := parent.PathPrefix(ctxRoot).Subrouter()
 	if log.Trace().Enabled() {

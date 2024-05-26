@@ -6,6 +6,7 @@ db.createUser({
 });
 
 db.createCollection('examples', {});
+db.createCollection('sessions', {});
 
 db.examples.createIndex({ name: 1 }, { unique: true });
 

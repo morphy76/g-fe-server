@@ -13,7 +13,7 @@ GCFLAGS := -gcflags="-m -l"
 TESTFLAGS := -v
 # DOCKERBUILDFLAGS := --no-cache
 NPMFLAGS := --no-audit --no-fund
-MONGO_ARGS := -db=1 -db-mongo-uri=mongodb://go:go@127.0.0.1:27017/go_db -db-mongo-name=go_db -db-mongo-collection=examples
+MONGO_ARGS := -db=1 -db-mongo-url=mongodb://127.0.0.1:27017/go_db -db-mongo-user=go -db-mongo-password=go
 
 # Define the target binary name
 TARGET := g-fe-server
@@ -47,10 +47,10 @@ watch-fe:
 
 build-all: clean build build-fe
 
-run: clean build-fe
+run:
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE)
 
-run-mongo: clean build-fe
+run-mongo:
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) $(MONGO_ARGS)
 
 # Define the clean target
