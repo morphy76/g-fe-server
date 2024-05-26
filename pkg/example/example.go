@@ -5,8 +5,6 @@ type Example struct {
 	Age  int    `json:"age" db:"age" validate:"required"`
 }
 
-type RepositoryType int8
-
 type Repository interface {
 	FindAll() ([]Example, error)
 	FindById(id string) (Example, error)

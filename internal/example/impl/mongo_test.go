@@ -73,11 +73,11 @@ func TestMongoRepositorySuite(t *testing.T) {
 	usePort := ports["27017/tcp"][0]
 
 	repo := &MongoRepository{
-		Uri:  fmt.Sprintf("mongodb://%s:%s@%s:%s/%s", "go", "go", host, usePort.HostPort, db_name),
-		Db:   db_name,
-		Coll: "examples",
+		Url:      fmt.Sprintf("mongodb://%s:%s/%s", host, usePort.HostPort, db_name),
+		Username: "go",
+		Password: "go",
 	}
-	t.Logf("Repository URI: %s", repo.Uri)
+	t.Logf("Repository URI: %s", repo.Url)
 
 	if err = repo.Connect(); err != nil {
 		t.Fatalf("Failed to connect the repository: %s", err)

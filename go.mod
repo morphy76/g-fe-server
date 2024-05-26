@@ -4,10 +4,13 @@ go 1.21.9
 
 require (
 	github.com/gorilla/mux v1.8.1
-	github.com/rs/zerolog v1.32.0
+	github.com/gorilla/securecookie v1.1.2
+	github.com/gorilla/sessions v1.2.2
+	github.com/quasoft/memstore v0.0.0-20191010062613-2bce066d2b0b
+	github.com/rs/zerolog v1.33.0
 	github.com/testcontainers/testcontainers-go v0.31.0
 	github.com/testcontainers/testcontainers-go/modules/mongodb v0.31.0
-	go.mongodb.org/mongo-driver v1.13.1
+	go.mongodb.org/mongo-driver v1.15.0
 )
 
 require (
