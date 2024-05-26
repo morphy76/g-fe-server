@@ -58,8 +58,11 @@ func main() {
 	store := memstore.NewMemStore([]byte(serveOptions.SessionKey))
 	store.Options = &sessions.Options{
 		Path:     serveOptions.ContextRoot,
-		MaxAge:   86400 * 30,
-		HttpOnly: true,
+		MaxAge:   serveOptions.SessionMaxAge,
+		HttpOnly: serveOptions.SessionHttpOnly,
+		Domain:   serveOptions.SessionDomain,
+		Secure:   serveOptions.SessionSecureCookies,
+		SameSite: serveOptions.SessionSameSite,
 	}
 
 	startServer(serveOptions, dbOptions, store)

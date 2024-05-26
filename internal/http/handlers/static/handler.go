@@ -25,16 +25,6 @@ func HandleStatic(staticRouter *mux.Router, context context.Context) {
 
 	fileServer := func(w http.ResponseWriter, r *http.Request) {
 
-		session := r.Context().Value(app_http.CTX_SESSION_KEY).(sessions.Session)
-
-		test, found := session.Values["test"].(string)
-		if found {
-			log.Info().Str("test", test).Msg("Session value found")
-		} else {
-			session.Values["test"], _ = uuid.NewRandom()
-			log.Info().Str("test", session.Values["test"].(string)).Msg("Session value set")
-		}
-
 		path := filepath.Join(staticPath, strings.TrimPrefix(r.URL.Path, ctxRoot+"/ui"))
 
 		fi, err := os.Stat(path)
@@ -43,6 +33,22 @@ func HandleStatic(staticRouter *mux.Router, context context.Context) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
+
+		session := r.Context().Value(app_http.CTX_SESSION_KEY).(*sessions.Session)
+		log.Trace().
+			Bool("in_context", session != nil).
+			Msg("Session found")
+
+		test, found := session.Values["test"]
+		if !found {
+			aRandom, _ := uuid.NewRandom()
+			session.Values["test"] = aRandom.String()
+		}
+		log.Trace().
+			Any("initial_value", test).
+			Any("current_value", session.Values["test"]).
+			Bool("found", found).
+			Msg("Session value set")
 
 		session.Save(r, w)
 

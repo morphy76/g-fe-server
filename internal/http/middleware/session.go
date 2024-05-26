@@ -24,7 +24,8 @@ func InjectSession(next http.Handler) http.Handler {
 			Str("session name", session.Name()).
 			Msg("Session injected")
 
-		useRequest := r.WithContext(context.WithValue(r.Context(), app_http.CTX_SESSION_KEY, session))
+		sessionContext := context.WithValue(r.Context(), app_http.CTX_SESSION_KEY, session)
+		useRequest := r.WithContext(sessionContext)
 
 		next.ServeHTTP(w, useRequest)
 	})

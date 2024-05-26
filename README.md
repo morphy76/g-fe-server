@@ -6,6 +6,7 @@
 
 ### Backlog
 
+- Fix static router for resource direct access like /fe/ui/example
 - Logging: create a functional approach to logs, attributes and log propagation
 - whats the vendor directory
 - cloud friendly http session
