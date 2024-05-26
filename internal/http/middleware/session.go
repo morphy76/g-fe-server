@@ -19,7 +19,7 @@ func InjectSession(next http.Handler) http.Handler {
 
 		session, _ := store.Get(r, serveOptions.SessionName)
 
-		log.Debug().
+		log.Trace().
 			Bool("new session", session.IsNew).
 			Str("session name", session.Name()).
 			Msg("Session injected")

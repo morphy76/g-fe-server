@@ -1,5 +1,9 @@
 {
+  "app.loading": "Loading...",
+  "app.path.not.found": "Path not found",
+  "app.error": "Error: {message}",
   "examples.title": "<enlarge>Live</enlarge> Examples <i>[{count}]</i>",
+  "example.menu.item": "Example",
   "examples.list.confirm.delete": "Are you sure you want to delete the example [{name}]?",
   "examples.form.legend.existing": "Edit Example",
   "examples.form.legend.new": "New Example",
@@ -12,5 +16,7 @@
   "examples.form.close": "Close",
   "examples.form.errors.required.name": "Name is required",
   "examples.form.errors.invalid.age": "Age must be positive",
-  "examples.form.saved": "Example saved"
+  "examples.form.saved": "Example saved",
+  "credits.title": "Credits",
+  "credits.menu.item": "Credits"
 }

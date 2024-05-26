@@ -1,5 +1,9 @@
 {
+  "app.loading": "Cargando...",
+  "app.path.not.found": "La ruta solicitada no existe",
+  "app.error": "Error: {message}",
   "examples.title": "Ejemplos en <enlarge>vivo</enlarge> <i>[{count}]</i>",
+  "example.menu.item": "Ejemplo",
   "examples.list.confirm.delete": "¿Estás seguro que quieres eliminar este ejemplo [{name}]?",
   "examples.form.legend.existing": "Editar Ejemplo",
   "examples.form.legend.new": "Nuevo Ejemplo",
@@ -12,5 +16,7 @@
   "examples.form.close": "Cerrar",
   "examples.form.errors.required.name": "Nombre es requerido",
   "examples.form.errors.invalid.age": "La edad debe ser positiva",
-  "examples.form.saved": "Ejemplo guardado"
+  "examples.form.saved": "Ejemplo guardado",
+  "credits.title": "Créditos",
+  "credits.menu.item": "Créditos"
 }

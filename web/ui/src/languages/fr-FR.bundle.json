@@ -1,5 +1,9 @@
 {
+  "app.loading": "Chargement...",
+  "app.path.not.found": "Le chemin demandé n'existe pas",
+  "app.error": "Erreur: {message}",
   "examples.title": "Exemples en <enlarge>direct</enlarge> <i>[{count}]</i>",
+  "example.menu.item": "Exemple",
   "examples.list.confirm.delete": "Voulez-vous vraiment supprimer cet exemple [{name}]?",
   "examples.form.legend.existing": "Modifier l'exemple",
   "examples.form.legend.new": "Nouvel exemple",
@@ -12,5 +16,7 @@
   "examples.form.close": "Fermer",
   "examples.form.errors.required.name": "Le nom est obligatoire",
   "examples.form.errors.invalid.age": "L'âge doit être positif",
-  "examples.form.saved": "Exemple enregistré"
+  "examples.form.saved": "Exemple enregistré",
+  "credits.title": "Crédits",
+  "credits.menu.item": "Crédits"
 }

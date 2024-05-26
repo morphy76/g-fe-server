@@ -25,13 +25,12 @@ func HandleStatic(staticRouter *mux.Router, context context.Context) {
 
 	fileServer := func(w http.ResponseWriter, r *http.Request) {
 
-		path := filepath.Join(staticPath, strings.TrimPrefix(r.URL.Path, ctxRoot+"/ui"))
+		requestedFile := filepath.Join(staticPath, strings.TrimPrefix(r.URL.Path, ctxRoot+"/ui"))
 
-		fi, err := os.Stat(path)
-
+		requestedFileStats, err := os.Stat(requestedFile)
 		if os.IsNotExist(err) {
-			w.WriteHeader(http.StatusNotFound)
-			return
+			requestedFile = defaultFile
+			requestedFileStats, _ = os.Stat(requestedFile)
 		}
 
 		session := r.Context().Value(app_http.CTX_SESSION_KEY).(*sessions.Session)
@@ -52,10 +51,10 @@ func HandleStatic(staticRouter *mux.Router, context context.Context) {
 
 		session.Save(r, w)
 
-		if fi.IsDir() {
+		if requestedFileStats.IsDir() {
 			http.ServeFile(w, r, defaultFile)
 		} else {
-			http.ServeFile(w, r, path)
+			http.ServeFile(w, r, requestedFile)
 		}
 	}
 

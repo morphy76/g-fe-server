@@ -1,5 +1,9 @@
 {
+  "app.loading": "Laden...",
+  "app.path.not.found": "Die Seite wurde nicht gefunden",
+  "app.error": "Ein Fehler: {message}",
   "examples.title": "<enlarge>Live</enlarge>-Beispiele <i>[{count}]</i>",
+  "example.menu.item": "Beispiel",
   "examples.list.confirm.delete": "Möchten Sie das Beispiel wirklich löschen [{name}]?",
   "examples.form.legend.existing": "Beispiel bearbeiten",
   "examples.form.legend.new": "Neues Beispiel",
@@ -12,5 +16,7 @@
   "examples.form.close": "Schließen",
   "examples.form.errors.required.name": "Der Vorname ist ein Pflichtfeld",
   "examples.form.errors.invalid.age": "Das Alter muss eine positive Zahl sein",
-  "examples.form.saved": "Beispiel gespeichert"
+  "examples.form.saved": "Beispiel gespeichert",
+  "credits.title": "Credits",
+  "credits.menu.item": "Credits"
 }

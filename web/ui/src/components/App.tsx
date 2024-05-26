@@ -4,6 +4,8 @@ import { LoggerContextProvider, useLogger } from '@features/react-logger';
 import styles from '@components/App.scss';
 import { useGetExample } from './examples/ExampleService';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import formatted_message_rules from "@features/formatted_message_rules";
+import { FormattedMessage } from 'react-intl';
 
 const ListExample = lazy(() => import('@components/examples/ListExampleComponent'));
 const FormExample = lazy(() => import('@components/examples/FormExampleComponent'));
@@ -49,10 +51,31 @@ const InnerApp: React.FC = () => {
     setSelected(() => name);
   };
 
+  const loadingLabel = useMemo(() => (
+    <FormattedMessage
+      id='app.loading'
+      defaultMessage='Loading...'
+      values={{
+        ...formatted_message_rules,
+      }}
+    />
+  ), []);
+
+  const errorLabel = useMemo(() => (
+    <FormattedMessage
+      id='app.error'
+      defaultMessage='Error: {message}'
+      values={{
+        ...formatted_message_rules,
+        message: error?.message,
+      }}
+    />
+  ), [error]);
+
   const editForm = useMemo(() => (
     <>
-      {isLoading && <div>Loading...</div>}
-      {error && <div>Error: {error.message}</div>}
+      {isLoading && <div>{loadingLabel}</div>}
+      {error && <div>{errorLabel}</div>}
       {selected && data &&
         <FormExample
           key={selected}
@@ -65,15 +88,34 @@ const InnerApp: React.FC = () => {
         />
       }
     </>
-  ), [isLoading, error, selected, data, refetch]);
-
+  ), [loadingLabel, isLoading, error, selected, data, refetch]);
 
   return (
     <>
       <nav className={styles.navigation_wrapper}>
         <ul>
-          <li><a onClick={() => navigate('/example', { relative: 'path' })}>Example</a></li>
-          <li><a onClick={() => navigate('/credits', { relative: 'path' })}>Credits</a></li>
+          <li>
+            <a onClick={() => navigate('/example', { relative: 'path' })}>
+              <FormattedMessage
+                id='example.menu.item'
+                defaultMessage='Example'
+                values={{
+                  ...formatted_message_rules,
+                }}
+              />
+            </a>
+          </li>
+          <li>
+            <a onClick={() => navigate('/credits', { relative: 'path' })}>
+              <FormattedMessage
+                id='credits.menu.item'
+                defaultMessage='Example'
+                values={{
+                  ...formatted_message_rules,
+                }}
+              />
+            </a>
+          </li>
         </ul>
       </nav>
       <section className={styles.navigation_content}>
@@ -81,21 +123,40 @@ const InnerApp: React.FC = () => {
           <Route index element={<Navigate to="/example" replace />} />
           <Route path="/example" element={
             <>
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<div>{loadingLabel}</div>}>
                 <ListExample onSelect={handleExampleSelected} />
               </Suspense>
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<div>{loadingLabel}</div>}>
                 <FormExample />
               </Suspense>
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<div>{loadingLabel}</div>}>
                 {editForm}
               </Suspense>
             </>
           } />
           <Route path="/credits" element={
             <>
-              <p>Hello credits</p>
+              <p>
+                <FormattedMessage
+                  id='credits.title'
+                  defaultMessage='Example'
+                  values={{
+                    ...formatted_message_rules,
+                  }}
+                />
+              </p>
             </>
+          } />
+          <Route path="*" element={
+              <p>
+                <FormattedMessage
+                  id='app.path.not.found'
+                  defaultMessage='Path not found'
+                  values={{
+                    ...formatted_message_rules,
+                  }}
+                />
+              </p>
           } />
         </Routes>
 
