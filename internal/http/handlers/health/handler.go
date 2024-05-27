@@ -63,7 +63,7 @@ func testDbStatus(requestContext context.Context) (string, Status) {
 		dbClient := requestContext.Value(app_http.CTX_DB_KEY)
 		label = "MongoDB"
 		if reflect.TypeOf(dbClient) == reflect.TypeOf(mongo.Client{}) {
-			mongoClient := dbClient.(mongo.Client)
+			mongoClient := dbClient.(*mongo.Client)
 			err := mongoClient.Ping(timeoutContext, nil)
 			if err == nil {
 				dbStatus = Active

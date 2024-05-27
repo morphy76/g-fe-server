@@ -24,11 +24,11 @@ func NewRepository(requestContext context.Context) (model.Repository, error) {
 			return nil, errors.New("MongoDB client not found in request context")
 		}
 
-		mongoClient := dbClient.(mongo.Client)
+		mongoClient := dbClient.(*mongo.Client)
 
 		var rv model.Repository = &impl.MongoRepository{
 			DbOptions:  dbOptions,
-			Client:     &mongoClient,
+			Client:     mongoClient,
 			UseContext: requestContext,
 		}
 
