@@ -13,7 +13,7 @@ import (
 func TestFactorySuite(t *testing.T) {
 	t.Log("Test Factory Suite")
 
-	testContext := context.WithValue(context.Background(), app_http.CTX_DB_KEY, mongo.Client{})
+	testContext := context.WithValue(context.Background(), app_http.CTX_DB_KEY, &mongo.Client{})
 
 	t.Run("Test RepositoryTypeMemoryDB", func(t *testing.T) {
 		t.Log("Test Factory RepositoryTypeMemoryDB")

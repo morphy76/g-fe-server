@@ -4,9 +4,6 @@
 
 ### Doing
 
-- Broken MemoryRepository in the http contextualized stack
-- Broken MongoRepository in the http contextualized stack
-
 ### Backlog
 
 - Mongo client: pool options

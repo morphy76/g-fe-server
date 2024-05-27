@@ -37,6 +37,8 @@ func Handler(parent *mux.Router, app_context context.Context) {
 			next.ServeHTTP(w, useRequest)
 		})
 	})
+	parent.Use(middleware.TenantResolver)
+	parent.Use(middleware.RequestLogger)
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
@@ -52,6 +54,7 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Static router registered")
 	}
+
 	staticRouter.Use(middleware.InjectSession)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Static middleware registered")
@@ -66,8 +69,6 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("API router registered")
 	}
-	apiRouter.Use(middleware.TenantResolver)
-	apiRouter.Use(middleware.RequestLogger)
 	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 	if log.Trace().Enabled() {
