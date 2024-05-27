@@ -7,6 +7,8 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	app_http "github.com/morphy76/g-fe-server/internal/http"
 )
 
 type statusRecorder struct {
@@ -19,10 +21,6 @@ func (r *statusRecorder) WriteHeader(status int) {
 	r.ResponseWriter.WriteHeader(status)
 }
 
-type CTX_LOGGER string
-
-const CTX_LOGGER_KEY CTX_LOGGER = "logger"
-
 func RequestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		recorder := &statusRecorder{
@@ -30,13 +28,13 @@ func RequestLogger(next http.Handler) http.Handler {
 			Status:         200,
 		}
 
-		ownership := r.Context().Value(CTX_OWNERSHIP_KEY).(Ownership)
+		ownership := r.Context().Value(app_http.CTX_OWNERSHIP_KEY).(Ownership)
 		useLogger := log.Logger.With().
 			Dict("ownership", zerolog.Dict().
 				Str("tenant", ownership.Tenant).
 				Str("subscription", ownership.Subscription),
 			).Logger()
-		newContext := context.WithValue(r.Context(), CTX_LOGGER_KEY, useLogger)
+		newContext := context.WithValue(r.Context(), app_http.CTX_LOGGER_KEY, useLogger)
 		useRequestLogger := r.WithContext(newContext)
 
 		start := time.Now()
@@ -53,7 +51,7 @@ func RequestLogger(next http.Handler) http.Handler {
 }
 
 func ExtractLoggerFromContext(ctx context.Context, forPackage string) zerolog.Logger {
-	return (ctx.Value(CTX_LOGGER_KEY).(zerolog.Logger)).With().Str("package", forPackage).Logger()
+	return (ctx.Value(app_http.CTX_LOGGER_KEY).(zerolog.Logger)).With().Str("package", forPackage).Logger()
 }
 
 func ExtractLoggerFromRequest(r *http.Request, forPackage string) zerolog.Logger {

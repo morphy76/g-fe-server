@@ -10,19 +10,27 @@ import (
 	mongo_opts "go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type DbClient interface{}
+type DbClient any
+type MemoryDbClient struct{}
 
-var ErrNilDbOptions = errors.New("unknown repository type")
+var ErrMissingDbOptions = errors.New("missing db options")
 
-func IsNilDbOptions(err error) bool {
-	return err == ErrNilDbOptions
+var ErrUnknownDbType = errors.New("unknown database type")
+
+func IsMissingDbOptions(err error) bool {
+	return err == ErrMissingDbOptions
+}
+
+func IsUnknownDbType(err error) bool {
+	return err == ErrUnknownDbType
 }
 
 func NewClient(dbOptions *options.DbOptions) (DbClient, error) {
 	if dbOptions == nil {
-		return nil, ErrNilDbOptions
+		return nil, ErrMissingDbOptions
 	} else if dbOptions.Type == options.RepositoryTypeMemoryDB {
-		return nil, nil
+		var rv *MemoryDbClient = new(MemoryDbClient)
+		return rv, nil
 	} else if dbOptions.Type == options.RepositoryTypeMongoDB {
 		var clientOpts *mongo_opts.ClientOptions
 		serverAPI := mongo_opts.ServerAPI(mongo_opts.ServerAPIVersion1)
@@ -48,6 +56,6 @@ func NewClient(dbOptions *options.DbOptions) (DbClient, error) {
 
 		return mongoClient, nil
 	} else {
-		return nil, ErrNilDbOptions
+		return nil, ErrUnknownDbType
 	}
 }

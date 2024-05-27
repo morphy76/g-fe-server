@@ -9,6 +9,7 @@
 
 ### Backlog
 
+- Mongo client: pool options
 - Logging: create a functional approach to logs, attributes and log propagation
 - whats the vendor directory
 - cloud friendly http session

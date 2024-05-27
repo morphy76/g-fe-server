@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -55,8 +56,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	store := memstore.NewMemStore([]byte(serveOptions.SessionKey))
-	store.Options = &sessions.Options{
+	startServer(serveOptions, dbOptions)
+}
+
+func startServer(
+	serveOptions *options.ServeOptions,
+	dbOptions *options.DbOptions,
+) {
+
+	start := time.Now()
+
+	sessionStore := memstore.NewMemStore([]byte(serveOptions.SessionKey))
+	sessionStore.Options = &sessions.Options{
 		Path:     serveOptions.ContextRoot,
 		MaxAge:   serveOptions.SessionMaxAge,
 		HttpOnly: serveOptions.SessionHttpOnly,
@@ -65,26 +76,19 @@ func main() {
 		SameSite: serveOptions.SessionSameSite,
 	}
 
-	startServer(serveOptions, dbOptions, store)
-}
-
-func startServer(
-	serveOptions *options.ServeOptions,
-	dbOptions *options.DbOptions,
-	sessionStore sessions.Store,
-) {
-
-	start := time.Now()
-
 	dbClient, err := db.NewClient(dbOptions)
 	if err != nil {
 		panic(err)
 	}
 
+	log.Trace().
+		Str("db_type", reflect.TypeOf(dbClient).String()).
+		Msg("Database client created")
+
 	serverContext := context.WithValue(context.Background(), app_http.CTX_CONTEXT_SERVE_KEY, serveOptions)
-	sessionStoreContext := context.WithValue(serverContext, app_http.CTX_SESSION_STORE_KEY, sessionStore)
-	dbOptsContext := context.WithValue(sessionStoreContext, app_http.CTX_DB_OPTIONS_KEY, dbOptions)
-	dbContext := context.WithValue(dbOptsContext, app_http.CTX_DB_KEY, dbClient)
+	dbOptsContext := context.WithValue(serverContext, app_http.CTX_DB_OPTIONS_KEY, dbOptions)
+	sessionStoreContext := context.WithValue(dbOptsContext, app_http.CTX_SESSION_STORE_KEY, sessionStore)
+	dbContext := context.WithValue(sessionStoreContext, app_http.CTX_DB_KEY, dbClient)
 
 	rootRouter := mux.NewRouter()
 

@@ -27,7 +27,11 @@ func onHealth() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		overallStatus := Active
-		label, dbStatus := testDbStatus(r.Context())
+
+		timeoutContext, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+		defer cancel()
+
+		label, dbStatus := testDbStatus(timeoutContext)
 		if dbStatus == Inactive {
 			overallStatus = Inactive
 		}
@@ -62,11 +66,24 @@ func testDbStatus(requestContext context.Context) (string, Status) {
 	} else if dbOptions.Type == options.RepositoryTypeMongoDB {
 		dbClient := requestContext.Value(app_http.CTX_DB_KEY)
 		label = "MongoDB"
-		if reflect.TypeOf(dbClient) == reflect.TypeOf(mongo.Client{}) {
+		if reflect.TypeOf(dbClient) == reflect.TypeOf(&mongo.Client{}) {
+
 			mongoClient := dbClient.(*mongo.Client)
-			err := mongoClient.Ping(timeoutContext, nil)
-			if err == nil {
-				dbStatus = Active
+			errChan := make(chan error, 1)
+
+			go func() {
+				errChan <- mongoClient.Ping(timeoutContext, nil)
+			}()
+
+			select {
+			case <-timeoutContext.Done():
+				dbStatus = Inactive
+			case err := <-errChan:
+				if err != nil {
+					dbStatus = Inactive
+				} else {
+					dbStatus = Active
+				}
 			}
 		}
 	}

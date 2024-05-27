@@ -5,8 +5,10 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
 
+	"github.com/morphy76/g-fe-server/internal/db"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
@@ -16,29 +18,30 @@ import (
 	example_handlers "github.com/morphy76/g-fe-server/internal/example/http"
 )
 
-func Handler(parent *mux.Router, context context.Context) {
+func Handler(parent *mux.Router, app_context context.Context) {
 
-	ctxRoot := context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions).ContextRoot
-	staticPath := context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions).StaticPath
-	dbOptions := context.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)
+	serveOptions := app_context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions)
+	dbOptions := app_context.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)
+	sessionStore := app_context.Value(app_http.CTX_SESSION_STORE_KEY).(sessions.Store)
+	dbClient := app_context.Value(app_http.CTX_DB_KEY).(db.DbClient)
 
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log.Trace().
-				Str("method", r.Method).
-				Str("path", r.URL.Path).
-				Msg("Request received, context initialized")
 
-			useRequest := r.WithContext(context)
+			useRequest := r.WithContext(context.WithValue(r.Context(), app_http.CTX_DB_KEY, dbClient))
+			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_DB_OPTIONS_KEY, dbOptions))
+			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_SESSION_STORE_KEY, sessionStore))
+			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_CONTEXT_SERVE_KEY, serveOptions))
+
 			next.ServeHTTP(w, useRequest)
 		})
 	})
 
 	// Context root router
-	contextRouter := parent.PathPrefix(ctxRoot).Subrouter()
+	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
 	contextRouter.Path("/ui").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, ctxRoot+"/ui/", http.StatusMovedPermanently)
+		http.Redirect(w, r, serveOptions.ContextRoot+"/ui/", http.StatusMovedPermanently)
 	})
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Context router registered")
@@ -53,7 +56,7 @@ func Handler(parent *mux.Router, context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Static middleware registered")
 	}
-	static.HandleStatic(staticRouter, ctxRoot, staticPath)
+	static.HandleStatic(staticRouter, serveOptions.ContextRoot, serveOptions.StaticPath)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Static handler registered")
 	}
@@ -76,13 +79,13 @@ func Handler(parent *mux.Router, context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Non functional router registered")
 	}
-	health.HealthHandlers(nonFunctionalRouter, ctxRoot, dbOptions)
+	health.HealthHandlers(nonFunctionalRouter, serveOptions.ContextRoot, dbOptions)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Health handler registered")
 	}
 
 	// Domain functions
-	example_handlers.ExampleHandlers(apiRouter, ctxRoot, dbOptions)
+	example_handlers.ExampleHandlers(apiRouter, serveOptions.ContextRoot, dbOptions)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Example handler registered")
 	}
