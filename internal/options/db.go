@@ -8,9 +8,11 @@ const (
 )
 
 type MongoDbOptions struct {
-	Url      string
-	User     string
-	Password string
+	Url         string
+	User        string
+	Password    string
+	MaxPoolSize uint64
+	MinPoolSize uint64
 }
 
 type DbOptions struct {

@@ -6,9 +6,9 @@
 
 ### Backlog
 
-- Mongo client: pool options
 - Logging: create a functional approach to logs, attributes and log propagation
-- whats the vendor directory
+- what's the vendor directory
+- Improve server launching (WithCancel ?)
 - cloud friendly http session
   - shared store
   - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
@@ -38,6 +38,7 @@
 - microfrontend serve layout (nice)
   - mfe out-of-the-box versioning
 - React 19 (fun)
+- more mongo client options
 
 ### Bugs
 
@@ -45,7 +46,7 @@
 
 ## What happened
 
-Learning Go developing a presentation server: a presentation server is a Backend For Front-end component (<https://microservices.io/patterns/apigateway.html>) which exposes, in this case, a react application of a very simple entity CRUD.
+Learning Go while developing a presentation server: a presentation server is a Backend For Front-end component (<https://microservices.io/patterns/apigateway.html>) which exposes, in this case, a react application of a very simple entity CRUD.
 
 In this scenario, the BFF also performs CRUD operations instead of acting as a gateway to downstream microservices.
 
@@ -76,7 +77,7 @@ I tried to figure out a sort of internal framework to avoid huge files, SRP infr
 
 #### logging
 
-Looking for G best practices, I gave a look at several online articles and I've found this one which helped me a lot: <https://betterstack.com/community/guides/logging/best-golang-logging-libraries/>. It compares several logging approaches for golang applications and Zerolog is my pick.
+Looking for Go best practices, I gave a look at several online articles and I've found this one which helped me a lot: <https://betterstack.com/community/guides/logging/best-golang-logging-libraries/>. It compares several logging approaches for golang applications and Zerolog is my pick.
 
 The presentation server starts at debug level, it's the minimal threshold for a cloud deployment to let application management. Collecting and filtering logs is the way to provide views on them, this topic will be enhanced by application tracing.
 
@@ -84,7 +85,27 @@ The trace level can be enabled through command flags and its expected audience i
 
 #### routing
 
-TODO
+Routing is hierarchical, `cmd/main.go` prepares the server context and moves on to `internal/http/handlers/handler.go` to build the hierarchy.
+
+First of all, the parent router which receives 3 middlewares:
+
+- The one which sets the request context using values picked from the server context like, in particular to reuse pooled resources across concurrent requests:
+  - The connected db client,
+  - The session store;
+- A tenant resolver, more on this later on...;
+- A semi-pre-configured logger.
+
+Then follows the context router, namely the router which responds to the application context path as configured by run arguments.
+
+The next routers are task-focused:
+
+- The static router to deliver static content, within an HTTP session, with some focus on routing single page applications;
+- The API router to expose the BFF endpoints, but in this case they are the actual CRUD operations on the available resources;
+- A non-functional router, in this case it provides the health probe for k8s environments.
+
+Finally, waiting to learn how to plug stuff into a Go runtime, an hardcoded router to handle the _example_ resource.
+
+Generally speaking, handle functions are provided by the router provided by each module, e.g. `internal/http/health/handler.go` has the health handle functions and `internal/example/http/handlers.go` has those related to the _example_ resource.
 
 #### mongo
 

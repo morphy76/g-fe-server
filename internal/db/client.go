@@ -47,7 +47,9 @@ func NewClient(dbOptions *options.DbOptions) (DbClient, error) {
 
 		clientOpts = mongo_opts.Client().
 			ApplyURI(useUrl.String()).
-			SetServerAPIOptions(serverAPI)
+			SetServerAPIOptions(serverAPI).
+			SetMaxPoolSize(dbOptions.MaxPoolSize).
+			SetMinPoolSize(dbOptions.MinPoolSize)
 
 		mongoClient, err := mongo.Connect(context.Background(), clientOpts)
 		if err != nil {
