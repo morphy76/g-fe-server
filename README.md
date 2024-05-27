@@ -4,28 +4,36 @@
 
 ### Doing
 
+- otel initial integration (traces)
+
 ### Backlog
 
-- Logging: create a functional approach to logs, attributes and log propagation
-- what's the vendor directory
+- otel traceid integrated with the log
+- otel metrics
+- otel export
+- helm review & service mesh (istio)
+- helm to receive otel span
 - Improve server launching (WithCancel ?)
-- cloud friendly http session
-  - shared store
-  - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
-- redis integration
--resusable artifact
-- otel
-- service mesh (istio)
-- godoc
-- openapi
-- github actions
 - authentication & authorization (must)
   - APIs to access HTTP session (token retrieval: header or session)
   - JWT authenticated APIs
-- Accessibility (fun)
 - multitenancy (must)
   - HTTP header tenant resolver ("done")
   - JWT tenant resolver
+- redis integration (as a client, as a mongo cache, as an http session store) + health
+- kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama)
+- zookeeper playground?
+- otel for system dependencies: mongo, kafka & redis
+- cloud friendly http session
+  - shared store
+  - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
+- openapi
+- github actions
+- godoc
+- Logging: create a functional approach to logs, attributes and log propagation
+- what's the vendor directory
+- resusable artifact: pluggable domain resources, API & FE
+- Accessibility (fun)
 - FE crud
   - use query cache and optimistic updates (must)
 - selected example in URL instead of react useState (fun)
@@ -107,7 +115,7 @@ Finally, waiting to learn how to plug stuff into a Go runtime, an hardcoded rout
 
 Generally speaking, handle functions are provided by the router provided by each module, e.g. `internal/http/health/handler.go` has the health handle functions and `internal/example/http/handlers.go` has those related to the _example_ resource.
 
-#### mongo
+#### mongo & repository
 
 TODO
 

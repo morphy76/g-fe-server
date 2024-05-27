@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/otel"
 
 	"github.com/morphy76/g-fe-server/internal/db"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
@@ -24,15 +25,22 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	dbOptions := app_context.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)
 	sessionStore := app_context.Value(app_http.CTX_SESSION_STORE_KEY).(sessions.Store)
 	dbClient := app_context.Value(app_http.CTX_DB_KEY).(db.DbClient)
+	tracerProvider := otel.GetTracerProvider()
 
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
+
+		tracer := tracerProvider.Tracer("github.com/morphy76/g-fe-server")
+
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 			useRequest := r.WithContext(context.WithValue(r.Context(), app_http.CTX_DB_KEY, dbClient))
 			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_DB_OPTIONS_KEY, dbOptions))
 			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_SESSION_STORE_KEY, sessionStore))
 			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_CONTEXT_SERVE_KEY, serveOptions))
+
+			_, span := tracer.Start(useRequest.Context(), "parent-handler")
+			defer span.End()
 
 			next.ServeHTTP(w, useRequest)
 		})

@@ -1,5 +1,5 @@
 # Builder image: BFF
-FROM golang:1.22.2 AS ps-builder
+FROM golang:1.22.3 AS ps-builder
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update \
