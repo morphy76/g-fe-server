@@ -57,19 +57,3 @@ func (r *MemoryRepository) Delete(id string) error {
 	delete(r.db, id)
 	return nil
 }
-
-func (r *MemoryRepository) Connect() error {
-	return nil
-}
-
-func (r *MemoryRepository) Disconnect() error {
-	return nil
-}
-
-func (r *MemoryRepository) IsConnected() bool {
-	return true
-}
-
-func (r *MemoryRepository) Ping() bool {
-	return true
-}

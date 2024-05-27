@@ -11,8 +11,4 @@ type Repository interface {
 	Save(e Example) error
 	Update(e Example) error
 	Delete(id string) error
-	Connect() error
-	Disconnect() error
-	IsConnected() bool
-	Ping() bool
 }

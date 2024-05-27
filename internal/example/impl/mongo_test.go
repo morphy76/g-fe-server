@@ -6,21 +6,18 @@ import (
 
 	"context"
 
+	"github.com/morphy76/g-fe-server/internal/db"
+	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mongodb"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const db_name = "go_db"
 
-func MongoCleanup(repo *MongoRepository, mongoC *mongodb.MongoDBContainer, t *testing.T, ctx context.Context) func() {
+func MongoCleanup(mongoC *mongodb.MongoDBContainer, t *testing.T, ctx context.Context) func() {
 	return func() {
 		t.Log("Cleanup Repository Suite")
-
-		if err := repo.Disconnect(); err != nil {
-			t.Logf("Could not disconnect the repository: %s", err)
-		} else {
-			t.Log("Repository disconnected")
-		}
 
 		if err := mongoC.Terminate(ctx); err != nil {
 			t.Logf("Could not stop MongoDB: %s", err)
@@ -72,20 +69,27 @@ func TestMongoRepositorySuite(t *testing.T) {
 
 	usePort := ports["27017/tcp"][0]
 
+	t.Cleanup(MongoCleanup(mongoC, t, ctx))
+
+	dbOptions := &options.DbOptions{
+		Type: options.RepositoryTypeMongoDB,
+		MongoDbOptions: options.MongoDbOptions{
+			Url:      fmt.Sprintf("mongodb://%s:%s/%s", host, usePort.HostPort, db_name),
+			User:     "go",
+			Password: "go",
+		},
+	}
+	dbClient, err := db.NewClient(dbOptions)
+	if err != nil {
+		t.Fatalf("Failed to create the client: %s", err)
+	}
+
 	repo := &MongoRepository{
-		Url:      fmt.Sprintf("mongodb://%s:%s/%s", host, usePort.HostPort, db_name),
-		Username: "go",
-		Password: "go",
+		DbOptions:  dbOptions,
+		Client:     dbClient.(*mongo.Client),
+		UseContext: ctx,
 	}
-	t.Logf("Repository URI: %s", repo.Url)
-
-	if err = repo.Connect(); err != nil {
-		t.Fatalf("Failed to connect the repository: %s", err)
-	} else {
-		t.Log("Repository connected")
-	}
-
-	t.Cleanup(MongoCleanup(repo, mongoC, t, ctx))
+	t.Logf("Repository URI: %s", dbOptions.Url)
 
 	t.Run("Test List", func(t *testing.T) {
 		t.Log("Testing Mongo List")

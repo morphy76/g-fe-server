@@ -1,15 +1,14 @@
-package example
+package http
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/zerolog"
 
-	app_http "github.com/morphy76/g-fe-server/internal/http"
-	"github.com/morphy76/g-fe-server/internal/http/middleware"
+	"github.com/morphy76/g-fe-server/internal/example/api"
 	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/morphy76/g-fe-server/pkg/example"
 )
@@ -18,11 +17,9 @@ const (
 	pathParamExampleId = "exampleId"
 )
 
-func ExampleHandlers(apiRouter *mux.Router, context context.Context) {
+func ExampleHandlers(apiRouter *mux.Router, ctxRoot string, dbOptions *options.DbOptions) {
 
 	var (
-		repository           = context.Value(app_http.CTX_REPOSITORY_KEY).(example.Repository)
-		ctxRoot              = context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions).ContextRoot
 		apiRoot              = fmt.Sprintf("%s/api/example", ctxRoot)
 		apiParamExampleId    = fmt.Sprintf("{%s}", pathParamExampleId)
 		apiResourceExampleId = fmt.Sprintf("%s/%s", apiRoot, apiParamExampleId)
@@ -30,17 +27,25 @@ func ExampleHandlers(apiRouter *mux.Router, context context.Context) {
 		itemRouter = apiRouter.PathPrefix("/example").Subrouter()
 	)
 
-	itemRouter.Methods(http.MethodGet).HandlerFunc(onList(repository)).Path("").Name("GET " + apiRoot)
-	itemRouter.Methods(http.MethodPost).HandlerFunc(onCreate(repository)).Name("POST " + apiRoot)
-	itemRouter.Methods(http.MethodGet).HandlerFunc(onGet(repository)).Path("/" + apiParamExampleId).Name("GET " + apiResourceExampleId)
-	itemRouter.Methods(http.MethodDelete).HandlerFunc(onDelete(repository)).Path("/" + apiParamExampleId).Name("DELETE " + apiResourceExampleId)
-	itemRouter.Methods(http.MethodPut).HandlerFunc(onPut(repository)).Path("/" + apiParamExampleId).Name("PUT " + apiResourceExampleId)
+	itemRouter.Methods(http.MethodGet).HandlerFunc(onList).Path("").Name("GET " + apiRoot)
+	itemRouter.Methods(http.MethodPost).HandlerFunc(onCreate).Name("POST " + apiRoot)
+	itemRouter.Methods(http.MethodGet).HandlerFunc(onGet).Path("/" + apiParamExampleId).Name("GET " + apiResourceExampleId)
+	itemRouter.Methods(http.MethodDelete).HandlerFunc(onDelete).Path("/" + apiParamExampleId).Name("DELETE " + apiResourceExampleId)
+	itemRouter.Methods(http.MethodPut).HandlerFunc(onPut).Path("/" + apiParamExampleId).Name("PUT " + apiResourceExampleId)
 }
 
-func onList(repository example.Repository) http.HandlerFunc {
+var onList = api.ContextualizedApi(onContextualizedList)
+var onCreate = api.ContextualizedApi(onContextualizedCreate)
+var onGet = api.ContextualizedApi(onContextualizedGet)
+var onDelete = api.ContextualizedApi(onContextualizedDelete)
+var onPut = api.ContextualizedApi(onContextualizedPut)
+
+func onContextualizedList(
+	useLog zerolog.Logger,
+	repository example.Repository,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		useLog := middleware.ExtractLoggerFromRequest(r, "example")
 		useLog.Trace().Msg("Start listing examples")
 		defer func() {
 			useLog.Info().Msg("End listing examples")
@@ -62,10 +67,12 @@ func onList(repository example.Repository) http.HandlerFunc {
 	}
 }
 
-func onCreate(repository example.Repository) http.HandlerFunc {
+func onContextualizedCreate(
+	useLog zerolog.Logger,
+	repository example.Repository,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		useLog := middleware.ExtractLoggerFromRequest(r, "example")
 		useLog.Trace().Msg("Start creating example")
 		defer func() {
 			useLog.Info().Msg("End creating example")
@@ -94,10 +101,12 @@ func onCreate(repository example.Repository) http.HandlerFunc {
 	}
 }
 
-func onGet(repository example.Repository) http.HandlerFunc {
+func onContextualizedGet(
+	useLog zerolog.Logger,
+	repository example.Repository,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		useLog := middleware.ExtractLoggerFromRequest(r, "example")
 		useLog.Trace().Msg("Start fetching example")
 		defer func() {
 			useLog.Info().Msg("End fetching example")
@@ -123,10 +132,12 @@ func onGet(repository example.Repository) http.HandlerFunc {
 	}
 }
 
-func onDelete(repository example.Repository) http.HandlerFunc {
+func onContextualizedDelete(
+	useLog zerolog.Logger,
+	repository example.Repository,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		useLog := middleware.ExtractLoggerFromRequest(r, "example")
 		useLog.Trace().Msg("Start deleting example")
 		defer func() {
 			useLog.Info().Msg("End deleting example")
@@ -150,10 +161,12 @@ func onDelete(repository example.Repository) http.HandlerFunc {
 	}
 }
 
-func onPut(repository example.Repository) http.HandlerFunc {
+func onContextualizedPut(
+	useLog zerolog.Logger,
+	repository example.Repository,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		useLog := middleware.ExtractLoggerFromRequest(r, "example")
 		useLog.Trace().Msg("Start updating example")
 		defer func() {
 			useLog.Info().Msg("End updating example")

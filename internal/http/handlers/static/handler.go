@@ -1,7 +1,6 @@
 package static
 
 import (
-	"context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,13 +12,9 @@ import (
 	"github.com/rs/zerolog/log"
 
 	app_http "github.com/morphy76/g-fe-server/internal/http"
-	"github.com/morphy76/g-fe-server/internal/options"
 )
 
-func HandleStatic(staticRouter *mux.Router, context context.Context) {
-
-	ctxRoot := context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions).ContextRoot
-	staticPath := context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions).StaticPath
+func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 
 	defaultFile := filepath.Join(staticPath, "index.html")
 

@@ -7,17 +7,20 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 
-	"github.com/morphy76/g-fe-server/internal/example"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/internal/options"
+
+	example_handlers "github.com/morphy76/g-fe-server/internal/example/http"
 )
 
 func Handler(parent *mux.Router, context context.Context) {
 
 	ctxRoot := context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions).ContextRoot
+	staticPath := context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions).StaticPath
+	dbOptions := context.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)
 
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
@@ -50,7 +53,7 @@ func Handler(parent *mux.Router, context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Static middleware registered")
 	}
-	static.HandleStatic(staticRouter, context)
+	static.HandleStatic(staticRouter, ctxRoot, staticPath)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Static handler registered")
 	}
@@ -73,13 +76,13 @@ func Handler(parent *mux.Router, context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Non functional router registered")
 	}
-	health.HealthHandlers(nonFunctionalRouter, context)
+	health.HealthHandlers(nonFunctionalRouter, ctxRoot, dbOptions)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Health handler registered")
 	}
 
 	// Domain functions
-	example.ExampleHandlers(apiRouter, context)
+	example_handlers.ExampleHandlers(apiRouter, ctxRoot, dbOptions)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Example handler registered")
 	}

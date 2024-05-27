@@ -88,7 +88,7 @@ const InnerApp: React.FC = () => {
         />
       }
     </>
-  ), [loadingLabel, isLoading, error, selected, data, refetch]);
+  ), [loadingLabel, errorLabel, isLoading, error, selected, data, refetch]);
 
   return (
     <>

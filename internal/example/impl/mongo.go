@@ -3,13 +3,12 @@ package example
 import (
 	"net/url"
 	"path"
-	"time"
 
+	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/morphy76/g-fe-server/pkg/example"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"context"
 )
@@ -17,31 +16,24 @@ import (
 const MONGO_COLLECTION = "examples"
 
 type MongoRepository struct {
-	Url      string
-	Username string
-	Password string
-
-	connected  bool
-	ctx        context.Context
-	client     *mongo.Client
+	DbOptions  *options.DbOptions
+	Client     *mongo.Client
+	UseContext context.Context
 	collection *mongo.Collection
 }
 
 func (r *MongoRepository) FindAll() ([]example.Example, error) {
 
-	if !r.connected {
-		return nil, example.ErrNotConnected
-	}
+	r.lazyBindCollection()
 
-	cur, err := r.collection.Find(r.ctx, bson.D{})
+	cur, err := r.collection.Find(r.UseContext, bson.D{})
 	if err != nil {
 		return nil, err
 	}
-
-	defer cur.Close(r.ctx)
+	defer cur.Close(r.UseContext)
 
 	var rv []example.Example
-	err = cur.All(r.ctx, &rv)
+	err = cur.All(r.UseContext, &rv)
 	if err != nil {
 		return nil, err
 	}
@@ -51,13 +43,11 @@ func (r *MongoRepository) FindAll() ([]example.Example, error) {
 
 func (r *MongoRepository) FindById(id string) (example.Example, error) {
 
+	r.lazyBindCollection()
+
 	rv := example.Example{}
 
-	if !r.connected {
-		return rv, example.ErrNotConnected
-	}
-
-	singleResult := r.collection.FindOne(r.ctx, bson.D{{Key: "name", Value: id}})
+	singleResult := r.collection.FindOne(r.UseContext, bson.D{{Key: "name", Value: id}})
 
 	err := singleResult.Decode(&rv)
 	if err != nil {
@@ -72,11 +62,9 @@ func (r *MongoRepository) FindById(id string) (example.Example, error) {
 
 func (r *MongoRepository) Save(e example.Example) error {
 
-	if !r.connected {
-		return example.ErrNotConnected
-	}
+	r.lazyBindCollection()
 
-	_, err := r.collection.InsertOne(r.ctx, e)
+	_, err := r.collection.InsertOne(r.UseContext, e)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			return example.ErrAlreadyExists
@@ -89,11 +77,9 @@ func (r *MongoRepository) Save(e example.Example) error {
 
 func (r *MongoRepository) Update(e example.Example) error {
 
-	if !r.connected {
-		return example.ErrNotConnected
-	}
+	r.lazyBindCollection()
 
-	updateResult, err := r.collection.ReplaceOne(r.ctx, bson.D{{Key: "name", Value: e.Name}}, e)
+	updateResult, err := r.collection.ReplaceOne(r.UseContext, bson.D{{Key: "name", Value: e.Name}}, e)
 	if err != nil {
 		return err
 	}
@@ -106,11 +92,9 @@ func (r *MongoRepository) Update(e example.Example) error {
 
 func (r *MongoRepository) Delete(id string) error {
 
-	if !r.connected {
-		return example.ErrNotConnected
-	}
+	r.lazyBindCollection()
 
-	deleteResult, err := r.collection.DeleteOne(r.ctx, bson.D{{Key: "name", Value: id}})
+	deleteResult, err := r.collection.DeleteOne(r.UseContext, bson.D{{Key: "name", Value: id}})
 	if err != nil {
 		return err
 	}
@@ -121,57 +105,16 @@ func (r *MongoRepository) Delete(id string) error {
 	return nil
 }
 
-func (r *MongoRepository) Connect() error {
+func (r *MongoRepository) lazyBindCollection() {
+	if r.collection == nil {
 
-	r.ctx = context.Background()
+		useUrl, _ := url.Parse(r.DbOptions.Url)
 
-	useUrl, err := url.Parse(r.Url)
-	if err != nil {
-		return err
+		if useUrl.User == nil {
+			useCredentials := url.UserPassword(r.DbOptions.User, r.DbOptions.Password)
+			useUrl.User = useCredentials
+		}
+
+		r.collection = r.Client.Database(path.Base(useUrl.Path)).Collection(MONGO_COLLECTION)
 	}
-
-	var clientOpts *options.ClientOptions
-	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	if useUrl.User == nil {
-		useCredentials := url.UserPassword(r.Username, r.Password)
-		useUrl.User = useCredentials
-	}
-
-	clientOpts = options.Client().
-		ApplyURI(useUrl.String()).
-		SetServerAPIOptions(serverAPI)
-
-	r.client, err = mongo.Connect(r.ctx, clientOpts)
-	r.connected = err == nil
-
-	r.collection = r.client.Database(path.Base(useUrl.Path)).Collection(MONGO_COLLECTION)
-
-	return err
-}
-
-func (r *MongoRepository) Disconnect() error {
-	var err error
-	if r.connected {
-		err = r.client.Disconnect(r.ctx)
-	} else {
-		err = example.ErrNotConnected
-	}
-	r.connected = false
-	return err
-}
-
-func (r *MongoRepository) IsConnected() bool {
-	return r.connected
-}
-
-func (r *MongoRepository) Ping() bool {
-	if !r.connected {
-		return false
-	}
-
-	ctx, cancel := context.WithTimeout(r.ctx, 5*time.Second)
-	defer cancel()
-
-	err := r.client.Ping(ctx, nil)
-	return err == nil
 }

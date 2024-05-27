@@ -4,9 +4,11 @@
 
 ### Doing
 
+- Broken MemoryRepository in the http contextualized stack
+- Broken MongoRepository in the http contextualized stack
+
 ### Backlog
 
-- Fix API call for example CRUD
 - Logging: create a functional approach to logs, attributes and log propagation
 - whats the vendor directory
 - cloud friendly http session

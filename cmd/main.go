@@ -15,7 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/morphy76/g-fe-server/internal/cli"
-	"github.com/morphy76/g-fe-server/internal/example"
+	"github.com/morphy76/g-fe-server/internal/db"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers"
 	"github.com/morphy76/g-fe-server/internal/options"
@@ -76,24 +76,19 @@ func startServer(
 
 	start := time.Now()
 
-	repository, err := example.NewRepository(dbOptions)
+	dbClient, err := db.NewClient(dbOptions)
 	if err != nil {
 		panic(err)
 	}
-
-	err = repository.Connect()
-	if err != nil {
-		panic(err)
-	}
-	defer repository.Disconnect()
 
 	serverContext := context.WithValue(context.Background(), app_http.CTX_CONTEXT_SERVE_KEY, serveOptions)
 	sessionStoreContext := context.WithValue(serverContext, app_http.CTX_SESSION_STORE_KEY, sessionStore)
-	finalContext := context.WithValue(sessionStoreContext, app_http.CTX_REPOSITORY_KEY, repository)
+	dbOptsContext := context.WithValue(sessionStoreContext, app_http.CTX_DB_OPTIONS_KEY, dbOptions)
+	dbContext := context.WithValue(dbOptsContext, app_http.CTX_DB_KEY, dbClient)
 
 	rootRouter := mux.NewRouter()
 
-	handlers.Handler(rootRouter, finalContext)
+	handlers.Handler(rootRouter, dbContext)
 
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
