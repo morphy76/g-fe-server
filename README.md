@@ -4,14 +4,13 @@
 
 ### Doing
 
-- otel traceid integrated with the log
+- helm to receive otel span
 
 ### Backlog
 
 - otel metrics
 - otel export
 - helm review & service mesh (istio)
-- helm to receive otel span
 - Improve server launching (WithCancel ?)
 - authentication & authorization (must)
   - APIs to access HTTP session (token retrieval: header or session)
@@ -99,6 +98,11 @@ Looking for Go best practices, I gave a look at several online articles and I've
 The presentation server starts at debug level, it's the minimal threshold for a cloud deployment to let application management. Collecting and filtering logs is the way to provide views on them, this topic will be enhanced by application tracing.
 
 The trace level can be enabled through command flags and its expected audience is development support.
+
+Logging is enriched by contextual information:
+
+- an _ownership_ dictionary to trace the attribution of the operation, in particular logical user organizations like tenants, subscriptions and stuff like that;
+- a _correlation_ dictionary to trace the operation correlation, using the OTEL SDK, across decoupled or hierarchical operations: the log is enriched with the span_id and the trace_id.
 
 #### routing
 
@@ -191,7 +195,6 @@ TODO
 - make watch
 - make watch-fe
 
-
 ### Docker
 
 TODO
@@ -212,4 +215,3 @@ helm upgrade --install -n fe fe-server tools/helm/g-fe-server
 
 - Building (must)
   - helm
-

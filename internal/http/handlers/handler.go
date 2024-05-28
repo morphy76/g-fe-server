@@ -41,8 +41,16 @@ func Handler(parent *mux.Router, app_context context.Context) {
 			next.ServeHTTP(w, useRequest)
 		})
 	})
-	parent.Use(middleware.TenantResolver)
-	parent.Use(middleware.RequestLogger)
+
+	// Non functional router
+	nonFunctionalRouter := parent.PathPrefix("/g").Subrouter()
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Non functional router registered")
+	}
+	health.HealthHandlers(nonFunctionalRouter, serveOptions.ContextRoot, dbOptions)
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Health handler registered")
+	}
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
@@ -52,6 +60,13 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Context router registered")
 	}
+
+	contextRouter.Use(otelmux.Middleware(serve.OTEL_SERVICE_NAME,
+		otelmux.WithPublicEndpoint(),
+		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+	))
+	contextRouter.Use(middleware.TenantResolver)
+	contextRouter.Use(middleware.RequestLogger)
 
 	// Static content
 	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()
@@ -74,24 +89,10 @@ func Handler(parent *mux.Router, app_context context.Context) {
 		log.Trace().Msg("API router registered")
 	}
 
-	apiRouter.Use(otelmux.Middleware(serve.OTEL_SERVICE_NAME,
-		otelmux.WithPublicEndpoint(),
-		otelmux.WithPropagators(otel.GetTextMapPropagator()),
-	))
 	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 	if log.Trace().Enabled() {
 		log.Trace().Msg("API middleware registered")
-	}
-
-	// Non functional router
-	nonFunctionalRouter := contextRouter.PathPrefix("/g").Subrouter()
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Non functional router registered")
-	}
-	health.HealthHandlers(nonFunctionalRouter, serveOptions.ContextRoot, dbOptions)
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Health handler registered")
 	}
 
 	// Domain functions
