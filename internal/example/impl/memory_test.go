@@ -10,7 +10,7 @@ func TestMemoryRepositorySuite(t *testing.T) {
 	t.Log("Test MemoryRepository Suite")
 
 	repo := NewMemoryRepository()
-	t.Logf("Repository URI: memory")
+	t.Logf("Repository URL: memory")
 
 	t.Run("Test List", func(t *testing.T) {
 		t.Log("Testing Memory List")

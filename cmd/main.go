@@ -32,6 +32,7 @@ func main() {
 
 	dbOptionsBuilder := cli.DbOptionsBuilder()
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
+	otelOptionsBuilder := cli.OtelOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -59,12 +60,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	startServer(serveOptions, dbOptions)
+	otelOptions, err := otelOptionsBuilder()
+	if err != nil {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	startServer(
+		serveOptions,
+		dbOptions,
+		otelOptions,
+	)
 }
 
 func startServer(
 	serveOptions *options.ServeOptions,
 	dbOptions *options.DbOptions,
+	otelOptions *options.OtelOptions,
 ) {
 
 	start := time.Now()
@@ -91,7 +103,7 @@ func startServer(
 	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	otelShutdown, err := serve.SetupOTelSDK(initialContext)
+	otelShutdown, err := serve.SetupOTelSDK(initialContext, otelOptions)
 	if err != nil {
 		panic(err)
 	}

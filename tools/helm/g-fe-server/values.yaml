@@ -5,9 +5,12 @@ server:
   db:
     type: 1 # 0: in-memory, 1: mongodb
     mongodb:
-      uri: mongodb://go_user:go_password@fe-server-mongodb-headless:27017/go_db?replicaSet=rs_fe&w=1
-      db: go_db
-      collection: examples
+      url: mongodb://fe-server-mongodb-headless:27017/go_db?replicaSet=rs_fe&w=1
+      user: go_user
+      password: go_password
+  otlp:
+    enabled: true
+    endpoint: http://fe-server-zipkin:9411/api/v2/spans
 
 replicaCount: 1
 
@@ -27,8 +30,12 @@ serviceAccount:
   annotations: {}
   name: ""
 
-podAnnotations: {}
-podLabels: {}
+podAnnotations:
+  prometheus.io/scrape: 'true'
+podLabels:
+  app.kubernetes.io/name: g-fe-server
+  app.kubernetes.io/managed-by: Helm
+  app.kubernetes.io/component: presentation-server
 
 podSecurityContext: {}
 
@@ -89,3 +96,13 @@ mongodb:
       use go_db;
       db.createCollection('examples', {});
       db.examples.createIndex({ name: 1 }, { unique: true });
+
+prometheus:
+  enabled: false
+  server:
+    enableFeatures:
+      - otlp-write-receiver
+    extraScrapeConfigs:
+      - job_name: 'g-fe-server'
+        kubernetes_sd_configs:
+          - role: pod

@@ -89,7 +89,7 @@ func TestMongoRepositorySuite(t *testing.T) {
 		Client:     dbClient.(*mongo.Client),
 		UseContext: ctx,
 	}
-	t.Logf("Repository URI: %s", dbOptions.Url)
+	t.Logf("Repository URL: %s", dbOptions.Url)
 
 	t.Run("Test List", func(t *testing.T) {
 		t.Log("Testing Mongo List")

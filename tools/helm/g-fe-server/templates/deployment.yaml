@@ -41,23 +41,27 @@ spec:
               value: {{ .Values.server.contextRoot | quote }}
             - name: DB_TYPE
               value: {{ .Values.server.db.type | quote }}
-            - name: DB_MONGO_URI
-              value: {{ .Values.server.db.mongodb.uri | quote }}
-            - name: DB_MONGO_NAME
-              value: {{ .Values.server.db.mongodb.db | quote }}
-            - name: DB_MONGO_COLLECTION
-              value: {{ .Values.server.db.mongodb.collection | quote }}
+            - name: DB_MONGO_URL
+              value: {{ .Values.server.db.mongodb.url | quote }}
+            - name: DB_MONGO_USER
+              value: {{ .Values.server.db.mongodb.user | quote }}
+            - name: DB_MONGO_PASSWORD
+              value: {{ .Values.server.db.mongodb.password | quote }}
+            - name: ENABLE_OTEL_EXPORT
+              value: {{ .Values.server.otlp.enabled | quote }}
+            - name: OTLP_URL
+              value: {{ .Values.server.otlp.endpoint | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: "{{ tpl .Values.server.contextRoot . }}/g/health"
+              path: "/g/health"
               port: http
           readinessProbe:
             httpGet:
-              path: "{{ tpl .Values.server.contextRoot . }}/g/health"
+              path: "/g/health"
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

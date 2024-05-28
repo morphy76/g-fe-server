@@ -16,7 +16,6 @@ import (
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/internal/options"
-	"github.com/morphy76/g-fe-server/internal/serve"
 
 	example_handlers "github.com/morphy76/g-fe-server/internal/example/http"
 )
@@ -61,10 +60,6 @@ func Handler(parent *mux.Router, app_context context.Context) {
 		log.Trace().Msg("Context router registered")
 	}
 
-	contextRouter.Use(otelmux.Middleware(serve.OTEL_SERVICE_NAME,
-		otelmux.WithPublicEndpoint(),
-		otelmux.WithPropagators(otel.GetTextMapPropagator()),
-	))
 	contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
 
@@ -100,4 +95,14 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Example handler registered")
 	}
+
+	contextRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		if len(route.GetName()) > 0 {
+			router.Use(otelmux.Middleware(route.GetName(),
+				otelmux.WithPublicEndpoint(),
+				otelmux.WithPropagators(otel.GetTextMapPropagator()),
+			))
+		}
+		return nil
+	})
 }

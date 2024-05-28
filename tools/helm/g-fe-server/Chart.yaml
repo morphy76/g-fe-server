@@ -13,3 +13,10 @@ dependencies:
     version: 15.1.7
     repository: https://charts.bitnami.com/bitnami
     condition: mongodb.enabled
+  - name: zipkin
+    version: 0.3.3
+    repository: https://zipkin.io/zipkin-helm
+  - name: prometheus
+    version: 1.0.9
+    repository: https://charts.bitnami.com/bitnami
+    condition: prometheus.enabled

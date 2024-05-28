@@ -19,3 +19,8 @@ type DbOptions struct {
 	MongoDbOptions
 	Type RepositoryType
 }
+
+type OtelOptions struct {
+	Enabled bool
+	Url     string
+}

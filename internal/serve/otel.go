@@ -4,15 +4,18 @@ import (
 	"context"
 	"errors"
 
+	"github.com/morphy76/g-fe-server/internal/options"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/zipkin"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
-const OTEL_SERVICE_NAME = "g-fe-server"
+const OTEL_APP_NAME = "g-fe-server"
 
-func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, err error) {
+func SetupOTelSDK(ctx context.Context, otelOptions *options.OtelOptions) (shutdown func(context.Context) error, err error) {
 
 	var shutdownFuncs []func(context.Context) error
 
@@ -32,7 +35,7 @@ func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, er
 	propagator := newPropagator()
 	otel.SetTextMapPropagator(propagator)
 
-	tracerProvider, err := newTraceProvider()
+	tracerProvider, err := newTraceProvider(otelOptions.Enabled, otelOptions.Url)
 	if err != nil {
 		handleErr(err)
 		return
@@ -50,15 +53,24 @@ func newPropagator() propagation.TextMapPropagator {
 	)
 }
 
-func newTraceProvider() (*trace.TracerProvider, error) {
+func newTraceProvider(enabled bool, url string) (*trace.TracerProvider, error) {
 
-	traceExporter, err := stdouttrace.New()
-	if err != nil {
-		return nil, err
+	var traceProvider *trace.TracerProvider
+
+	if enabled {
+		traceExporter, err := zipkin.New(url)
+		if err != nil {
+			return nil, err
+		}
+		traceProvider = trace.NewTracerProvider(
+			trace.WithBatcher(traceExporter),
+			trace.WithResource(resource.NewSchemaless(
+				attribute.String("service.name", OTEL_APP_NAME),
+			)),
+		)
+	} else {
+		traceProvider = trace.NewTracerProvider()
 	}
 
-	traceProvider := trace.NewTracerProvider(
-		trace.WithBatcher(traceExporter),
-	)
 	return traceProvider, nil
 }
