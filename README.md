@@ -65,6 +65,7 @@ It uses the following third party dependencies:
 - Gorilla for the HTTP stack, it seems to be the best featured choice;
 - Zerolog for logging, see later;
 - The official MongoDB go driver to bind MongoDb 7 (go.mongodb.org/mongo-driver);
+- The official OpenTelemetry SDK for observability (go.opentelemetry.io/otel);
 - ...no more, so far, but I guess I'll try to play also with Redis.
 
 #### flags
