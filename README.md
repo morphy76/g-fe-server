@@ -88,7 +88,7 @@ As a fake BFF (it's not acting as a gateway but having CRUD operations on `examp
 
 Additional integrations to observe third party dependencies like MongoDB will enrich the spans.
 
-So far it uses a stdout exporter but it will replaced by an Helm dependency for proper tracing.
+It exposrts the span, with a close to the default configuration, to Zipking which has been integrated as an Helm dependency.
 
 #### logging
 
