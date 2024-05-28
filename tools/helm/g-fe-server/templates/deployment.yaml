@@ -47,6 +47,10 @@ spec:
               value: {{ .Values.server.db.mongodb.user | quote }}
             - name: DB_MONGO_PASSWORD
               value: {{ .Values.server.db.mongodb.password | quote }}
+            - name: ENABLE_OTEL_EXPORT
+              value: {{ .Values.server.otlp.enabled | quote }}
+            - name: OTLP_URL
+              value: {{ .Values.server.otlp.endpoint | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}

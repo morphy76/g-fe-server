@@ -4,13 +4,9 @@
 
 ### Doing
 
-- helm to receive otel span
-
 ### Backlog
 
-- flags to configure otel
 - otel metrics
-- otel export
 - helm review & service mesh (istio)
 - Improve server launching (WithCancel ?)
 - authentication & authorization (must)
@@ -214,6 +210,9 @@ helm dependency build tools/helm/g-fe-server
 helm upgrade --install -n fe fe-server tools/helm/g-fe-server
 
 helm uninstall -n fe fe-server
+
+kubectl -n fe port-forward services/fe-server-g-fe-server 8080:8080
+kubectl -n fe port-forward services/fe-server-zipkin 9411:9411
 ```
 
 - Building (must)

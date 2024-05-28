@@ -8,6 +8,9 @@ server:
       url: mongodb://fe-server-mongodb-headless:27017/go_db?replicaSet=rs_fe&w=1
       user: go_user
       password: go_password
+  otlp:
+    enabled: true
+    endpoint: http://fe-server-zipkin:9411/api/v2/spans
 
 replicaCount: 1
 
