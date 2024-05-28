@@ -4,28 +4,34 @@
 
 ### Doing
 
+- helm to receive otel span
+
 ### Backlog
 
-- Logging: create a functional approach to logs, attributes and log propagation
-- what's the vendor directory
+- otel metrics
+- otel export
+- helm review & service mesh (istio)
 - Improve server launching (WithCancel ?)
-- cloud friendly http session
-  - shared store
-  - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
-- redis integration
--resusable artifact
-- otel
-- service mesh (istio)
-- godoc
-- openapi
-- github actions
 - authentication & authorization (must)
   - APIs to access HTTP session (token retrieval: header or session)
   - JWT authenticated APIs
-- Accessibility (fun)
 - multitenancy (must)
   - HTTP header tenant resolver ("done")
   - JWT tenant resolver
+- redis integration (as a client, as a mongo cache, as an http session store) + health
+- kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama)
+- zookeeper playground?
+- otel for system dependencies: mongo, kafka & redis
+- cloud friendly http session
+  - shared store
+  - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
+- openapi
+- github actions
+- godoc
+- Logging: create a functional approach to logs, attributes and log propagation
+- what's the vendor directory
+- resusable artifact: pluggable domain resources, API & FE
+- Accessibility (fun)
 - FE crud
   - use query cache and optimistic updates (must)
 - selected example in URL instead of react useState (fun)
@@ -75,6 +81,16 @@ I tried to figure out a sort of internal framework to avoid huge files, SRP infr
 - Return a factory method to convert the flags into option types (package `internal/options`) to use to set up `context.Context` contextes to use downstream;
 - It contains just the overall bindings, not domain specific items like the collection to use, which is in the internal implementation of the repository in the `example` package.
 
+#### Observability
+
+The g-fe-server is integrated with the OpenTelemetry official SDK (`go.opentelemetry.io/otel`).
+
+As a fake BFF (it's not acting as a gateway but having CRUD operations on `examples` directly on board), the spans are _local_.
+
+Additional integrations to observe third party dependencies like MongoDB will enrich the spans.
+
+So far it uses a stdout exporter but it will replaced by an Helm dependency for proper tracing.
+
 #### logging
 
 Looking for Go best practices, I gave a look at several online articles and I've found this one which helped me a lot: <https://betterstack.com/community/guides/logging/best-golang-logging-libraries/>. It compares several logging approaches for golang applications and Zerolog is my pick.
@@ -82,6 +98,11 @@ Looking for Go best practices, I gave a look at several online articles and I've
 The presentation server starts at debug level, it's the minimal threshold for a cloud deployment to let application management. Collecting and filtering logs is the way to provide views on them, this topic will be enhanced by application tracing.
 
 The trace level can be enabled through command flags and its expected audience is development support.
+
+Logging is enriched by contextual information:
+
+- an _ownership_ dictionary to trace the attribution of the operation, in particular logical user organizations like tenants, subscriptions and stuff like that;
+- a _correlation_ dictionary to trace the operation correlation, using the OTEL SDK, across decoupled or hierarchical operations: the log is enriched with the span_id and the trace_id.
 
 #### routing
 
@@ -107,7 +128,9 @@ Finally, waiting to learn how to plug stuff into a Go runtime, an hardcoded rout
 
 Generally speaking, handle functions are provided by the router provided by each module, e.g. `internal/http/health/handler.go` has the health handle functions and `internal/example/http/handlers.go` has those related to the _example_ resource.
 
-#### mongo
+Routers, the API router in particular, are integrated with Opentracing with a Gorilla extension: `go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux`.
+
+#### mongo & repository
 
 TODO
 
@@ -172,7 +195,6 @@ TODO
 - make watch
 - make watch-fe
 
-
 ### Docker
 
 TODO
@@ -193,4 +215,3 @@ helm upgrade --install -n fe fe-server tools/helm/g-fe-server
 
 - Building (must)
   - helm
-

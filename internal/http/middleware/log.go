@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/otel/trace"
 
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 )
@@ -28,8 +29,14 @@ func RequestLogger(next http.Handler) http.Handler {
 			Status:         200,
 		}
 
+		activeSpan := trace.SpanFromContext(r.Context())
+
 		ownership := r.Context().Value(app_http.CTX_OWNERSHIP_KEY).(Ownership)
 		useLogger := log.Logger.With().
+			Dict("correlation", zerolog.Dict().
+				Str("span_id", activeSpan.SpanContext().SpanID().String()).
+				Str("trace_id", activeSpan.SpanContext().TraceID().String()),
+			).
 			Dict("ownership", zerolog.Dict().
 				Str("tenant", ownership.Tenant).
 				Str("subscription", ownership.Subscription),

@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"reflect"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers"
 	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/internal/serve"
 )
 
 func main() {
@@ -85,7 +88,18 @@ func startServer(
 		Str("db_type", reflect.TypeOf(dbClient).String()).
 		Msg("Database client created")
 
-	serverContext := context.WithValue(context.Background(), app_http.CTX_CONTEXT_SERVE_KEY, serveOptions)
+	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	otelShutdown, err := serve.SetupOTelSDK(initialContext)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err = errors.Join(err, otelShutdown(initialContext))
+	}()
+
+	serverContext := context.WithValue(initialContext, app_http.CTX_CONTEXT_SERVE_KEY, serveOptions)
 	dbOptsContext := context.WithValue(serverContext, app_http.CTX_DB_OPTIONS_KEY, dbOptions)
 	sessionStoreContext := context.WithValue(dbOptsContext, app_http.CTX_SESSION_STORE_KEY, sessionStore)
 	dbContext := context.WithValue(sessionStoreContext, app_http.CTX_DB_KEY, dbClient)
@@ -103,6 +117,14 @@ func startServer(
 		})
 	}
 
+	srvErr := make(chan error, 1)
+	go func() {
+		err = http.ListenAndServe(fmt.Sprintf("%s:%s", serveOptions.Host, serveOptions.Port), rootRouter)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	log.Info().
 		Str("host", serveOptions.Host).
 		Str("port", serveOptions.Port).
@@ -110,8 +132,11 @@ func startServer(
 		Str("serving", serveOptions.StaticPath).
 		Int64("setup_ns", time.Since(start).Nanoseconds()).
 		Msg("Server started")
-	err = http.ListenAndServe(fmt.Sprintf("%s:%s", serveOptions.Host, serveOptions.Port), rootRouter)
-	if err != nil {
-		panic(err)
+
+	select {
+	case err = <-srvErr:
+		log.Info().Err(err).Msg("Server stopped")
+	case <-initialContext.Done():
+		stop()
 	}
 }
