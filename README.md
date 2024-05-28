@@ -4,11 +4,10 @@
 
 ### Doing
 
-- otel initial integration (traces)
+- otel traceid integrated with the log
 
 ### Backlog
 
-- otel traceid integrated with the log
 - otel metrics
 - otel export
 - helm review & service mesh (istio)
@@ -83,6 +82,16 @@ I tried to figure out a sort of internal framework to avoid huge files, SRP infr
 - Return a factory method to convert the flags into option types (package `internal/options`) to use to set up `context.Context` contextes to use downstream;
 - It contains just the overall bindings, not domain specific items like the collection to use, which is in the internal implementation of the repository in the `example` package.
 
+#### Observability
+
+The g-fe-server is integrated with the OpenTelemetry official SDK (`go.opentelemetry.io/otel`).
+
+As a fake BFF (it's not acting as a gateway but having CRUD operations on `examples` directly on board), the spans are _local_.
+
+Additional integrations to observe third party dependencies like MongoDB will enrich the spans.
+
+So far it uses a stdout exporter but it will replaced by an Helm dependency for proper tracing.
+
 #### logging
 
 Looking for Go best practices, I gave a look at several online articles and I've found this one which helped me a lot: <https://betterstack.com/community/guides/logging/best-golang-logging-libraries/>. It compares several logging approaches for golang applications and Zerolog is my pick.
@@ -114,6 +123,8 @@ The next routers are task-focused:
 Finally, waiting to learn how to plug stuff into a Go runtime, an hardcoded router to handle the _example_ resource.
 
 Generally speaking, handle functions are provided by the router provided by each module, e.g. `internal/http/health/handler.go` has the health handle functions and `internal/example/http/handlers.go` has those related to the _example_ resource.
+
+Routers, the API router in particular, are integrated with Opentracing with a Gorilla extension: `go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux`.
 
 #### mongo & repository
 

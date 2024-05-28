@@ -10,6 +10,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
+const OTEL_SERVICE_NAME = "g-fe-server"
+
 func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, err error) {
 
 	var shutdownFuncs []func(context.Context) error
@@ -50,7 +52,7 @@ func newPropagator() propagation.TextMapPropagator {
 
 func newTraceProvider() (*trace.TracerProvider, error) {
 
-	traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	traceExporter, err := stdouttrace.New()
 	if err != nil {
 		return nil, err
 	}

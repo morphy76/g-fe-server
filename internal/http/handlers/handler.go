@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 
 	"github.com/morphy76/g-fe-server/internal/db"
@@ -15,6 +16,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/internal/serve"
 
 	example_handlers "github.com/morphy76/g-fe-server/internal/example/http"
 )
@@ -25,12 +27,9 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	dbOptions := app_context.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)
 	sessionStore := app_context.Value(app_http.CTX_SESSION_STORE_KEY).(sessions.Store)
 	dbClient := app_context.Value(app_http.CTX_DB_KEY).(db.DbClient)
-	tracerProvider := otel.GetTracerProvider()
 
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
-
-		tracer := tracerProvider.Tracer("github.com/morphy76/g-fe-server")
 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -38,9 +37,6 @@ func Handler(parent *mux.Router, app_context context.Context) {
 			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_DB_OPTIONS_KEY, dbOptions))
 			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_SESSION_STORE_KEY, sessionStore))
 			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_CONTEXT_SERVE_KEY, serveOptions))
-
-			_, span := tracer.Start(useRequest.Context(), "parent-handler")
-			defer span.End()
 
 			next.ServeHTTP(w, useRequest)
 		})
@@ -77,6 +73,11 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("API router registered")
 	}
+
+	apiRouter.Use(otelmux.Middleware(serve.OTEL_SERVICE_NAME,
+		otelmux.WithPublicEndpoint(),
+		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+	))
 	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 	if log.Trace().Enabled() {
