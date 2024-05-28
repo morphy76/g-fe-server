@@ -8,6 +8,7 @@
 
 ### Backlog
 
+- flags to configure otel
 - otel metrics
 - otel export
 - helm review & service mesh (istio)
@@ -211,6 +212,8 @@ kubectl config use-context go
 kubectl create ns fe
 helm dependency build tools/helm/g-fe-server
 helm upgrade --install -n fe fe-server tools/helm/g-fe-server
+
+helm uninstall -n fe fe-server
 ```
 
 - Building (must)
