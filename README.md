@@ -4,9 +4,10 @@
 
 ### Doing
 
+- metrics and prometheus scrape
+
 ### Backlog
 
-- otel metrics
 - helm review & service mesh (istio)
 - Improve server launching (WithCancel ?)
 - authentication & authorization (must)
