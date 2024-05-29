@@ -6,7 +6,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
@@ -14,6 +13,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/db"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
+	"github.com/morphy76/g-fe-server/internal/http/handlers/metrics"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/internal/options"
@@ -51,7 +51,10 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Health handler registered")
 	}
-	nonFunctionalRouter.Handle("/metrics", promhttp.Handler())
+	metrics.PrometheusHandlers(nonFunctionalRouter, serveOptions.ContextRoot)
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Metrics handler registered")
+	}
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
@@ -62,6 +65,10 @@ func Handler(parent *mux.Router, app_context context.Context) {
 		log.Trace().Msg("Context router registered")
 	}
 
+	contextRouter.Use(otelmux.Middleware("context",
+		otelmux.WithPublicEndpoint(),
+		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+	))
 	contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
 
