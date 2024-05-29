@@ -26,6 +26,7 @@
 - openapi
 - github actions
 - godoc
+- drill down about tests
 - Logging: create a functional approach to logs, attributes and log propagation
 - what's the vendor directory
 - resusable artifact: pluggable domain resources, API & FE
@@ -54,7 +55,7 @@ Learning Go while developing a presentation server: a presentation server is a B
 
 In this scenario, the BFF also performs CRUD operations instead of acting as a gateway to downstream microservices.
 
-### go application
+### Go application
 
 So much freedom while structuring the project needs to be somehow tamed: <https://github.com/golang-standards/project-layout>.
 
@@ -90,7 +91,7 @@ Additional integrations to observe third party dependencies like MongoDB will en
 
 It exposrts the span, with a close to the default configuration, to Zipking which has been integrated as an Helm dependency.
 
-#### logging
+#### Logging
 
 Looking for Go best practices, I gave a look at several online articles and I've found this one which helped me a lot: <https://betterstack.com/community/guides/logging/best-golang-logging-libraries/>. It compares several logging approaches for golang applications and Zerolog is my pick.
 
@@ -103,7 +104,7 @@ Logging is enriched by contextual information:
 - an _ownership_ dictionary to trace the attribution of the operation, in particular logical user organizations like tenants, subscriptions and stuff like that;
 - a _correlation_ dictionary to trace the operation correlation, using the OTEL SDK, across decoupled or hierarchical operations: the log is enriched with the span_id and the trace_id.
 
-#### routing
+#### Routing
 
 Routing is hierarchical, `cmd/main.go` prepares the server context and moves on to `internal/http/handlers/handler.go` to build the hierarchy.
 
@@ -131,7 +132,7 @@ Routers, the API router in particular, are integrated with Opentracing with a Go
 
 In the same way, such routers are configured to use Prometheus middlewares (`github.com/prometheus/client_golang`) to expose metrics about their usage.
 
-#### mongo & repository
+#### MongoDB & domain repository
 
 The database connection client and the domain repository are kept separated so that:
 
@@ -144,7 +145,7 @@ This is shown in the _example_ HTTP handlers where, through the `ContextualizedA
 
 MongoDB is connected using the official library (`go.mongodb.org/mongo-driver`) and participate (synchronously so far) to the helth probe.
 
-### react application
+### React application
 
 #### Webpack
 
@@ -181,9 +182,9 @@ TODO
 
 - reporting
 
-### packaging
+### Packaging
 
-#### builder images
+#### Builder images
 
 TODO
 
@@ -203,7 +204,7 @@ TODO
 
 TODO
 
-### Minikube
+### Helm and minikube
 
 TODO
 
@@ -222,6 +223,3 @@ kubectl -n fe port-forward services/fe-server-g-fe-server 8080:8080
 kubectl -n fe port-forward services/fe-server-zipkin 9411:9411
 kubectl -n fe port-forward services/fe-server-prometheus-server 18080:80
 ```
-
-- Building (must)
-  - helm
