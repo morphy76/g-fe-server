@@ -14,6 +14,7 @@ TESTFLAGS := -v
 # DOCKERBUILDFLAGS := --no-cache
 NPMFLAGS := --no-audit --no-fund
 MONGO_ARGS := -db=1 -db-mongo-url=mongodb://127.0.0.1:27017/go_db -db-mongo-user=go -db-mongo-password=go
+OTEL_ARGS := -otel-enabled=false
 
 # Define the target binary name
 TARGET := g-fe-server
@@ -22,7 +23,7 @@ DOCKERFILE := ./tools/docker/Dockerfile
 DEPLOY_TAG ?= g-fe-server:0.0.1
 
 # Define the source files
-SOURCES := ./cmd/main.go
+SOURCES := ./cmd/main/serve.go
 
 # Define the build target
 build:
@@ -30,10 +31,10 @@ build:
 	@$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(TARGET) $(SOURCES)
 
 watch:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) -trace
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) -trace $(OTEL_ARGS)
 
 watch-mongo:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) -trace $(MONGO_ARGS)
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) -trace $(MONGO_ARGS) $(OTEL_ARGS)
 
 #FE Build
 build-fe:
@@ -48,10 +49,10 @@ watch-fe:
 build-all: clean build build-fe
 
 run:
-	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE)
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) $(OTEL_ARGS)
 
 run-mongo:
-	$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) $(MONGO_ARGS)
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) $(MONGO_ARGS) $(OTEL_ARGS)
 
 # Define the clean target
 clean:

@@ -4,22 +4,21 @@
 
 ### Doing
 
-- metrics and prometheus scrape
-
 ### Backlog
 
 - helm review & service mesh (istio)
-- Improve server launching (WithCancel ?)
 - authentication & authorization (must)
   - APIs to access HTTP session (token retrieval: header or session)
   - JWT authenticated APIs
 - multitenancy (must)
   - HTTP header tenant resolver ("done")
   - JWT tenant resolver
+- a new service with Pact
 - redis integration (as a client, as a mongo cache, as an http session store) + health
-- kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama)
+- kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama), anyway more protocols
 - zookeeper playground?
 - otel for system dependencies: mongo, kafka & redis
+- prometheus for system dependencies: mongo, kafka & redis
 - cloud friendly http session
   - shared store
   - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
@@ -215,6 +214,7 @@ helm uninstall -n fe fe-server
 
 kubectl -n fe port-forward services/fe-server-g-fe-server 8080:8080
 kubectl -n fe port-forward services/fe-server-zipkin 9411:9411
+kubectl -n fe port-forward services/fe-server-prometheus-server 18080:80
 ```
 
 - Building (must)

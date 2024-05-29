@@ -13,6 +13,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/db"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
+	"github.com/morphy76/g-fe-server/internal/http/handlers/metrics"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/internal/options"
@@ -50,6 +51,10 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Health handler registered")
 	}
+	metrics.PrometheusHandlers(nonFunctionalRouter, serveOptions.ContextRoot)
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Metrics handler registered")
+	}
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
@@ -60,6 +65,10 @@ func Handler(parent *mux.Router, app_context context.Context) {
 		log.Trace().Msg("Context router registered")
 	}
 
+	contextRouter.Use(otelmux.Middleware("context",
+		otelmux.WithPublicEndpoint(),
+		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+	))
 	contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
 
@@ -84,8 +93,9 @@ func Handler(parent *mux.Router, app_context context.Context) {
 		log.Trace().Msg("API router registered")
 	}
 
-	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
+	apiRouter.Use(middleware.JSONResponse)
+	apiRouter.Use(middleware.PrometheusMiddleware)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("API middleware registered")
 	}
