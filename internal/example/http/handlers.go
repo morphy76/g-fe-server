@@ -7,6 +7,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/morphy76/g-fe-server/internal/example/api"
 	"github.com/morphy76/g-fe-server/internal/options"
@@ -53,6 +55,11 @@ func onContextualizedList(
 
 		examples, err := repository.FindAll()
 		if err != nil {
+
+			span := trace.SpanFromContext(r.Context())
+			span.SetStatus(codes.Error, "FindAll failed")
+			span.RecordError(err)
+
 			useLog.Error().Msg(err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -81,6 +88,11 @@ func onContextualizedCreate(
 		var e example.Example
 		err := json.NewDecoder(r.Body).Decode(&e)
 		if err != nil {
+
+			span := trace.SpanFromContext(r.Context())
+			span.SetStatus(codes.Error, "Create failed")
+			span.RecordError(err)
+
 			useLog.Error().Msg(err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -92,6 +104,11 @@ func onContextualizedCreate(
 				http.Error(w, err.Error(), http.StatusConflict)
 				return
 			}
+
+			span := trace.SpanFromContext(r.Context())
+			span.SetStatus(codes.Error, "Create failed")
+			span.RecordError(err)
+
 			useLog.Error().Msg(err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -121,6 +138,11 @@ func onContextualizedGet(
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
 			}
+
+			span := trace.SpanFromContext(r.Context())
+			span.SetStatus(codes.Error, "Get failed")
+			span.RecordError(err)
+
 			useLog.Error().Msg(err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -152,6 +174,11 @@ func onContextualizedDelete(
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
 			}
+
+			span := trace.SpanFromContext(r.Context())
+			span.SetStatus(codes.Error, "Delete failed")
+			span.RecordError(err)
+
 			useLog.Error().Msg(err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -178,6 +205,11 @@ func onContextualizedPut(
 		var ex example.Example
 		err := json.NewDecoder(r.Body).Decode(&ex)
 		if err != nil {
+
+			span := trace.SpanFromContext(r.Context())
+			span.SetStatus(codes.Error, "Put failed")
+			span.RecordError(err)
+
 			useLog.Error().Msg(err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -190,6 +222,11 @@ func onContextualizedPut(
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
 			}
+
+			span := trace.SpanFromContext(r.Context())
+			span.SetStatus(codes.Error, "Put failed")
+			span.RecordError(err)
+
 			useLog.Error().Msg(err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

@@ -98,11 +98,10 @@ mongodb:
       db.examples.createIndex({ name: 1 }, { unique: true });
 
 prometheus:
-  enabled: false
+  enabled: true
   server:
-    enableFeatures:
-      - otlp-write-receiver
     extraScrapeConfigs:
       - job_name: 'g-fe-server'
         kubernetes_sd_configs:
           - role: pod
+        metrics_path: /g/metrics

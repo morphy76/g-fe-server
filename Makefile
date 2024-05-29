@@ -22,7 +22,7 @@ DOCKERFILE := ./tools/docker/Dockerfile
 DEPLOY_TAG ?= g-fe-server:0.0.1
 
 # Define the source files
-SOURCES := ./cmd/main.go
+SOURCES := ./cmd/main/serve.go
 
 # Define the build target
 build:

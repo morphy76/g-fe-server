@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
@@ -50,6 +51,7 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Health handler registered")
 	}
+	nonFunctionalRouter.Handle("/metrics", promhttp.Handler())
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
