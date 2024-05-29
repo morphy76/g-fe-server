@@ -4,15 +4,16 @@
 
 ### Doing
 
-### Backlog
-
-- helm review & service mesh (istio)
 - authentication & authorization (must)
   - APIs to access HTTP session (token retrieval: header or session)
   - JWT authenticated APIs
+
+### Backlog
+
 - multitenancy (must)
   - HTTP header tenant resolver ("done")
   - JWT tenant resolver
+- helm review & service mesh (istio)
 - a new service with Pact
 - redis integration (as a client, as a mongo cache, as an http session store) + health
 - kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama), anyway more protocols
@@ -128,15 +129,20 @@ Generally speaking, handle functions are provided by the router provided by each
 
 Routers, the API router in particular, are integrated with Opentracing with a Gorilla extension: `go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux`.
 
+In the same way, such routers are configured to use Prometheus middlewares (`github.com/prometheus/client_golang`) to expose metrics about their usage.
+
 #### mongo & repository
 
-TODO
+The database connection client and the domain repository are kept separated so that:
 
-TBV: is it the right way to propagate the repository?
+- The client can be connected at application level, in the application context;
+- The repository can be in the request context.
 
-- persistence
-  - Real Mongodb collection *
-  - health integration
+Such entries of the application context are propagated to the request context by the parent router middleware, it is then up to the domain model use them to create domain artifacts.
+
+This is shown in the _example_ HTTP handlers where, through the `ContextualizedApi` function, a _repository-enriched_ handler function is bound to the item router.
+
+MongoDB is connected using the official library (`go.mongodb.org/mongo-driver`) and participate (synchronously so far) to the helth probe.
 
 ### react application
 
