@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -44,15 +43,12 @@ func RequestLogger(next http.Handler) http.Handler {
 		newContext := context.WithValue(r.Context(), app_http.CTX_LOGGER_KEY, useLogger)
 		useRequestLogger := r.WithContext(newContext)
 
-		start := time.Now()
 		next.ServeHTTP(recorder, useRequestLogger)
-		elapsed := time.Since(start)
 
 		useLogger.Debug().
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
 			Int("code", recorder.Status).
-			Int64("duration_ms", elapsed.Microseconds()).
 			Msg("HTTP Request")
 	})
 }

@@ -86,8 +86,9 @@ func Handler(parent *mux.Router, app_context context.Context) {
 		log.Trace().Msg("API router registered")
 	}
 
-	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
+	apiRouter.Use(middleware.JSONResponse)
+	apiRouter.Use(middleware.PrometheusMiddleware)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("API middleware registered")
 	}

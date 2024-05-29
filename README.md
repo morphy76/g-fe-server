@@ -15,8 +15,9 @@
 - multitenancy (must)
   - HTTP header tenant resolver ("done")
   - JWT tenant resolver
+- a new service with Pact
 - redis integration (as a client, as a mongo cache, as an http session store) + health
-- kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama)
+- kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama), anyway more protocols
 - zookeeper playground?
 - otel for system dependencies: mongo, kafka & redis
 - prometheus for system dependencies: mongo, kafka & redis
