@@ -4,8 +4,6 @@
 
 ### Doing
 
-- Prometheus application metrics
-
 ### Backlog
 
 - helm review & service mesh (istio)
