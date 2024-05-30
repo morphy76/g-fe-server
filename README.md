@@ -4,7 +4,7 @@
 
 ### Doing
 
-- authentication & authorization (must)
+- authentication & authorization (must) github.com/zitadel/oidc
   - APIs to access HTTP session (token retrieval: header or session)
   - JWT authenticated APIs
 

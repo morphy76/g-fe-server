@@ -33,6 +33,7 @@ func main() {
 	dbOptionsBuilder := cli.DbOptionsBuilder()
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
 	otelOptionsBuilder := cli.OtelOptionsBuilder()
+	oidcOptionsBuilder := cli.OidcOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -66,10 +67,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	oidcOptions, err := oidcOptionsBuilder()
+	if err != nil {
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	startServer(
 		serveOptions,
 		dbOptions,
 		otelOptions,
+		oidcOptions,
 	)
 }
 
@@ -77,6 +85,7 @@ func startServer(
 	serveOptions *options.ServeOptions,
 	dbOptions *options.DbOptions,
 	otelOptions *options.OtelOptions,
+	_ *options.OidcOptions,
 ) {
 
 	start := time.Now()
@@ -116,10 +125,11 @@ func startServer(
 	sessionStoreContext := context.WithValue(dbOptsContext, app_http.CTX_SESSION_STORE_KEY, sessionStore)
 	dbContext := context.WithValue(sessionStoreContext, app_http.CTX_DB_KEY, dbClient)
 
+	log.Trace().
+		Msg("Application contextes ready")
+
 	rootRouter := mux.NewRouter()
-
 	handlers.Handler(rootRouter, dbContext)
-
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {
@@ -131,10 +141,7 @@ func startServer(
 
 	srvErr := make(chan error, 1)
 	go func() {
-		err = http.ListenAndServe(fmt.Sprintf("%s:%s", serveOptions.Host, serveOptions.Port), rootRouter)
-		if err != nil {
-			panic(err)
-		}
+		srvErr <- http.ListenAndServe(fmt.Sprintf("%s:%s", serveOptions.Host, serveOptions.Port), rootRouter)
 	}()
 
 	log.Info().
