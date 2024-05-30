@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { Example, useDeleteExample, useListExampleQuery } from './ExampleService';
 import { useLogger } from '@features/react-logger';
-import styles from './ListExampleComponent.scss';
+import * as styles from './ListExampleComponent.scss';
 import { FormattedMessage, useIntl } from 'react-intl';
 import formatted_message_rules from '@features/formatted_message_rules';
 

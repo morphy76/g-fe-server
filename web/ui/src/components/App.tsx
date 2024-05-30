@@ -1,7 +1,7 @@
 import React, { useEffect, Suspense, lazy, useState, useMemo } from 'react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { LoggerContextProvider, useLogger } from '@features/react-logger';
-import styles from '@components/App.scss';
+import * as styles from '@components/App.scss';
 import { useGetExample } from './examples/ExampleService';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import formatted_message_rules from "@features/formatted_message_rules";
