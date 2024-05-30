@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
+	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 
@@ -21,7 +22,7 @@ import (
 	example_handlers "github.com/morphy76/g-fe-server/internal/example/http"
 )
 
-func Handler(parent *mux.Router, app_context context.Context) {
+func Handler(parent *mux.Router, app_context context.Context, rp rp.RelyingParty) {
 
 	serveOptions := app_context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions)
 	dbOptions := app_context.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)

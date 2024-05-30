@@ -1,6 +1,10 @@
 package cli
 
 import (
+	"flag"
+	"os"
+	"strings"
+
 	"github.com/morphy76/g-fe-server/internal/options"
 )
 
@@ -13,32 +17,55 @@ type oidcOptionsBuidler func() (*options.OidcOptions, error)
 // }
 
 const (
-// ENV_ENABLE_OTEL_EXPORT = "ENABLE_OTEL_EXPORT"
-// ENV_OTLP_URL           = "OTLP_URL"
+	ENV_OIDC_ISSUER        = "OIDC_ISSUER"
+	ENV_OIDC_CLIENT_ID     = "OIDC_CLIENT_ID"
+	ENV_OIDC_CLIENT_SECRET = "OIDC_CLIENT_SECRET"
+	ENV_OIDC_REDIRECT_URL  = "OIDC_REDIRECT_URL"
+	ENV_OIDC_SCOPES        = "OIDC_SCOPES"
 )
 
 func OidcOptionsBuilder() oidcOptionsBuidler {
 
-	// otlpEnabledArg := flag.Bool("otel-enabled", false, "Enable to export onto OTLP. Environment: "+ENV_ENABLE_OTEL_EXPORT)
-	// otlpUrlArg := flag.String("otlp-url", "", "OTLP collector. Environment: "+ENV_OTLP_URL)
+	oidcIssuerArg := flag.String("oidc-issuer", "", "OIDC issuer. Environment: "+ENV_OIDC_ISSUER)
+	oidcClientIdArg := flag.String("oidc-client-id", "", "OIDC client id. Environment: "+ENV_OIDC_CLIENT_ID)
+	oidcClientSecretArg := flag.String("oidc-client-secret", "", "OIDC client secret. Environment: "+ENV_OIDC_CLIENT_SECRET)
+	oidcRedirectURLArg := flag.String("oidc-redirect-url", "", "OIDC redirect URL")
+	oidcScopesArg := flag.String("oidc-scopes", "", "OIDC scopes")
 
 	rv := func() (*options.OidcOptions, error) {
 
-		// otlpEnabled := *otlpEnabledArg
-		// otlpEnabledStr, found := os.LookupEnv(ENV_ENABLE_OTEL_EXPORT)
-		// if found {
-		// 	otlpEnabled = otlpEnabledStr == "true"
-		// }
+		oidcIssuer, found := os.LookupEnv(ENV_OIDC_ISSUER)
+		if !found {
+			oidcIssuer = *oidcIssuerArg
+		}
 
-		// url, found := os.LookupEnv(ENV_OTLP_URL)
-		// if !found {
-		// 	url = *otlpUrlArg
-		// }
-		// if url == "" && otlpEnabled {
-		// 	return nil, errRequiredOTLPUrl
-		// }
+		oidcClientId, found := os.LookupEnv(ENV_OIDC_CLIENT_ID)
+		if !found {
+			oidcClientId = *oidcClientIdArg
+		}
 
-		return &options.OidcOptions{}, nil
+		oidcClientSecret, found := os.LookupEnv(ENV_OIDC_CLIENT_SECRET)
+		if !found {
+			oidcClientSecret = *oidcClientSecretArg
+		}
+
+		oidcRedirectURL, found := os.LookupEnv(ENV_OIDC_REDIRECT_URL)
+		if !found {
+			oidcRedirectURL = *oidcRedirectURLArg
+		}
+
+		oidcScopes, found := os.LookupEnv(ENV_OIDC_SCOPES)
+		if !found {
+			oidcScopes = *oidcScopesArg
+		}
+
+		return &options.OidcOptions{
+			Issuer:       oidcIssuer,
+			ClientId:     oidcClientId,
+			ClientSecret: oidcClientSecret,
+			RedirectURL:  oidcRedirectURL,
+			Scopes:       strings.Split(oidcScopes, ","),
+		}, nil
 	}
 
 	return rv

@@ -85,7 +85,7 @@ func startServer(
 	serveOptions *options.ServeOptions,
 	dbOptions *options.DbOptions,
 	otelOptions *options.OtelOptions,
-	_ *options.OidcOptions,
+	oidcOptions *options.OidcOptions,
 ) {
 
 	start := time.Now()
@@ -128,8 +128,13 @@ func startServer(
 	log.Trace().
 		Msg("Application contextes ready")
 
+	oidcClient, err := serve.SetupOIDC(serveOptions, oidcOptions)
+	if err != nil {
+		panic(err)
+	}
+
 	rootRouter := mux.NewRouter()
-	handlers.Handler(rootRouter, dbContext)
+	handlers.Handler(rootRouter, dbContext, oidcClient)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {
