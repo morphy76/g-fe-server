@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useId, useMemo } from "react";
-import styles from './FormExampleComponent.scss';
+import * as styles from './FormExampleComponent.scss';
 import { Example, useCreateExample, useReplaceExample } from "./ExampleService";
 import { FormattedMessage } from "react-intl";
 import formatted_message_rules from "@features/formatted_message_rules";
