@@ -45,10 +45,6 @@
 - React 19 (fun)
 - more mongo client options
 
-### Bugs
-
-- App.tsx setSelected causes 3 queries: example, previous selected and new selected, expected is just new selected (must)
-
 ## What happened
 
 Learning Go while developing a presentation server: a presentation server is a Backend For Front-end component (<https://microservices.io/patterns/apigateway.html>) which exposes, in this case, a react application of a very simple entity CRUD.
