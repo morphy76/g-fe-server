@@ -14,7 +14,7 @@
   - HTTP header tenant resolver ("done")
   - JWT tenant resolver
 - helm review & service mesh (istio)
-- a new service with Pact
+- a new service with Pact, e.g. (https://medium.com/@dees3g/pact-and-go-contract-testing-of-http-based-applications-e595e639334e)
 - redis integration (as a client, as a mongo cache, as an http session store) + health
 - kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama), anyway more protocols
 - zookeeper playground?
@@ -24,7 +24,6 @@
   - shared store
   - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
 - openapi
-- github actions
 - godoc
 - drill down about tests
 - Logging: create a functional approach to logs, attributes and log propagation
