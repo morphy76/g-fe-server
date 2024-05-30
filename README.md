@@ -26,7 +26,7 @@
   - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
 - openapi
 - godoc
-- drill down about tests
+- drill down about tests, e.g. fail when coverage is not achieved
 - Logging: create a functional approach to logs, attributes and log propagation
 - what's the vendor directory
 - resusable artifact: pluggable domain resources, API & FE
