@@ -8,8 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
-	"github.com/rs/zerolog"
 
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 )
@@ -20,7 +18,7 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 
 	fileServer := func(w http.ResponseWriter, r *http.Request) {
 
-		request_log := r.Context().Value(app_http.CTX_LOGGER_KEY).(zerolog.Logger)
+		log := app_http.ExtractLogger(r.Context(), "ui")
 
 		requestedFile := filepath.Join(staticPath, strings.TrimPrefix(r.URL.Path, ctxRoot+"/ui"))
 
@@ -30,8 +28,8 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 			requestedFileStats, _ = os.Stat(requestedFile)
 		}
 
-		session := r.Context().Value(app_http.CTX_SESSION_KEY).(*sessions.Session)
-		request_log.Trace().
+		session := app_http.ExtractSession(r.Context())
+		log.Trace().
 			Bool("in_context", session != nil).
 			Msg("Session found")
 
@@ -40,7 +38,7 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 			aRandom, _ := uuid.NewRandom()
 			session.Values["test"] = aRandom.String()
 		}
-		request_log.Trace().
+		log.Trace().
 			Any("initial_value", test).
 			Any("current_value", session.Values["test"]).
 			Bool("found", found).

@@ -5,41 +5,37 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 
-	"github.com/morphy76/g-fe-server/internal/db"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/auth"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/metrics"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
-	"github.com/morphy76/g-fe-server/internal/options"
-	"github.com/zitadel/oidc/v3/pkg/client/rp"
 
 	example_handlers "github.com/morphy76/g-fe-server/internal/example/http"
 )
 
 func Handler(parent *mux.Router, app_context context.Context) {
 
-	serveOptions := app_context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions)
-	dbOptions := app_context.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)
-	sessionStore := app_context.Value(app_http.CTX_SESSION_STORE_KEY).(sessions.Store)
-	dbClient := app_context.Value(app_http.CTX_DB_KEY).(db.DbClient)
-	relyingParty := app_context.Value(app_http.CTX_OIDC_KEY).(rp.RelyingParty)
+	serveOptions := app_http.ExtractServeOptions(app_context)
+	dbOptions := app_http.ExtractDbOptions(app_context)
+	sessionStore := app_http.ExtractSessionStore(app_context)
+	dbClient := app_http.ExtractDb(app_context)
+	relyingParty := app_http.ExtractRelyingParty(app_context)
 
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			useRequest := r.WithContext(context.WithValue(r.Context(), app_http.CTX_DB_KEY, dbClient))
-			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_DB_OPTIONS_KEY, dbOptions))
-			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_SESSION_STORE_KEY, sessionStore))
-			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_CONTEXT_SERVE_KEY, serveOptions))
+			useRequest := r.WithContext(app_http.InjectDb(r.Context(), dbClient))
+			useRequest = useRequest.WithContext(app_http.InjectDbOptions(useRequest.Context(), dbOptions))
+			useRequest = useRequest.WithContext(app_http.InjectSessionStore(useRequest.Context(), sessionStore))
+			useRequest = useRequest.WithContext(app_http.InjectServeOptions(useRequest.Context(), serveOptions))
 
 			next.ServeHTTP(w, useRequest)
 		})

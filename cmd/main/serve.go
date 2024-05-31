@@ -129,11 +129,11 @@ func startServer(
 		err = errors.Join(err, otelShutdown(initialContext))
 	}()
 
-	serverContext := context.WithValue(initialContext, app_http.CTX_CONTEXT_SERVE_KEY, serveOptions)
-	dbOptsContext := context.WithValue(serverContext, app_http.CTX_DB_OPTIONS_KEY, dbOptions)
-	sessionStoreContext := context.WithValue(dbOptsContext, app_http.CTX_SESSION_STORE_KEY, sessionStore)
-	dbContext := context.WithValue(sessionStoreContext, app_http.CTX_DB_KEY, dbClient)
-	oidcContext := context.WithValue(dbContext, app_http.CTX_OIDC_KEY, relyingParty)
+	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
+	dbOptsContext := app_http.InjectDbOptions(serverContext, dbOptions)
+	sessionStoreContext := app_http.InjectSessionStore(dbOptsContext, sessionStore)
+	dbContext := app_http.InjectDb(sessionStoreContext, dbClient)
+	oidcContext := app_http.InjectRelyingParty(dbContext, relyingParty)
 
 	log.Trace().
 		Msg("Application contextes ready")
