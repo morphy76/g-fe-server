@@ -7,27 +7,29 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
-	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 
 	"github.com/morphy76/g-fe-server/internal/db"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/http/handlers/auth"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/metrics"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/zitadel/oidc/v3/pkg/client/rp"
 
 	example_handlers "github.com/morphy76/g-fe-server/internal/example/http"
 )
 
-func Handler(parent *mux.Router, app_context context.Context, rp rp.RelyingParty) {
+func Handler(parent *mux.Router, app_context context.Context) {
 
 	serveOptions := app_context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions)
 	dbOptions := app_context.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)
 	sessionStore := app_context.Value(app_http.CTX_SESSION_STORE_KEY).(sessions.Store)
 	dbClient := app_context.Value(app_http.CTX_DB_KEY).(db.DbClient)
+	relyingParty := app_context.Value(app_http.CTX_OIDC_KEY).(rp.RelyingParty)
 
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
@@ -56,6 +58,9 @@ func Handler(parent *mux.Router, app_context context.Context, rp rp.RelyingParty
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Metrics handler registered")
 	}
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Auth handler registered")
+	}
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
@@ -72,6 +77,10 @@ func Handler(parent *mux.Router, app_context context.Context, rp rp.RelyingParty
 	))
 	contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
+
+	// Auth router
+	authRouter := contextRouter.PathPrefix("/auth").Subrouter()
+	auth.IAMHandlers(authRouter, serveOptions.ContextRoot, relyingParty)
 
 	// Static content
 	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()

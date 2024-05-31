@@ -5,6 +5,7 @@ import "net/http"
 type ServeOptions struct {
 	ContextRoot          string
 	StaticPath           string
+	Protocol             string
 	Port                 string
 	Host                 string
 	SessionKey           string

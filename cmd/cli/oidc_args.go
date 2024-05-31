@@ -20,7 +20,6 @@ const (
 	ENV_OIDC_ISSUER        = "OIDC_ISSUER"
 	ENV_OIDC_CLIENT_ID     = "OIDC_CLIENT_ID"
 	ENV_OIDC_CLIENT_SECRET = "OIDC_CLIENT_SECRET"
-	ENV_OIDC_REDIRECT_URL  = "OIDC_REDIRECT_URL"
 	ENV_OIDC_SCOPES        = "OIDC_SCOPES"
 )
 
@@ -29,7 +28,6 @@ func OidcOptionsBuilder() oidcOptionsBuidler {
 	oidcIssuerArg := flag.String("oidc-issuer", "", "OIDC issuer. Environment: "+ENV_OIDC_ISSUER)
 	oidcClientIdArg := flag.String("oidc-client-id", "", "OIDC client id. Environment: "+ENV_OIDC_CLIENT_ID)
 	oidcClientSecretArg := flag.String("oidc-client-secret", "", "OIDC client secret. Environment: "+ENV_OIDC_CLIENT_SECRET)
-	oidcRedirectURLArg := flag.String("oidc-redirect-url", "", "OIDC redirect URL")
 	oidcScopesArg := flag.String("oidc-scopes", "", "OIDC scopes")
 
 	rv := func() (*options.OidcOptions, error) {
@@ -49,11 +47,6 @@ func OidcOptionsBuilder() oidcOptionsBuidler {
 			oidcClientSecret = *oidcClientSecretArg
 		}
 
-		oidcRedirectURL, found := os.LookupEnv(ENV_OIDC_REDIRECT_URL)
-		if !found {
-			oidcRedirectURL = *oidcRedirectURLArg
-		}
-
 		oidcScopes, found := os.LookupEnv(ENV_OIDC_SCOPES)
 		if !found {
 			oidcScopes = *oidcScopesArg
@@ -63,7 +56,6 @@ func OidcOptionsBuilder() oidcOptionsBuidler {
 			Issuer:       oidcIssuer,
 			ClientId:     oidcClientId,
 			ClientSecret: oidcClientSecret,
-			RedirectURL:  oidcRedirectURL,
 			Scopes:       strings.Split(oidcScopes, ","),
 		}, nil
 	}

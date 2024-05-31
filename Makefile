@@ -13,9 +13,6 @@ GCFLAGS := -gcflags="-m -l"
 TESTFLAGS := -v
 # DOCKERBUILDFLAGS := --no-cache
 NPMFLAGS := --no-audit --no-fund
-MONGO_ARGS := -db=1 -db-mongo-url=mongodb://127.0.0.1:27017/go_db -db-mongo-user=go -db-mongo-password=go
-OTEL_ARGS := -otel-enabled=false
-OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/gfes -oidc-client-id=ps -oidc-client-secret=BA4eYsij3vDerLdQTRp6khSKWSDQWdLr -oidc-redirect-url=http://localhost:8080/fe/ui -oidc-scopes=openid,profile,email,offline_access
 
 # Define the target binary name
 TARGET := g-fe-server
@@ -26,16 +23,22 @@ DEPLOY_TAG ?= g-fe-server:0.0.1
 # Define the source files
 SOURCES := ./cmd/main/serve.go
 
+# Runtime args
+MONGO_ARGS := -db=1 -db-mongo-url=mongodb://127.0.0.1:27017/go_db -db-mongo-user=go -db-mongo-password=go
+SERVE_ARGS := -ctx=/fe -static=$(TARGET_FE) -host=localhost
+OTEL_ARGS := -otel-enabled=false
+OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/gfes -oidc-client-id=ps -oidc-client-secret=BA4eYsij3vDerLdQTRp6khSKWSDQWdLr -oidc-scopes=openid,profile,email,offline_access
+
 # Define the build target
 build:
 	@$(GO) test $(TESTFLAGS) ./...
 	@$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(TARGET) $(SOURCES)
 
 watch:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) -trace $(OTEL_ARGS) $(OIDC_ARGS)
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) $(SERVE_ARGS) -trace $(OTEL_ARGS) $(OIDC_ARGS)
 
 watch-mongo:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) -trace $(MONGO_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) $(SERVE_ARGS) -trace $(MONGO_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
 
 #FE Build
 build-fe:
@@ -50,10 +53,10 @@ watch-fe:
 build-all: clean build build-fe
 
 run:
-	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) $(OTEL_ARGS) $(OIDC_ARGS)
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
 
 run-mongo:
-	$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) -ctx=/fe -static=$(TARGET_FE) $(MONGO_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(SOURCES) $(SERVE_ARGS) $(MONGO_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
 
 # Define the clean target
 clean:

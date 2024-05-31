@@ -109,6 +109,15 @@ func startServer(
 		Str("db_type", reflect.TypeOf(dbClient).String()).
 		Msg("Database client created")
 
+	relyingParty, err := serve.SetupOIDC(serveOptions, oidcOptions)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Trace().
+		Str("client_id", oidcOptions.ClientId).
+		Msg("Relying party")
+
 	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
@@ -124,17 +133,13 @@ func startServer(
 	dbOptsContext := context.WithValue(serverContext, app_http.CTX_DB_OPTIONS_KEY, dbOptions)
 	sessionStoreContext := context.WithValue(dbOptsContext, app_http.CTX_SESSION_STORE_KEY, sessionStore)
 	dbContext := context.WithValue(sessionStoreContext, app_http.CTX_DB_KEY, dbClient)
+	oidcContext := context.WithValue(dbContext, app_http.CTX_OIDC_KEY, relyingParty)
 
 	log.Trace().
 		Msg("Application contextes ready")
 
-	oidcClient, err := serve.SetupOIDC(serveOptions, oidcOptions)
-	if err != nil {
-		panic(err)
-	}
-
 	rootRouter := mux.NewRouter()
-	handlers.Handler(rootRouter, dbContext, oidcClient)
+	handlers.Handler(rootRouter, oidcContext)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {

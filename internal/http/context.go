@@ -7,6 +7,7 @@ type ContextDbKey string
 type ContextDbOptionsKey string
 type ContextLoggerKey string
 type ContextOwnershipKey string
+type ContextOIDCKey string
 
 const (
 	CTX_CONTEXT_SERVE_KEY ContextModelKey        = "contextModel"
@@ -16,4 +17,5 @@ const (
 	CTX_DB_OPTIONS_KEY    ContextDbOptionsKey    = "dbOptions"
 	CTX_LOGGER_KEY        ContextLoggerKey       = "logger"
 	CTX_OWNERSHIP_KEY     ContextOwnershipKey    = "ownership"
+	CTX_OIDC_KEY          ContextOIDCKey         = "oidc"
 )

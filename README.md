@@ -4,9 +4,10 @@
 
 ### Doing
 
-- authentication & authorization (must) github.com/zitadel/oidc
+- authentication & authorization (must) github.com/zitadel/oidc/v3
   - APIs to access HTTP session (token retrieval: header or session)
   - JWT authenticated APIs
+  - Logout
 
 ### Backlog
 
@@ -24,6 +25,7 @@
 - cloud friendly http session
   - shared store
   - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
+  - back-channel logout
 - openapi
 - godoc
 - drill down about tests, e.g. fail when coverage is not achieved
