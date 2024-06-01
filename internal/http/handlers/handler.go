@@ -36,6 +36,7 @@ func Handler(parent *mux.Router, app_context context.Context) {
 			useRequest = useRequest.WithContext(app_http.InjectDbOptions(useRequest.Context(), dbOptions))
 			useRequest = useRequest.WithContext(app_http.InjectSessionStore(useRequest.Context(), sessionStore))
 			useRequest = useRequest.WithContext(app_http.InjectServeOptions(useRequest.Context(), serveOptions))
+			useRequest = useRequest.WithContext(app_http.InjectRelyingParty(useRequest.Context(), relyingParty))
 
 			next.ServeHTTP(w, useRequest)
 		})
@@ -54,12 +55,15 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Metrics handler registered")
 	}
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Auth handler registered")
-	}
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
+	contextRouter.Use(otelmux.Middleware("context",
+		otelmux.WithPublicEndpoint(),
+		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+	))
+	contextRouter.Use(middleware.TenantResolver)
+	contextRouter.Use(middleware.RequestLogger)
 	contextRouter.Path("/ui").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, serveOptions.ContextRoot+"/ui/", http.StatusMovedPermanently)
 	})
@@ -67,26 +71,23 @@ func Handler(parent *mux.Router, app_context context.Context) {
 		log.Trace().Msg("Context router registered")
 	}
 
-	contextRouter.Use(otelmux.Middleware("context",
-		otelmux.WithPublicEndpoint(),
-		otelmux.WithPropagators(otel.GetTextMapPropagator()),
-	))
-	contextRouter.Use(middleware.TenantResolver)
-	contextRouter.Use(middleware.RequestLogger)
-
 	// Auth router
 	authRouter := contextRouter.PathPrefix("/auth").Subrouter()
+	authRouter.Use(middleware.InjectSession)
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Auth router registered")
+	}
 	auth.IAMHandlers(authRouter, serveOptions.ContextRoot, relyingParty)
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Auth handler registered")
+	}
 
 	// Static content
 	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()
+	staticRouter.Use(middleware.InjectSession)
+	staticRouter.Use(middleware.AuthenticationRequired)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Static router registered")
-	}
-
-	staticRouter.Use(middleware.InjectSession)
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Static middleware registered")
 	}
 	static.HandleStatic(staticRouter, serveOptions.ContextRoot, serveOptions.StaticPath)
 	if log.Trace().Enabled() {
@@ -95,15 +96,11 @@ func Handler(parent *mux.Router, app_context context.Context) {
 
 	// API router
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
-	if log.Trace().Enabled() {
-		log.Trace().Msg("API router registered")
-	}
-
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.Use(middleware.PrometheusMiddleware)
 	if log.Trace().Enabled() {
-		log.Trace().Msg("API middleware registered")
+		log.Trace().Msg("API router registered")
 	}
 
 	// Domain functions

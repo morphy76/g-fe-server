@@ -30,5 +30,5 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 		}
 	}
 
-	staticRouter.Methods(http.MethodGet).HandlerFunc(fileServer).Name(ctxRoot + "/ui")
+	staticRouter.Methods(http.MethodGet).HandlerFunc(fileServer).Name("GET " + ctxRoot + "/ui")
 }

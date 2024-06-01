@@ -7,7 +7,7 @@
 - authentication & authorization (must) github.com/zitadel/oidc/v3
   - APIs to access HTTP session (token retrieval: header or session)
   - JWT authenticated APIs
-  - Logout
+  - Logout -> bug hardcoded URL (ctx root) in the FE
 
 ### Backlog
 
@@ -31,7 +31,7 @@
 - drill down about tests, e.g. fail when coverage is not achieved
 - Logging: create a functional approach to logs, attributes and log propagation
 - what's the vendor directory
-- resusable artifact: pluggable domain resources, API & FE
+- resusable artifact: pluggable domain resources, API & FE -> or better self announcing backend services (https://zeromq.org) to enable gateway (BFF) routes
 - Accessibility (fun)
 - FE crud
   - use query cache and optimistic updates (must)

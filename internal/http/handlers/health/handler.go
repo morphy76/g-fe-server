@@ -20,7 +20,7 @@ func HealthHandlers(nonFunctionalRouter *mux.Router, ctxRoot string, dbOptions *
 	healthRouter := nonFunctionalRouter.Path("/health").Subrouter()
 	healthRouter.Use(middleware.JSONResponse)
 
-	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth()).Name(ctxRoot + "/g/health")
+	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth()).Name("GET " + ctxRoot + "/g/health")
 }
 
 func onHealth() http.HandlerFunc {

@@ -116,6 +116,17 @@ const InnerApp: React.FC = () => {
               />
             </a>
           </li>
+          <li>
+            <a href="/fe/auth/logout">
+              <FormattedMessage
+                id='app.logout'
+                defaultMessage='Logout'
+                values={{
+                  ...formatted_message_rules,
+                }}
+              />
+            </a>
+          </li>
         </ul>
       </nav>
       <section className={styles.navigation_content}>

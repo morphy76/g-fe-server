@@ -2,6 +2,7 @@
   "app.loading": "Chargement...",
   "app.path.not.found": "Le chemin demandé n'existe pas",
   "app.error": "Erreur: {message}",
+  "app.logout": "Déconnexion",
   "examples.title": "Exemples en <enlarge>direct</enlarge> <i>[{count}]</i>",
   "example.menu.item": "Exemple",
   "examples.list.confirm.delete": "Voulez-vous vraiment supprimer cet exemple [{name}]?",
