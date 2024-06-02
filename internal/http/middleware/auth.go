@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 )
@@ -14,16 +15,19 @@ func AuthenticationRequired(next http.Handler) http.Handler {
 		logger := app_http.ExtractLogger(r.Context(), "auth")
 
 		authURL := fmt.Sprintf(
-			"%s://%s:%s/%s/auth/login",
+			"%s://%s:%s/%s/auth/login?requested_url=%s",
 			serveOptions.Protocol,
 			serveOptions.Host,
 			serveOptions.Port,
 			serveOptions.ContextRoot,
+			url.QueryEscape(r.URL.String()),
 		)
 
 		idToken := session.Values["id_token"]
 		if idToken == nil {
-			logger.Trace().Msg("Redirecting to login")
+			logger.Trace().
+				Str("requested_url", r.URL.String()).
+				Msg("Redirecting to login")
 			http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
 			return
 		}

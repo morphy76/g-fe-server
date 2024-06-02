@@ -4,13 +4,12 @@
 
 ### Doing
 
-- authentication & authorization (must) github.com/zitadel/oidc/v3
-  - APIs to access HTTP session (token retrieval: header or session)
-  - JWT authenticated APIs
-  - Logout -> bug hardcoded URL (ctx root) in the FE
+- authentication & authorization (must) -> login expected redirect e.g. direct access to /credits
 
 ### Backlog
 
+- authentication & authorization
+  - JWT authenticated APIs: direct call (http header) vs UI calls (http session?)
 - multitenancy (must)
   - HTTP header tenant resolver ("done")
   - JWT tenant resolver

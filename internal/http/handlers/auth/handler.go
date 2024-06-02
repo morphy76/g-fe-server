@@ -38,10 +38,28 @@ func IAMHandlers(authRouter *mux.Router, ctxRoot string, relyingParty rp.Relying
 		session.Save(r, w)
 		logger.Trace().Msg("Auth session saved")
 
-		http.Redirect(w, r, ctxRoot+"/ui", http.StatusFound)
+		backTo := ctxRoot + "/ui"
+		// sessionBackTo := tokens.IDTokenClaims.Claims["session_state"]
+		// if sessionBackTo != nil {
+		// 	backTo = sessionBackTo.(string)
+		// }
+
+		http.Redirect(w, r, backTo, http.StatusFound)
 	}
-	// TODO a callback dovrebbe arrivare il parameto backTo di /login o, in sua assenza, relyingParty.OAuthConfig().RedirectURL
-	authRouter.HandleFunc("/login", rp.AuthURLHandler(stateFn, relyingParty)).Methods("GET").Name("GET " + ctxRoot + "/auth/login")
+
+	authRouter.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+
+		relyingParty := app_http.ExtractRelyingParty(r.Context())
+		logger := app_http.ExtractLogger(r.Context(), "auth")
+
+		authURL := rp.AuthURL(stateFn(), relyingParty)
+		logger.Trace().
+			Str("auth_url", authURL).
+			Msg("Redirecting to auth")
+
+		http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
+
+	}).Methods("GET").Name("GET " + ctxRoot + "/auth/login")
 
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
 
