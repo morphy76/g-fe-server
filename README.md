@@ -4,7 +4,9 @@
 
 ### Doing
 
-- authentication & authorization (must) -> login expected redirect e.g. direct access to /credits
+- authentication & authorization (must)
+  -> verify the session token, if ko try to refresh it, if ko logout
+  -> integrate KC in the helm
 
 ### Backlog
 

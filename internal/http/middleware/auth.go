@@ -24,13 +24,15 @@ func AuthenticationRequired(next http.Handler) http.Handler {
 		)
 
 		idToken := session.Values["id_token"]
-		if idToken == nil {
+		if idToken == nil || len(idToken.(string)) == 0 {
 			logger.Trace().
 				Str("requested_url", r.URL.String()).
 				Msg("Redirecting to login")
+			w.Header().Set("Cache-Control", "no-cache")
 			http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	})
 }

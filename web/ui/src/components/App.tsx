@@ -73,28 +73,6 @@ const InnerApp: React.FC = () => {
     />
   ), [error]);
 
-  // const innerApp = useMemo(() => {
-  //   if (isLoading) {
-  //     return loadingLabel;
-  //   } else if (isError) {
-  //     return (
-  //       <FormattedMessage
-  //         id='app.error'
-  //         defaultMessage='Error: {message}'
-  //         values={{
-  //           ...formatted_message_rules,
-  //           message: error?.message,
-  //         }}
-  //       />
-  //     );
-  //   } else if (data) {
-  //     return (
-  //     );
-  //   } else {
-  //     return <div>...</div>;
-  //   }
-  // }, [isLoading, isError, data, error, loadingLabel]);
-
   const editForm = useMemo(() => (
     <>
       {isLoading && <div>{loadingLabel}</div>}

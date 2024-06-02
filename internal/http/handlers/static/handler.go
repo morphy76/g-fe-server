@@ -23,6 +23,10 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 			requestedFileStats, _ = os.Stat(requestedFile)
 		}
 
+		if !strings.HasSuffix(requestedFile, ".js") {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+
 		if requestedFileStats.IsDir() {
 			http.ServeFile(w, r, defaultFile)
 		} else {

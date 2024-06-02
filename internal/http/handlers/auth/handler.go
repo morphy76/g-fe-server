@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
@@ -15,55 +15,30 @@ import (
 )
 
 func IAMHandlers(authRouter *mux.Router, ctxRoot string, relyingParty rp.RelyingParty) {
-
-	stateFn := func() string {
-		return uuid.New().String()
-	}
-
-	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
-
-		session := app_http.ExtractSession(r.Context())
-		logger := app_http.ExtractLogger(r.Context(), "auth")
-
-		session.Values["access_token"] = tokens.AccessToken
-		session.Values["refresh_token"] = tokens.RefreshToken
-		session.Values["id_token"] = tokens.IDToken
-		session.Values["session_state"] = tokens.IDTokenClaims.Claims["session_state"]
-		session.Values["email"] = info.Email
-		session.Values["family_name"] = info.FamilyName
-		session.Values["given_name"] = info.GivenName
-		session.Values["name"] = info.Name
-		session.Values["preferred_username"] = info.PreferredUsername
-
-		session.Save(r, w)
-		logger.Trace().Msg("Auth session saved")
-
-		backTo := ctxRoot + "/ui"
-		// sessionBackTo := tokens.IDTokenClaims.Claims["session_state"]
-		// if sessionBackTo != nil {
-		// 	backTo = sessionBackTo.(string)
-		// }
-
-		http.Redirect(w, r, backTo, http.StatusFound)
-	}
-
-	authRouter.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-
-		relyingParty := app_http.ExtractRelyingParty(r.Context())
-		logger := app_http.ExtractLogger(r.Context(), "auth")
-
-		authURL := rp.AuthURL(stateFn(), relyingParty)
-		logger.Trace().
-			Str("auth_url", authURL).
-			Msg("Redirecting to auth")
-
-		http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
-
-	}).Methods("GET").Name("GET " + ctxRoot + "/auth/login")
-
+	authRouter.HandleFunc("/login", onLogin(ctxRoot, relyingParty)).Methods("GET").Name("GET " + ctxRoot + "/auth/login")
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
+	authRouter.HandleFunc("/logout", onLogout()).Name("GET " + ctxRoot + "/auth/logout")
+	authRouter.HandleFunc("/info", onInfo(ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
+}
 
-	authRouter.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+func onLogin(ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		requested_url, err := url.QueryUnescape(r.URL.Query().Get("requested_url"))
+		if err != nil {
+			requested_url = ctxRoot + "/ui"
+		}
+
+		stateFn := func() string {
+			return requested_url
+		}
+
+		rp.AuthURLHandler(stateFn, relyingParty)(w, r)
+	}
+}
+
+func onLogout() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 
 		logger := app_http.ExtractLogger(r.Context(), "auth")
 		logger.Trace().Msg("Logging out")
@@ -92,13 +67,15 @@ func IAMHandlers(authRouter *mux.Router, ctxRoot string, relyingParty rp.Relying
 				serveOptions.ContextRoot,
 			)
 
-			http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
+			w.Header().Set("Cache-Control", "no-cache")
+			http.Redirect(w, r, authURL, http.StatusFound)
 			return
 		}
 
 		sessionState := session.Values["session_state"].(string)
 
 		session.Options.MaxAge = -1
+		delete(session.Values, "id_token")
 		session.Save(r, w)
 		url, err := rp.EndSession(context.Background(), useRelyingParty, idToken.(string), backTo, sessionState)
 		if err != nil {
@@ -110,11 +87,13 @@ func IAMHandlers(authRouter *mux.Router, ctxRoot string, relyingParty rp.Relying
 			Any("to url", url).
 			Msg("Auth session deleted")
 
-		http.Redirect(w, r, url.String(), http.StatusTemporaryRedirect)
+		w.Header().Set("Cache-Control", "no-cache")
+		http.Redirect(w, r, url.String(), http.StatusFound)
+	}
+}
 
-	}).Name("GET " + ctxRoot + "/auth/logout")
-
-	authRouter.HandleFunc("/info", func(w http.ResponseWriter, r *http.Request) {
+func onInfo(ctxRoot string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 
 		session := app_http.ExtractSession(r.Context())
 		logger := app_http.ExtractLogger(r.Context(), "auth")
@@ -145,5 +124,26 @@ func IAMHandlers(authRouter *mux.Router, ctxRoot string, relyingParty rp.Relying
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(responseBody)
-	}).Name("GET " + ctxRoot + "/auth/info")
+	}
+}
+
+func marshalUserinfo(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
+
+	session := app_http.ExtractSession(r.Context())
+	logger := app_http.ExtractLogger(r.Context(), "auth")
+
+	session.Values["access_token"] = tokens.AccessToken
+	session.Values["refresh_token"] = tokens.RefreshToken
+	session.Values["id_token"] = tokens.IDToken
+	session.Values["session_state"] = tokens.IDTokenClaims.Claims["session_state"]
+	session.Values["email"] = info.Email
+	session.Values["family_name"] = info.FamilyName
+	session.Values["given_name"] = info.GivenName
+	session.Values["name"] = info.Name
+	session.Values["preferred_username"] = info.PreferredUsername
+
+	session.Save(r, w)
+	logger.Trace().Msg("Auth session saved")
+
+	http.Redirect(w, r, state, http.StatusFound)
 }
