@@ -13,3 +13,12 @@ export const ps_client = axios.create({
     'X-Subscription': 'labrd'
   },
 });
+
+export const auth_client = axios.create({
+  baseURL: localDev ? 'http://localhost:3010' : `${contextRoot}/auth`,
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Tenant': 'almawave.com',
+    'X-Subscription': 'labrd'
+  },
+});

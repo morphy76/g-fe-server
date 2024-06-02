@@ -65,7 +65,7 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
 	contextRouter.Path("/ui").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, serveOptions.ContextRoot+"/ui/", http.StatusMovedPermanently)
+		http.Redirect(w, r, serveOptions.ContextRoot+"/ui/", http.StatusTemporaryRedirect)
 	})
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Context router registered")

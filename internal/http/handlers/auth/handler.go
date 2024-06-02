@@ -1,9 +1,10 @@
 package auth
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -15,13 +16,14 @@ import (
 
 func IAMHandlers(authRouter *mux.Router, ctxRoot string, relyingParty rp.RelyingParty) {
 
-	todo := func() string {
+	stateFn := func() string {
 		return uuid.New().String()
 	}
 
 	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
 
 		session := app_http.ExtractSession(r.Context())
+		logger := app_http.ExtractLogger(r.Context(), "auth")
 
 		session.Values["access_token"] = tokens.AccessToken
 		session.Values["refresh_token"] = tokens.RefreshToken
@@ -34,60 +36,45 @@ func IAMHandlers(authRouter *mux.Router, ctxRoot string, relyingParty rp.Relying
 		session.Values["preferred_username"] = info.PreferredUsername
 
 		session.Save(r, w)
+		logger.Trace().Msg("Auth session saved")
 
 		http.Redirect(w, r, ctxRoot+"/ui", http.StatusFound)
 	}
-	// relyingParty.OAuthConfig().RedirectURL = "http://localhost:8080/fe/ui/credits"
-	authRouter.HandleFunc("/login", rp.AuthURLHandler(todo, relyingParty)).Methods("GET").Name("GET " + ctxRoot + "/auth/login")
+	// TODO a callback dovrebbe arrivare il parameto backTo di /login o, in sua assenza, relyingParty.OAuthConfig().RedirectURL
+	authRouter.HandleFunc("/login", rp.AuthURLHandler(stateFn, relyingParty)).Methods("GET").Name("GET " + ctxRoot + "/auth/login")
+
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
+
 	authRouter.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
 
-		session := app_http.ExtractSession(r.Context())
 		logger := app_http.ExtractLogger(r.Context(), "auth")
+		logger.Trace().Msg("Logging out")
 
-		logger.Trace().
-			Msg("Start Logout")
-
+		session := app_http.ExtractSession(r.Context())
 		serveOptions := app_http.ExtractServeOptions(r.Context())
 		useRelyingParty := app_http.ExtractRelyingParty(r.Context())
 
-		var err error
-		backTo := r.URL.Query().Get("backTo")
-		if backTo == "" {
-			backTo = fmt.Sprintf(
-				"%s://%s:%s/%s/ui",
+		logger.Trace().Msg("Start logging out")
+
+		backTo := fmt.Sprintf(
+			"%s://%s:%s/%s/ui/",
+			serveOptions.Protocol,
+			serveOptions.Host,
+			serveOptions.Port,
+			serveOptions.ContextRoot,
+		)
+
+		idToken := session.Values["id_token"]
+		if idToken == nil {
+			authURL := fmt.Sprintf(
+				"%s://%s:%s/%s/auth/login",
 				serveOptions.Protocol,
 				serveOptions.Host,
 				serveOptions.Port,
 				serveOptions.ContextRoot,
 			)
-		} else {
-			backTo, err = url.QueryUnescape(backTo)
-			if err != nil {
-				logger.Warn().
-					Err(err).
-					Msg("Failed to unescape backTo")
-				backTo = fmt.Sprintf(
-					"%s://%s:%s/%s/ui",
-					serveOptions.Protocol,
-					serveOptions.Host,
-					serveOptions.Port,
-					serveOptions.ContextRoot,
-				)
-			}
-		}
 
-		logger.Trace().
-			Str("client_id", useRelyingParty.OAuthConfig().ClientID).
-			Str("redirect_uri", backTo).
-			Msg("RP info")
-
-		idToken := session.Values["id_token"]
-		if idToken == nil {
-			logger.Trace().
-				Msg("No ID Token found")
-
-			http.Redirect(w, r, backTo, http.StatusFound)
+			http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -95,19 +82,50 @@ func IAMHandlers(authRouter *mux.Router, ctxRoot string, relyingParty rp.Relying
 
 		session.Options.MaxAge = -1
 		session.Save(r, w)
-		logger.Trace().
-			Msg("Session deleted")
-
-		url, err := rp.EndSession(r.Context(), useRelyingParty, idToken.(string), backTo, sessionState)
+		url, err := rp.EndSession(context.Background(), useRelyingParty, idToken.(string), backTo, sessionState)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logger.Error().Err(err).Msg("End session failed")
+			http.Error(w, "End session failed", http.StatusInternalServerError)
+			return
+		}
+		logger.Trace().
+			Any("to url", url).
+			Msg("Auth session deleted")
+
+		http.Redirect(w, r, url.String(), http.StatusTemporaryRedirect)
+
+	}).Name("GET " + ctxRoot + "/auth/logout")
+
+	authRouter.HandleFunc("/info", func(w http.ResponseWriter, r *http.Request) {
+
+		session := app_http.ExtractSession(r.Context())
+		logger := app_http.ExtractLogger(r.Context(), "auth")
+
+		logger.Trace().Msg("Info requested")
+
+		idToken := session.Values["id_token"]
+		if idToken == nil {
+			http.Error(w, "Auth session not found", http.StatusUnauthorized)
 			return
 		}
 
-		logger.Trace().
-			Str("url", url.String()).
-			Msg("Redirect to end session")
-		http.Redirect(w, r, url.String(), http.StatusFound)
+		rv := &map[string]string{
+			"email":              session.Values["email"].(string),
+			"family_name":        session.Values["family_name"].(string),
+			"given_name":         session.Values["given_name"].(string),
+			"name":               session.Values["name"].(string),
+			"preferred_username": session.Values["preferred_username"].(string),
+			"logout_url":         ctxRoot + "/auth/logout",
+		}
+		responseBody, err := json.Marshal(rv)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to marshal response")
+			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+			return
+		}
 
-	}).Name("GET " + ctxRoot + "/auth/logout")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(responseBody)
+	}).Name("GET " + ctxRoot + "/auth/info")
 }

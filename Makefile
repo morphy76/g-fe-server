@@ -27,7 +27,7 @@ SOURCES := ./cmd/main/serve.go
 MONGO_ARGS := -db=1 -db-mongo-url=mongodb://127.0.0.1:27017/go_db -db-mongo-user=go -db-mongo-password=go
 SERVE_ARGS := -ctx=/fe -static=$(TARGET_FE) -host=localhost
 OTEL_ARGS := -otel-enabled=false
-OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/gfes -oidc-client-id=ps -oidc-client-secret=BA4eYsij3vDerLdQTRp6khSKWSDQWdLr -oidc-scopes=openid,profile,email,offline_access
+OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/gfes -oidc-client-id=ps -oidc-client-secret=S0hNk7MkpOavWzcVQfwVTxR0EYpSp6WP -oidc-scopes=openid,profile,email,offline_access
 
 # Define the build target
 build:
