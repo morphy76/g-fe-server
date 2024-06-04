@@ -5,7 +5,7 @@
 ### Doing
 
 - authentication & authorization (must)
-  -> verify the session token, if ko try to refresh it, if ko logout
+  -> introspect just checks the token regardless the IDP session
   -> integrate KC in the helm
 
 ### Backlog

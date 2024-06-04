@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path/filepath"
+	"strings"
 
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
@@ -15,30 +17,36 @@ import (
 func InspectAndRenew(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		serveOptions := app_http.ExtractServeOptions(r.Context())
 		session := app_http.ExtractSession(r.Context())
 		relyingParty := app_http.ExtractRelyingParty(r.Context())
 		logger := app_http.ExtractLogger(r.Context(), "auth")
 		resourceServer := app_http.ExtractOidcResource(r.Context())
 
+		ctxRoot := serveOptions.ContextRoot
+		requestedFile := filepath.Join(serveOptions.StaticPath, strings.TrimPrefix(r.URL.Path, ctxRoot+"/ui"))
+		if strings.HasSuffix(requestedFile, ".js") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		access_token := session.Values["access_token"]
 		if access_token == nil {
-			logger.Error().Msg("No access token found")
-			http.Error(w, "No access token found", http.StatusInternalServerError)
+			logger.Warn().Msg("No access token found")
+			http.Redirect(w, r, ctxRoot+"/auth/logout", http.StatusTemporaryRedirect)
 			return
 		}
 		refresh_token := session.Values["refresh_token"]
 		if refresh_token == nil {
-			logger.Error().Msg("No refresh token found")
-			http.Error(w, "No refresh token found", http.StatusInternalServerError)
+			logger.Warn().Msg("No refresh token found")
+			http.Redirect(w, r, ctxRoot+"/auth/logout", http.StatusTemporaryRedirect)
 			return
 		}
 
-		// TODO introspect just checks the token regardless the IDP session
-
 		resp, err := rs.Introspect[*oidc.IntrospectionResponse](context.Background(), resourceServer, access_token.(string))
 		if err != nil {
-			logger.Error().Err(err).Msg("Failed to refresh tokens")
-			http.Error(w, "Failed to refresh tokens", http.StatusInternalServerError)
+			logger.Warn().Err(err).Msg("Failed to refresh tokens")
+			http.Redirect(w, r, ctxRoot+"/auth/logout", http.StatusTemporaryRedirect)
 			return
 		}
 		if resp.Active {
@@ -58,7 +66,7 @@ func InspectAndRenew(next http.Handler) http.Handler {
 		)
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to refresh tokens")
-			http.Error(w, "Failed to refresh tokens", http.StatusInternalServerError)
+			http.Redirect(w, r, ctxRoot+"/auth/logout", http.StatusTemporaryRedirect)
 			return
 		}
 
