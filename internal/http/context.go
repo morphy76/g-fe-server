@@ -9,6 +9,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/serve"
 	"github.com/rs/zerolog"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	"github.com/zitadel/oidc/v3/pkg/client/rs"
 )
 
 type ContextModelKey string
@@ -19,6 +20,7 @@ type ContextDbOptionsKey string
 type ContextLoggerKey string
 type ContextOwnershipKey string
 type ContextOIDCKey string
+type ContextOIDCResourceKey string
 
 const (
 	ctx_CONTEXT_SERVE_KEY ContextModelKey        = "contextModel"
@@ -29,7 +31,16 @@ const (
 	ctx_LOGGER_KEY        ContextLoggerKey       = "logger"
 	ctx_OWNERSHIP_KEY     ContextOwnershipKey    = "ownership"
 	ctx_OIDC_KEY          ContextOIDCKey         = "oidc"
+	ctx_OIDC_RESOURCE_KEY ContextOIDCResourceKey = "oidcResource"
 )
+
+func InjectOidcResource(ctx context.Context, resource rs.ResourceServer) context.Context {
+	return context.WithValue(ctx, ctx_OIDC_RESOURCE_KEY, resource)
+}
+
+func ExtractOidcResource(ctx context.Context) rs.ResourceServer {
+	return ctx.Value(ctx_OIDC_RESOURCE_KEY).(rs.ResourceServer)
+}
 
 func ExtractServeOptions(ctx context.Context) *options.ServeOptions {
 	return ctx.Value(ctx_CONTEXT_SERVE_KEY).(*options.ServeOptions)

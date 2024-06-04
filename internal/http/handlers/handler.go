@@ -26,6 +26,7 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	sessionStore := app_http.ExtractSessionStore(app_context)
 	dbClient := app_http.ExtractDb(app_context)
 	relyingParty := app_http.ExtractRelyingParty(app_context)
+	resourceServer := app_http.ExtractOidcResource(app_context)
 
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
@@ -37,6 +38,7 @@ func Handler(parent *mux.Router, app_context context.Context) {
 			useRequest = useRequest.WithContext(app_http.InjectSessionStore(useRequest.Context(), sessionStore))
 			useRequest = useRequest.WithContext(app_http.InjectServeOptions(useRequest.Context(), serveOptions))
 			useRequest = useRequest.WithContext(app_http.InjectRelyingParty(useRequest.Context(), relyingParty))
+			useRequest = useRequest.WithContext(app_http.InjectOidcResource(useRequest.Context(), resourceServer))
 
 			next.ServeHTTP(w, useRequest)
 		})
@@ -86,6 +88,7 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()
 	staticRouter.Use(middleware.InjectSession)
 	staticRouter.Use(middleware.AuthenticationRequired)
+	staticRouter.Use(middleware.InspectAndRenew)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Static router registered")
 	}

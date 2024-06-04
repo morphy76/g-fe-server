@@ -16,6 +16,7 @@ import (
 	"github.com/quasoft/memstore"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/zitadel/oidc/v3/pkg/client/rs"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
 	"github.com/morphy76/g-fe-server/internal/db"
@@ -104,7 +105,6 @@ func startServer(
 	if err != nil {
 		panic(err)
 	}
-
 	log.Trace().
 		Str("db_type", reflect.TypeOf(dbClient).String()).
 		Msg("Database client created")
@@ -113,7 +113,6 @@ func startServer(
 	if err != nil {
 		panic(err)
 	}
-
 	log.Trace().
 		Str("client_id", oidcOptions.ClientId).
 		Msg("Relying party")
@@ -134,12 +133,18 @@ func startServer(
 	sessionStoreContext := app_http.InjectSessionStore(dbOptsContext, sessionStore)
 	dbContext := app_http.InjectDb(sessionStoreContext, dbClient)
 	oidcContext := app_http.InjectRelyingParty(dbContext, relyingParty)
-
 	log.Trace().
 		Msg("Application contextes ready")
 
+	resourceServer, err := rs.NewResourceServerClientCredentials(oidcContext, oidcOptions.Issuer, oidcOptions.ClientId, oidcOptions.ClientSecret)
+	if err != nil {
+		panic(err)
+	}
+	oidcResourceContext := app_http.InjectOidcResource(oidcContext, resourceServer)
+	log.Trace().Msg("Resource server client created")
+
 	rootRouter := mux.NewRouter()
-	handlers.Handler(rootRouter, oidcContext)
+	handlers.Handler(rootRouter, oidcResourceContext)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {

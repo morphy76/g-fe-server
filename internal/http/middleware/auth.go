@@ -6,36 +6,47 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-jose/go-jose/v4"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	"github.com/zitadel/oidc/v3/pkg/client/rs"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
 
 func InspectAndRenew(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		// TODO
-
 		session := app_http.ExtractSession(r.Context())
 		relyingParty := app_http.ExtractRelyingParty(r.Context())
 		logger := app_http.ExtractLogger(r.Context(), "auth")
+		resourceServer := app_http.ExtractOidcResource(r.Context())
 
 		access_token := session.Values["access_token"]
 		if access_token == nil {
-			logger.Warn().Msg("No access token found")
-			next.ServeHTTP(w, r)
+			logger.Error().Msg("No access token found")
+			http.Error(w, "No access token found", http.StatusInternalServerError)
+			return
 		}
 		refresh_token := session.Values["refresh_token"]
 		if refresh_token == nil {
-			logger.Warn().Msg("No refresh token found")
-			next.ServeHTTP(w, r)
+			logger.Error().Msg("No refresh token found")
+			http.Error(w, "No refresh token found", http.StatusInternalServerError)
+			return
 		}
 
-		err := rp.VerifyAccessToken(access_token.(string), "", jose.ES256)
-		if err == nil {
+		// TODO introspect just checks the token regardless the IDP session
+
+		resp, err := rs.Introspect[*oidc.IntrospectionResponse](context.Background(), resourceServer, access_token.(string))
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to refresh tokens")
+			http.Error(w, "Failed to refresh tokens", http.StatusInternalServerError)
+			return
+		}
+		if resp.Active {
+			logger.Trace().Msg("Token is active")
 			next.ServeHTTP(w, r)
 			return
+		} else {
+			logger.Trace().Msg("Token is not active")
 		}
 
 		tokens, err := rp.RefreshTokens[*oidc.IDTokenClaims](
