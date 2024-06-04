@@ -11,6 +11,11 @@ server:
   otlp:
     enabled: true
     endpoint: http://fe-server-zipkin:9411/api/v2/spans
+  oidc:
+    issuer: http://fe-server-keycloak:8080/realms/gfes
+    clientId: ps
+    clientSecret: BA4eYsij3vDerLdQTRp6khSKWSDQWdLr
+    scopes: openid,profile,email,offline_access
 
 replicaCount: 1
 
