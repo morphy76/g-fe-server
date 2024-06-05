@@ -6,12 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
-	"github.com/rs/zerolog"
-
-	app_http "github.com/morphy76/g-fe-server/internal/http"
 )
 
 func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
@@ -19,8 +14,6 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 	defaultFile := filepath.Join(staticPath, "index.html")
 
 	fileServer := func(w http.ResponseWriter, r *http.Request) {
-
-		request_log := r.Context().Value(app_http.CTX_LOGGER_KEY).(zerolog.Logger)
 
 		requestedFile := filepath.Join(staticPath, strings.TrimPrefix(r.URL.Path, ctxRoot+"/ui"))
 
@@ -30,23 +23,9 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 			requestedFileStats, _ = os.Stat(requestedFile)
 		}
 
-		session := r.Context().Value(app_http.CTX_SESSION_KEY).(*sessions.Session)
-		request_log.Trace().
-			Bool("in_context", session != nil).
-			Msg("Session found")
-
-		test, found := session.Values["test"]
-		if !found {
-			aRandom, _ := uuid.NewRandom()
-			session.Values["test"] = aRandom.String()
+		if !strings.HasSuffix(requestedFile, ".js") {
+			w.Header().Set("Cache-Control", "no-cache")
 		}
-		request_log.Trace().
-			Any("initial_value", test).
-			Any("current_value", session.Values["test"]).
-			Bool("found", found).
-			Msg("Session value set")
-
-		session.Save(r, w)
 
 		if requestedFileStats.IsDir() {
 			http.ServeFile(w, r, defaultFile)
@@ -55,5 +34,5 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 		}
 	}
 
-	staticRouter.Methods(http.MethodGet).HandlerFunc(fileServer).Name(ctxRoot + "/ui")
+	staticRouter.Methods(http.MethodGet).HandlerFunc(fileServer).Name("GET " + ctxRoot + "/ui")
 }

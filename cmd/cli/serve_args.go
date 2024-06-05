@@ -33,8 +33,8 @@ func IsInvalidSessionSameSite(err error) bool {
 const (
 	ENV_CONTEXT_ROOT      = "CONTEXT_ROOT"
 	ENV_STATIC_PATH       = "STATIC_PATH"
-	ENV_PORT              = "PORT"
-	ENV_HOST              = "HOST"
+	ENV_PORT              = "SERVE_PORT"
+	ENV_HOST              = "SERVE_HOST"
 	ENV_SESSION_KEY       = "SESSION_KEY"
 	ENV_SESSION_NAME      = "SESSION_NAME"
 	ENV_SESSION_MAX_AGE   = "SESSION_MAX_AGE"
@@ -155,6 +155,7 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 		return &options.ServeOptions{
 			ContextRoot:          ctxRoot,
 			StaticPath:           staticPath,
+			Protocol:             "http",
 			Port:                 usePort,
 			Host:                 useHost,
 			SessionKey:           useSessionKey,

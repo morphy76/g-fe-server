@@ -4,12 +4,13 @@
 
 ### Doing
 
-- authentication & authorization (must)
-  - APIs to access HTTP session (token retrieval: header or session)
-  - JWT authenticated APIs
-
 ### Backlog
 
+- authentication & authorization (must)
+  -> introspect just checks the token regardless the IDP session
+  -> integrate KC in the helm
+  -> https://openid.net/specs/openid-connect-core-1_0-35.html
+  - JWT authenticated APIs: direct call (http header) vs UI calls (http session?)
 - multitenancy (must)
   - HTTP header tenant resolver ("done")
   - JWT tenant resolver
@@ -24,12 +25,13 @@
 - cloud friendly http session
   - shared store
   - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
+  - back-channel logout
 - openapi
 - godoc
 - drill down about tests, e.g. fail when coverage is not achieved
 - Logging: create a functional approach to logs, attributes and log propagation
 - what's the vendor directory
-- resusable artifact: pluggable domain resources, API & FE
+- resusable artifact: pluggable domain resources, API & FE -> or better self announcing backend services (https://zeromq.org) to enable gateway (BFF) routes
 - Accessibility (fun)
 - FE crud
   - use query cache and optimistic updates (must)

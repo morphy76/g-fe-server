@@ -3,9 +3,11 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { LoggerContextProvider, useLogger } from '@features/react-logger';
 import * as styles from '@components/App.scss';
 import { useGetExample } from './examples/ExampleService';
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import formatted_message_rules from "@features/formatted_message_rules";
 import { FormattedMessage } from 'react-intl';
+import AppMenu from './AppMenu';
+import { UserInfoContextProvider, useUserInfoQuery } from '@features/user-info';
 
 const ListExample = lazy(() => import('@components/examples/ListExampleComponent'));
 const FormExample = lazy(() => import('@components/examples/FormExampleComponent'));
@@ -20,7 +22,6 @@ const App: React.FC = () => {
       logger?.log('App stopped');
     };
   }, [logger]);
-
 
   const uiPath = useMemo(() => (
     '/' + window.location.pathname.split('/').slice(1, 3).join('/')
@@ -43,9 +44,9 @@ const App: React.FC = () => {
 
 const InnerApp: React.FC = () => {
 
-  const [ selected, setSelected ] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const { data, isLoading, error, refetch } = useGetExample(selected);
-  const navigate = useNavigate();
+  const userInfoModel = useUserInfoQuery();
 
   const handleExampleSelected = (name: string | null) => {
     setSelected(() => name);
@@ -91,33 +92,8 @@ const InnerApp: React.FC = () => {
   ), [loadingLabel, errorLabel, isLoading, error, selected, data, refetch]);
 
   return (
-    <>
-      <nav className={styles.navigation_wrapper}>
-        <ul>
-          <li>
-            <a onClick={() => navigate('/example', { relative: 'path' })}>
-              <FormattedMessage
-                id='example.menu.item'
-                defaultMessage='Example'
-                values={{
-                  ...formatted_message_rules,
-                }}
-              />
-            </a>
-          </li>
-          <li>
-            <a onClick={() => navigate('/credits', { relative: 'path' })}>
-              <FormattedMessage
-                id='credits.menu.item'
-                defaultMessage='Example'
-                values={{
-                  ...formatted_message_rules,
-                }}
-              />
-            </a>
-          </li>
-        </ul>
-      </nav>
+    <UserInfoContextProvider userInfo={userInfoModel.data}>
+      <AppMenu />
       <section className={styles.navigation_content}>
         <Routes>
           <Route index element={<Navigate to="/example" replace />} />
@@ -148,20 +124,19 @@ const InnerApp: React.FC = () => {
             </>
           } />
           <Route path="*" element={
-              <p>
-                <FormattedMessage
-                  id='app.path.not.found'
-                  defaultMessage='Path not found'
-                  values={{
-                    ...formatted_message_rules,
-                  }}
-                />
-              </p>
+            <p>
+              <FormattedMessage
+                id='app.path.not.found'
+                defaultMessage='Path not found'
+                values={{
+                  ...formatted_message_rules,
+                }}
+              />
+            </p>
           } />
         </Routes>
-
       </section>
-    </>
+    </UserInfoContextProvider>
   );
 };
 

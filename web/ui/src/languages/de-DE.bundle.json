@@ -2,6 +2,7 @@
   "app.loading": "Laden...",
   "app.path.not.found": "Die Seite wurde nicht gefunden",
   "app.error": "Ein Fehler: {message}",
+  "app.logout": "Abmelden",
   "examples.title": "<enlarge>Live</enlarge>-Beispiele <i>[{count}]</i>",
   "example.menu.item": "Beispiel",
   "examples.list.confirm.delete": "Möchten Sie das Beispiel wirklich löschen [{name}]?",

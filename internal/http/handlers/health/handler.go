@@ -20,7 +20,7 @@ func HealthHandlers(nonFunctionalRouter *mux.Router, ctxRoot string, dbOptions *
 	healthRouter := nonFunctionalRouter.Path("/health").Subrouter()
 	healthRouter.Use(middleware.JSONResponse)
 
-	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth()).Name(ctxRoot + "/g/health")
+	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth()).Name("GET " + ctxRoot + "/g/health")
 }
 
 func onHealth() http.HandlerFunc {
@@ -59,12 +59,12 @@ func testDbStatus(requestContext context.Context) (string, Status) {
 	timeoutContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	dbOptions := requestContext.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)
+	dbOptions := app_http.ExtractDbOptions(requestContext)
 	if dbOptions.Type == options.RepositoryTypeMemoryDB {
 		dbStatus = Active
 		label = "MemoryDB"
 	} else if dbOptions.Type == options.RepositoryTypeMongoDB {
-		dbClient := requestContext.Value(app_http.CTX_DB_KEY)
+		dbClient := app_http.ExtractDb(requestContext)
 		label = "MongoDB"
 		if reflect.TypeOf(dbClient) == reflect.TypeOf(&mongo.Client{}) {
 

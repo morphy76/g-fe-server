@@ -5,38 +5,40 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 
-	"github.com/morphy76/g-fe-server/internal/db"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/http/handlers/auth"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/metrics"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
-	"github.com/morphy76/g-fe-server/internal/options"
 
 	example_handlers "github.com/morphy76/g-fe-server/internal/example/http"
 )
 
 func Handler(parent *mux.Router, app_context context.Context) {
 
-	serveOptions := app_context.Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions)
-	dbOptions := app_context.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)
-	sessionStore := app_context.Value(app_http.CTX_SESSION_STORE_KEY).(sessions.Store)
-	dbClient := app_context.Value(app_http.CTX_DB_KEY).(db.DbClient)
+	serveOptions := app_http.ExtractServeOptions(app_context)
+	dbOptions := app_http.ExtractDbOptions(app_context)
+	sessionStore := app_http.ExtractSessionStore(app_context)
+	dbClient := app_http.ExtractDb(app_context)
+	relyingParty := app_http.ExtractRelyingParty(app_context)
+	resourceServer := app_http.ExtractOidcResource(app_context)
 
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			useRequest := r.WithContext(context.WithValue(r.Context(), app_http.CTX_DB_KEY, dbClient))
-			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_DB_OPTIONS_KEY, dbOptions))
-			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_SESSION_STORE_KEY, sessionStore))
-			useRequest = useRequest.WithContext(context.WithValue(useRequest.Context(), app_http.CTX_CONTEXT_SERVE_KEY, serveOptions))
+			useRequest := r.WithContext(app_http.InjectDb(r.Context(), dbClient))
+			useRequest = useRequest.WithContext(app_http.InjectDbOptions(useRequest.Context(), dbOptions))
+			useRequest = useRequest.WithContext(app_http.InjectSessionStore(useRequest.Context(), sessionStore))
+			useRequest = useRequest.WithContext(app_http.InjectServeOptions(useRequest.Context(), serveOptions))
+			useRequest = useRequest.WithContext(app_http.InjectRelyingParty(useRequest.Context(), relyingParty))
+			useRequest = useRequest.WithContext(app_http.InjectOidcResource(useRequest.Context(), resourceServer))
 
 			next.ServeHTTP(w, useRequest)
 		})
@@ -58,29 +60,37 @@ func Handler(parent *mux.Router, app_context context.Context) {
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
-	contextRouter.Path("/ui").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, serveOptions.ContextRoot+"/ui/", http.StatusMovedPermanently)
-	})
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Context router registered")
-	}
-
 	contextRouter.Use(otelmux.Middleware("context",
 		otelmux.WithPublicEndpoint(),
 		otelmux.WithPropagators(otel.GetTextMapPropagator()),
 	))
 	contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
+	contextRouter.Path("/ui").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, serveOptions.ContextRoot+"/ui/", http.StatusTemporaryRedirect)
+	})
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Context router registered")
+	}
+
+	// Auth router
+	authRouter := contextRouter.PathPrefix("/auth").Subrouter()
+	authRouter.Use(middleware.InjectSession)
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Auth router registered")
+	}
+	auth.IAMHandlers(authRouter, serveOptions.ContextRoot, relyingParty)
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Auth handler registered")
+	}
 
 	// Static content
 	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()
+	staticRouter.Use(middleware.InjectSession)
+	staticRouter.Use(middleware.AuthenticationRequired)
+	staticRouter.Use(middleware.InspectAndRenew)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Static router registered")
-	}
-
-	staticRouter.Use(middleware.InjectSession)
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Static middleware registered")
 	}
 	static.HandleStatic(staticRouter, serveOptions.ContextRoot, serveOptions.StaticPath)
 	if log.Trace().Enabled() {
@@ -89,15 +99,11 @@ func Handler(parent *mux.Router, app_context context.Context) {
 
 	// API router
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
-	if log.Trace().Enabled() {
-		log.Trace().Msg("API router registered")
-	}
-
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.Use(middleware.PrometheusMiddleware)
 	if log.Trace().Enabled() {
-		log.Trace().Msg("API middleware registered")
+		log.Trace().Msg("API router registered")
 	}
 
 	// Domain functions

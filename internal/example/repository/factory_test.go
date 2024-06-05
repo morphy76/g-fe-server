@@ -13,11 +13,11 @@ import (
 func TestFactorySuite(t *testing.T) {
 	t.Log("Test Factory Suite")
 
-	testContext := context.WithValue(context.Background(), app_http.CTX_DB_KEY, &mongo.Client{})
+	testContext := app_http.InjectDb(context.Background(), &mongo.Client{})
 
 	t.Run("Test RepositoryTypeMemoryDB", func(t *testing.T) {
 		t.Log("Test Factory RepositoryTypeMemoryDB")
-		useContext := context.WithValue(testContext, app_http.CTX_DB_OPTIONS_KEY, &options.DbOptions{
+		useContext := app_http.InjectDbOptions(testContext, &options.DbOptions{
 			Type: options.RepositoryTypeMemoryDB,
 		})
 		if repo, err := NewRepository(useContext); err != nil {
@@ -29,7 +29,7 @@ func TestFactorySuite(t *testing.T) {
 
 	t.Run("Test RepositoryTypeMongoDB", func(t *testing.T) {
 		t.Log("Test Factory RepositoryTypeMongoDB")
-		useContext := context.WithValue(testContext, app_http.CTX_DB_OPTIONS_KEY, &options.DbOptions{
+		useContext := app_http.InjectDbOptions(testContext, &options.DbOptions{
 			Type: options.RepositoryTypeMongoDB,
 		})
 		if repo, err := NewRepository(useContext); err != nil {

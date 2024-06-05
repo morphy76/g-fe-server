@@ -2,6 +2,7 @@
   "app.loading": "Caricamento...",
   "app.path.not.found": "Percorso non trovato",
   "app.error": "Errore: {message}",
+  "app.logout": "Esci",
   "examples.title": "Esempi dal <enlarge>vivo</enlarge> <i>[{count}]</i>",
   "example.menu.item": "Esempi",
   "examples.list.confirm.delete": "Sei sicuro di voler eliminare l'esempio [{name}]?",

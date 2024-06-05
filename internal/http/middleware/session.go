@@ -1,22 +1,17 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 
-	"github.com/gorilla/sessions"
-	"github.com/rs/zerolog"
-
 	app_http "github.com/morphy76/g-fe-server/internal/http"
-	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/rs/zerolog/log"
 )
 
 func InjectSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		store := r.Context().Value(app_http.CTX_SESSION_STORE_KEY).(sessions.Store)
-		serveOptions := r.Context().Value(app_http.CTX_CONTEXT_SERVE_KEY).(*options.ServeOptions)
-		log := r.Context().Value(app_http.CTX_LOGGER_KEY).(zerolog.Logger)
+		store := app_http.ExtractSessionStore(r.Context())
+		serveOptions := app_http.ExtractServeOptions(r.Context())
 
 		session, _ := store.Get(r, serveOptions.SessionName)
 
@@ -25,7 +20,7 @@ func InjectSession(next http.Handler) http.Handler {
 			Str("session name", session.Name()).
 			Msg("Session injected")
 
-		sessionContext := context.WithValue(r.Context(), app_http.CTX_SESSION_KEY, session)
+		sessionContext := app_http.InjectSession(r.Context(), session)
 		useRequest := r.WithContext(sessionContext)
 
 		next.ServeHTTP(w, useRequest)

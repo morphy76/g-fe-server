@@ -16,6 +16,7 @@ import (
 	"github.com/quasoft/memstore"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/zitadel/oidc/v3/pkg/client/rs"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
 	"github.com/morphy76/g-fe-server/internal/db"
@@ -33,6 +34,7 @@ func main() {
 	dbOptionsBuilder := cli.DbOptionsBuilder()
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
 	otelOptionsBuilder := cli.OtelOptionsBuilder()
+	oidcOptionsBuilder := cli.OidcOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -66,10 +68,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	oidcOptions, err := oidcOptionsBuilder()
+	if err != nil {
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	startServer(
 		serveOptions,
 		dbOptions,
 		otelOptions,
+		oidcOptions,
 	)
 }
 
@@ -77,6 +86,7 @@ func startServer(
 	serveOptions *options.ServeOptions,
 	dbOptions *options.DbOptions,
 	otelOptions *options.OtelOptions,
+	oidcOptions *options.OidcOptions,
 ) {
 
 	start := time.Now()
@@ -95,10 +105,17 @@ func startServer(
 	if err != nil {
 		panic(err)
 	}
-
 	log.Trace().
 		Str("db_type", reflect.TypeOf(dbClient).String()).
 		Msg("Database client created")
+
+	relyingParty, err := serve.SetupOIDC(serveOptions, oidcOptions)
+	if err != nil {
+		panic(err)
+	}
+	log.Trace().
+		Str("client_id", oidcOptions.ClientId).
+		Msg("Relying party")
 
 	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -111,15 +128,23 @@ func startServer(
 		err = errors.Join(err, otelShutdown(initialContext))
 	}()
 
-	serverContext := context.WithValue(initialContext, app_http.CTX_CONTEXT_SERVE_KEY, serveOptions)
-	dbOptsContext := context.WithValue(serverContext, app_http.CTX_DB_OPTIONS_KEY, dbOptions)
-	sessionStoreContext := context.WithValue(dbOptsContext, app_http.CTX_SESSION_STORE_KEY, sessionStore)
-	dbContext := context.WithValue(sessionStoreContext, app_http.CTX_DB_KEY, dbClient)
+	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
+	dbOptsContext := app_http.InjectDbOptions(serverContext, dbOptions)
+	sessionStoreContext := app_http.InjectSessionStore(dbOptsContext, sessionStore)
+	dbContext := app_http.InjectDb(sessionStoreContext, dbClient)
+	oidcContext := app_http.InjectRelyingParty(dbContext, relyingParty)
+	log.Trace().
+		Msg("Application contextes ready")
+
+	resourceServer, err := rs.NewResourceServerClientCredentials(oidcContext, oidcOptions.Issuer, oidcOptions.ClientId, oidcOptions.ClientSecret)
+	if err != nil {
+		panic(err)
+	}
+	oidcResourceContext := app_http.InjectOidcResource(oidcContext, resourceServer)
+	log.Trace().Msg("Resource server client created")
 
 	rootRouter := mux.NewRouter()
-
-	handlers.Handler(rootRouter, dbContext)
-
+	handlers.Handler(rootRouter, oidcResourceContext)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {
@@ -131,10 +156,7 @@ func startServer(
 
 	srvErr := make(chan error, 1)
 	go func() {
-		err = http.ListenAndServe(fmt.Sprintf("%s:%s", serveOptions.Host, serveOptions.Port), rootRouter)
-		if err != nil {
-			panic(err)
-		}
+		srvErr <- http.ListenAndServe(fmt.Sprintf("%s:%s", serveOptions.Host, serveOptions.Port), rootRouter)
 	}()
 
 	log.Info().

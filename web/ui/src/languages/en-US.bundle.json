@@ -2,6 +2,7 @@
   "app.loading": "Loading...",
   "app.path.not.found": "Path not found",
   "app.error": "Error: {message}",
+  "app.logout": "Logout",
   "examples.title": "<enlarge>Live</enlarge> Examples <i>[{count}]</i>",
   "example.menu.item": "Example",
   "examples.list.confirm.delete": "Are you sure you want to delete the example [{name}]?",

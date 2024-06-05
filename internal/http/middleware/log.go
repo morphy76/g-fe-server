@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/rs/zerolog"
@@ -30,7 +29,7 @@ func RequestLogger(next http.Handler) http.Handler {
 
 		activeSpan := trace.SpanFromContext(r.Context())
 
-		ownership := r.Context().Value(app_http.CTX_OWNERSHIP_KEY).(Ownership)
+		ownership := app_http.ExtractOwnership(r.Context())
 		useLogger := log.Logger.With().
 			Dict("correlation", zerolog.Dict().
 				Str("span_id", activeSpan.SpanContext().SpanID().String()).
@@ -40,7 +39,7 @@ func RequestLogger(next http.Handler) http.Handler {
 				Str("tenant", ownership.Tenant).
 				Str("subscription", ownership.Subscription),
 			).Logger()
-		newContext := context.WithValue(r.Context(), app_http.CTX_LOGGER_KEY, useLogger)
+		newContext := app_http.InjectLogger(r.Context(), useLogger)
 		useRequestLogger := r.WithContext(newContext)
 
 		next.ServeHTTP(recorder, useRequestLogger)
@@ -51,12 +50,4 @@ func RequestLogger(next http.Handler) http.Handler {
 			Int("code", recorder.Status).
 			Msg("HTTP Request")
 	})
-}
-
-func ExtractLoggerFromContext(ctx context.Context, forPackage string) zerolog.Logger {
-	return (ctx.Value(app_http.CTX_LOGGER_KEY).(zerolog.Logger)).With().Str("package", forPackage).Logger()
-}
-
-func ExtractLoggerFromRequest(r *http.Request, forPackage string) zerolog.Logger {
-	return ExtractLoggerFromContext(r.Context(), forPackage)
 }

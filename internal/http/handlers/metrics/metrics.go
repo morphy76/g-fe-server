@@ -7,5 +7,5 @@ import (
 
 func PrometheusHandlers(nonFunctionalRouter *mux.Router, ctxRoot string) {
 
-	nonFunctionalRouter.Handle("/metrics", promhttp.Handler()).Name(ctxRoot + "/g/metrics")
+	nonFunctionalRouter.Handle("/metrics", promhttp.Handler()).Name("GET " + ctxRoot + "/g/metrics")
 }

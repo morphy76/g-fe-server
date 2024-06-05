@@ -13,8 +13,8 @@ import (
 
 func NewRepository(requestContext context.Context) (model.Repository, error) {
 
-	dbOptions := requestContext.Value(app_http.CTX_DB_OPTIONS_KEY).(*options.DbOptions)
-	dbClient := requestContext.Value(app_http.CTX_DB_KEY)
+	dbOptions := app_http.ExtractDbOptions(requestContext)
+	dbClient := app_http.ExtractDb(requestContext)
 
 	switch dbOptions.Type {
 	case options.RepositoryTypeMemoryDB:
