@@ -4,13 +4,12 @@
 
 ### Doing
 
+### Backlog
+
 - authentication & authorization (must)
   -> introspect just checks the token regardless the IDP session
   -> integrate KC in the helm
-
-### Backlog
-
-- authentication & authorization
+  -> https://openid.net/specs/openid-connect-core-1_0-35.html
   - JWT authenticated APIs: direct call (http header) vs UI calls (http session?)
 - multitenancy (must)
   - HTTP header tenant resolver ("done")
