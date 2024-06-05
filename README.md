@@ -4,19 +4,23 @@
 
 ### Doing
 
+- a new service with Pact
+  - e.g. (https://medium.com/@dees3g/pact-and-go-contract-testing-of-http-based-applications-e595e639334e)
+- resusable artifact: pluggable domain resources, API & FE -> or better self announcing backend services (https://zeromq.org) to enable gateway (BFF) routes
+
 ### Backlog
 
+- multitenancy (must)
+  - HTTP header tenant resolver ("done")
+  - JWT tenant resolver
+  -> claims and email domain
+  -> fix logger tenant resolution
 - authentication & authorization (must)
   -> introspect just checks the token regardless the IDP session
   -> integrate KC in the helm
   -> https://openid.net/specs/openid-connect-core-1_0-35.html
   - JWT authenticated APIs: direct call (http header) vs UI calls (http session?)
-- multitenancy (must)
-  - HTTP header tenant resolver ("done")
-  - JWT tenant resolver
 - helm review & service mesh (istio)
-- a new service with Pact
-  - e.g. (https://medium.com/@dees3g/pact-and-go-contract-testing-of-http-based-applications-e595e639334e)
 - redis integration (as a client, as a mongo cache, as an http session store) + health
 - kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama), anyway more protocols
 - zookeeper playground?
@@ -31,7 +35,6 @@
 - drill down about tests, e.g. fail when coverage is not achieved
 - Logging: create a functional approach to logs, attributes and log propagation
 - what's the vendor directory
-- resusable artifact: pluggable domain resources, API & FE -> or better self announcing backend services (https://zeromq.org) to enable gateway (BFF) routes
 - Accessibility (fun)
 - FE crud
   - use query cache and optimistic updates (must)
