@@ -1,4 +1,4 @@
-package handlers
+package example
 
 import (
 	"context"
@@ -11,11 +11,11 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 
+	example_http "github.com/morphy76/g-fe-server/internal/example/http"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/auth"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/metrics"
-	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
 )
 
@@ -36,6 +36,9 @@ func Handler(
 		resourceServer = app_http.ExtractOidcResource(app_context)
 	}
 
+	dbOptions := app_http.ExtractDbOptions(app_context)
+	dbClient := app_http.ExtractDb(app_context)
+
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,6 +49,8 @@ func Handler(
 				useRequest = useRequest.WithContext(app_http.InjectRelyingParty(useRequest.Context(), relyingParty))
 				useRequest = useRequest.WithContext(app_http.InjectOidcResource(useRequest.Context(), resourceServer))
 			}
+			useRequest = useRequest.WithContext(app_http.InjectDbOptions(useRequest.Context(), dbOptions))
+			useRequest = useRequest.WithContext(app_http.InjectDb(useRequest.Context(), dbClient))
 
 			next.ServeHTTP(w, useRequest)
 		})
@@ -93,19 +98,6 @@ func Handler(
 		}
 	}
 
-	// Static content
-	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()
-	staticRouter.Use(middleware.InjectSession)
-	staticRouter.Use(middleware.AuthenticationRequired)
-	staticRouter.Use(middleware.InspectAndRenew)
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Static router registered")
-	}
-	static.HandleStatic(staticRouter, serveOptions.ContextRoot, serveOptions.StaticPath)
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Static handler registered")
-	}
-
 	// API router
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
@@ -115,11 +107,11 @@ func Handler(
 		log.Trace().Msg("API router registered")
 	}
 
-	// // Domain functions
-	// example_handlers.ExampleHandlers(apiRouter, serveOptions.ContextRoot, dbOptions)
-	// if log.Trace().Enabled() {
-	// 	log.Trace().Msg("Example handler registered")
-	// }
+	// Domain functions
+	example_http.ExampleHandlers(apiRouter, app_context)
+	if log.Trace().Enabled() {
+		log.Trace().Msg("Example handler registered")
+	}
 	if registerFunctionalRouter != nil {
 		registerFunctionalRouter(apiRouter, app_context)
 		if log.Trace().Enabled() {

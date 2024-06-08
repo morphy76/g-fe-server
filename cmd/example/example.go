@@ -18,8 +18,9 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
+	"github.com/morphy76/g-fe-server/internal/db"
+	"github.com/morphy76/g-fe-server/internal/example"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
-	"github.com/morphy76/g-fe-server/internal/http/handlers"
 	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/morphy76/g-fe-server/internal/serve"
 )
@@ -32,6 +33,7 @@ func main() {
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
 	otelOptionsBuilder := cli.OtelOptionsBuilder()
 	oidcOptionsBuilder := cli.OidcOptionsBuilder()
+	dbOptionsBuilder := cli.DbOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -74,10 +76,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	dbOptions, err := dbOptionsBuilder()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing db options")
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	startServer(
 		serveOptions,
 		otelOptions,
 		oidcOptions,
+		dbOptions,
 	)
 }
 
@@ -85,6 +97,7 @@ func startServer(
 	serveOptions *options.ServeOptions,
 	otelOptions *options.OtelOptions,
 	oidcOptions *options.OidcOptions,
+	dbOptions *options.DbOptions,
 ) {
 
 	start := time.Now()
@@ -118,11 +131,15 @@ func startServer(
 	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
 	oidOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
 	sessionStoreContext := app_http.InjectSessionStore(oidOptionsContext, sessionStore)
-	var finalContext context.Context
+	var oidcContext context.Context
 	log.Trace().
 		Msg("Application contextes ready")
 
-	if !oidcOptions.Disabled {
+	if oidcOptions.Disabled {
+		oidcContext = sessionStoreContext
+		log.Trace().
+			Msg("OIDC disabled")
+	} else {
 		relyingParty, err := serve.SetupOIDC(serveOptions, oidcOptions)
 		if err != nil {
 			panic(err)
@@ -131,24 +148,25 @@ func startServer(
 			Str("client_id", oidcOptions.ClientId).
 			Msg("Relying party ready")
 
-		oidcContext := app_http.InjectRelyingParty(sessionStoreContext, relyingParty)
-		resourceServer, err := rs.NewResourceServerClientCredentials(oidcContext, oidcOptions.Issuer, oidcOptions.ClientId, oidcOptions.ClientSecret)
+		rpContext := app_http.InjectRelyingParty(sessionStoreContext, relyingParty)
+		resourceServer, err := rs.NewResourceServerClientCredentials(rpContext, oidcOptions.Issuer, oidcOptions.ClientId, oidcOptions.ClientSecret)
 		if err != nil {
 			panic(err)
 		}
-		finalContext = app_http.InjectOidcResource(oidcContext, resourceServer)
+		oidcContext = app_http.InjectOidcResource(rpContext, resourceServer)
 
 		log.Trace().
 			Msg("Resource server client created")
-	} else {
-		finalContext = sessionStoreContext
-
-		log.Trace().
-			Msg("OIDC disabled")
 	}
 
+	dbClient, err := db.NewClient(dbOptions)
+	if err != nil {
+		panic(err)
+	}
+	finalContext := app_http.InjectDb(app_http.InjectDbOptions(oidcContext, dbOptions), dbClient)
+
 	rootRouter := mux.NewRouter()
-	handlers.Handler(rootRouter, finalContext, nil)
+	example.Handler(rootRouter, finalContext, nil)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {

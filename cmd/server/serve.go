@@ -19,9 +19,9 @@ import (
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
-	"github.com/morphy76/g-fe-server/internal/http/handlers"
 	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/morphy76/g-fe-server/internal/serve"
+	"github.com/morphy76/g-fe-server/internal/server"
 )
 
 func main() {
@@ -147,7 +147,7 @@ func startServer(
 	}
 
 	rootRouter := mux.NewRouter()
-	handlers.Handler(rootRouter, finalContext, nil)
+	server.Handler(rootRouter, finalContext, nil)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {
