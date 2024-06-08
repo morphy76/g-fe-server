@@ -7,6 +7,7 @@
 - a new service with Pact
   - e.g. (https://medium.com/@dees3g/pact-and-go-contract-testing-of-http-based-applications-e595e639334e)
 - resusable artifact: pluggable domain resources, API & FE -> or better self announcing backend services (https://zeromq.org) to enable gateway (BFF) routes
+  - versioning
 
 ### Backlog
 

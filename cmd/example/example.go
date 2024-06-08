@@ -20,6 +20,7 @@ import (
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
 	"github.com/morphy76/g-fe-server/internal/db"
+	example_http "github.com/morphy76/g-fe-server/internal/example/http"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers"
 	"github.com/morphy76/g-fe-server/internal/options"
@@ -144,7 +145,7 @@ func startServer(
 	log.Trace().Msg("Resource server client created")
 
 	rootRouter := mux.NewRouter()
-	handlers.Handler(rootRouter, oidcResourceContext)
+	handlers.Handler(rootRouter, oidcResourceContext, example_http.ExampleHandlers)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {

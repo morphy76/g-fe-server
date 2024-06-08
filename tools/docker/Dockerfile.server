@@ -14,7 +14,7 @@ ARG DOCKER_HOST=tcp://127.0.0.1:12345
 WORKDIR /app
 COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \
-    make build
+    make build-server
 
 # Builder image: FE
 FROM node:lts AS fe-builder
@@ -33,8 +33,8 @@ COPY --from=ps-builder /app/g-fe-server /g-fe-server
 COPY --from=fe-builder /app/web/build /static
 ENV STATIC_PATH=/static
 CMD [ "/g-fe-server" ]
-LABEL Name=g-fe-server \
-      Version=0.0.1 \
+LABEL Name=$TAG_NAME \
+      Version=$TAG_VERSION \
       Maintainer="Riccardo Pasquini <riccardo.pasquini@gmail.com>" \
       Vendor="sixdeex.net" \
       Description="Go frontend server" \

@@ -15,12 +15,14 @@ import (
 	"github.com/morphy76/g-fe-server/internal/http/handlers/metrics"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
-
-	example_handlers "github.com/morphy76/g-fe-server/internal/example/http"
 )
 
-func Handler(parent *mux.Router, app_context context.Context) {
-
+func Handler(
+	parent *mux.Router,
+	app_context context.Context,
+	registerFunctionalRouter func(functionalRouter *mux.Router, app_context context.Context),
+	addtionalHealthChecks ...health.HealthCheckFn,
+) {
 	serveOptions := app_http.ExtractServeOptions(app_context)
 	dbOptions := app_http.ExtractDbOptions(app_context)
 	sessionStore := app_http.ExtractSessionStore(app_context)
@@ -49,7 +51,7 @@ func Handler(parent *mux.Router, app_context context.Context) {
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Non functional router registered")
 	}
-	health.HealthHandlers(nonFunctionalRouter, serveOptions.ContextRoot, dbOptions)
+	health.HealthHandlers(nonFunctionalRouter, app_context)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Health handler registered")
 	}
@@ -106,10 +108,16 @@ func Handler(parent *mux.Router, app_context context.Context) {
 		log.Trace().Msg("API router registered")
 	}
 
-	// Domain functions
-	example_handlers.ExampleHandlers(apiRouter, serveOptions.ContextRoot, dbOptions)
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Example handler registered")
+	// // Domain functions
+	// example_handlers.ExampleHandlers(apiRouter, serveOptions.ContextRoot, dbOptions)
+	// if log.Trace().Enabled() {
+	// 	log.Trace().Msg("Example handler registered")
+	// }
+	if registerFunctionalRouter != nil {
+		registerFunctionalRouter(apiRouter, app_context)
+		if log.Trace().Enabled() {
+			log.Trace().Msg("Functional handler registered")
+		}
 	}
 
 	contextRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {

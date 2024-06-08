@@ -15,9 +15,14 @@ import (
 	"github.com/morphy76/g-fe-server/internal/options"
 )
 
-func HealthHandlers(nonFunctionalRouter *mux.Router, ctxRoot string, dbOptions *options.DbOptions) {
+func HealthHandlers(
+	parent *mux.Router,
+	app_context context.Context,
+) {
+	serveOptions := app_http.ExtractServeOptions(app_context)
+	ctxRoot := serveOptions.ContextRoot
 
-	healthRouter := nonFunctionalRouter.Path("/health").Subrouter()
+	healthRouter := parent.Path("/health").Subrouter()
 	healthRouter.Use(middleware.JSONResponse)
 
 	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth()).Name("GET " + ctxRoot + "/g/health")
