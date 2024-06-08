@@ -6,6 +6,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
+	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	"github.com/zitadel/oidc/v3/pkg/client/rs"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 
@@ -24,23 +26,26 @@ func Handler(
 	addtionalHealthChecks ...health.HealthCheckFn,
 ) {
 	serveOptions := app_http.ExtractServeOptions(app_context)
-	dbOptions := app_http.ExtractDbOptions(app_context)
 	sessionStore := app_http.ExtractSessionStore(app_context)
-	dbClient := app_http.ExtractDb(app_context)
-	relyingParty := app_http.ExtractRelyingParty(app_context)
-	resourceServer := app_http.ExtractOidcResource(app_context)
+	oidcOptions := app_http.ExtractOidcOptions(app_context)
+
+	var relyingParty rp.RelyingParty
+	var resourceServer rs.ResourceServer
+	if !oidcOptions.Disabled {
+		relyingParty = app_http.ExtractRelyingParty(app_context)
+		resourceServer = app_http.ExtractOidcResource(app_context)
+	}
 
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
-
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			useRequest := r.WithContext(app_http.InjectDb(r.Context(), dbClient))
-			useRequest = useRequest.WithContext(app_http.InjectDbOptions(useRequest.Context(), dbOptions))
-			useRequest = useRequest.WithContext(app_http.InjectSessionStore(useRequest.Context(), sessionStore))
+			useRequest := r.WithContext(app_http.InjectSessionStore(r.Context(), sessionStore))
 			useRequest = useRequest.WithContext(app_http.InjectServeOptions(useRequest.Context(), serveOptions))
-			useRequest = useRequest.WithContext(app_http.InjectRelyingParty(useRequest.Context(), relyingParty))
-			useRequest = useRequest.WithContext(app_http.InjectOidcResource(useRequest.Context(), resourceServer))
+			useRequest = useRequest.WithContext(app_http.InjectOidcOptions(useRequest.Context(), oidcOptions))
+			if !oidcOptions.Disabled {
+				useRequest = useRequest.WithContext(app_http.InjectRelyingParty(useRequest.Context(), relyingParty))
+				useRequest = useRequest.WithContext(app_http.InjectOidcResource(useRequest.Context(), resourceServer))
+			}
 
 			next.ServeHTTP(w, useRequest)
 		})
@@ -76,14 +81,16 @@ func Handler(
 	}
 
 	// Auth router
-	authRouter := contextRouter.PathPrefix("/auth").Subrouter()
-	authRouter.Use(middleware.InjectSession)
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Auth router registered")
-	}
-	auth.IAMHandlers(authRouter, serveOptions.ContextRoot, relyingParty)
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Auth handler registered")
+	if !oidcOptions.Disabled {
+		authRouter := contextRouter.PathPrefix("/auth").Subrouter()
+		authRouter.Use(middleware.InjectSession)
+		if log.Trace().Enabled() {
+			log.Trace().Msg("Auth router registered")
+		}
+		auth.IAMHandlers(authRouter, serveOptions.ContextRoot, relyingParty)
+		if log.Trace().Enabled() {
+			log.Trace().Msg("Auth handler registered")
+		}
 	}
 
 	// Static content

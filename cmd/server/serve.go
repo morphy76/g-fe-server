@@ -49,18 +49,27 @@ func main() {
 
 	serveOptions, err := serveOptionsBuilder()
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing serve options")
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	otelOptions, err := otelOptionsBuilder()
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing otel options")
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	oidcOptions, err := oidcOptionsBuilder()
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing oidc options")
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -96,14 +105,6 @@ func startServer(
 		Int("max_age", serveOptions.SessionMaxAge).
 		Msg("Session store ready")
 
-	relyingParty, err := serve.SetupOIDC(serveOptions, oidcOptions)
-	if err != nil {
-		panic(err)
-	}
-	log.Trace().
-		Str("client_id", oidcOptions.ClientId).
-		Msg("Relying party ready")
-
 	otelShutdown, err := serve.SetupOTelSDK(initialContext, otelOptions)
 	if err != nil {
 		panic(err)
@@ -115,18 +116,35 @@ func startServer(
 		Msg("Opentelemetry ready")
 
 	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
-	sessionStoreContext := app_http.InjectSessionStore(serverContext, sessionStore)
-	oidcContext := app_http.InjectRelyingParty(sessionStoreContext, relyingParty)
+	oidOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
+	sessionStoreContext := app_http.InjectSessionStore(oidOptionsContext, sessionStore)
+	var finalContext context.Context
 	log.Trace().
 		Msg("Application contextes ready")
 
-	resourceServer, err := rs.NewResourceServerClientCredentials(oidcContext, oidcOptions.Issuer, oidcOptions.ClientId, oidcOptions.ClientSecret)
-	if err != nil {
-		panic(err)
+	if oidcOptions.Disabled {
+		finalContext = sessionStoreContext
+		log.Trace().
+			Msg("OIDC disabled")
+	} else {
+		relyingParty, err := serve.SetupOIDC(serveOptions, oidcOptions)
+		if err != nil {
+			panic(err)
+		}
+		log.Trace().
+			Str("client_id", oidcOptions.ClientId).
+			Msg("Relying party ready")
+
+		oidcContext := app_http.InjectRelyingParty(sessionStoreContext, relyingParty)
+		resourceServer, err := rs.NewResourceServerClientCredentials(oidcContext, oidcOptions.Issuer, oidcOptions.ClientId, oidcOptions.ClientSecret)
+		if err != nil {
+			panic(err)
+		}
+		finalContext = app_http.InjectOidcResource(oidcContext, resourceServer)
+
+		log.Trace().
+			Msg("Resource server client created")
 	}
-	finalContext := app_http.InjectOidcResource(oidcContext, resourceServer)
-	log.Trace().
-		Msg("Resource server client created")
 
 	rootRouter := mux.NewRouter()
 	handlers.Handler(rootRouter, finalContext, nil)

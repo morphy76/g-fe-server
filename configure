@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "To be fixed for multiple picks"
+exit 1
+
 # Check if deploy.env file exists
 if [ -f deploy.env ]; then
   # Read the deploy tag from deploy.env

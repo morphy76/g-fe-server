@@ -25,7 +25,7 @@ func HealthHandlers(
 	healthRouter := parent.Path("/health").Subrouter()
 	healthRouter.Use(middleware.JSONResponse)
 
-	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth()).Name("GET " + ctxRoot + "/g/health")
+	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth()).Name("GET " + ctxRoot + "/health")
 }
 
 func onHealth() http.HandlerFunc {
@@ -33,13 +33,13 @@ func onHealth() http.HandlerFunc {
 
 		overallStatus := Active
 
-		timeoutContext, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+		_, cancel := context.WithTimeout(r.Context(), 1*time.Second)
 		defer cancel()
 
-		label, dbStatus := testDbStatus(timeoutContext)
-		if dbStatus == Inactive {
-			overallStatus = Inactive
-		}
+		// label, dbStatus := testDbStatus(timeoutContext)
+		// if dbStatus == Inactive {
+		// 	overallStatus = Inactive
+		// }
 
 		if overallStatus == Active {
 			w.WriteHeader(http.StatusOK)
@@ -49,9 +49,9 @@ func onHealth() http.HandlerFunc {
 
 		json.NewEncoder(w).Encode(&HealthResponse{
 			Status: overallStatus,
-			SubSystems: map[string]HealthResponse{
-				label: {Status: dbStatus},
-			},
+			// SubSystems: map[string]HealthResponse{
+			// 	label: {Status: dbStatus},
+			// },
 		})
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"reflect"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -19,8 +18,6 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
-	"github.com/morphy76/g-fe-server/internal/db"
-	example_http "github.com/morphy76/g-fe-server/internal/example/http"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers"
 	"github.com/morphy76/g-fe-server/internal/options"
@@ -32,7 +29,6 @@ func main() {
 	zerolog.TimeFieldFormat = time.RFC3339
 	trace := flag.Bool("trace", false, "sets log level to trace")
 
-	dbOptionsBuilder := cli.DbOptionsBuilder()
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
 	otelOptionsBuilder := cli.OtelOptionsBuilder()
 	oidcOptionsBuilder := cli.OidcOptionsBuilder()
@@ -51,33 +47,35 @@ func main() {
 		zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	}
 
-	dbOptions, err := dbOptionsBuilder()
-	if err != nil {
-		flag.Usage()
-		os.Exit(1)
-	}
-
 	serveOptions, err := serveOptionsBuilder()
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing serve options")
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	otelOptions, err := otelOptionsBuilder()
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing otel options")
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	oidcOptions, err := oidcOptionsBuilder()
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing oidc options")
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	startServer(
 		serveOptions,
-		dbOptions,
 		otelOptions,
 		oidcOptions,
 	)
@@ -85,12 +83,13 @@ func main() {
 
 func startServer(
 	serveOptions *options.ServeOptions,
-	dbOptions *options.DbOptions,
 	otelOptions *options.OtelOptions,
 	oidcOptions *options.OidcOptions,
 ) {
 
 	start := time.Now()
+	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	sessionStore := memstore.NewMemStore([]byte(serveOptions.SessionKey))
 	sessionStore.Options = &sessions.Options{
@@ -101,25 +100,10 @@ func startServer(
 		Secure:   serveOptions.SessionSecureCookies,
 		SameSite: serveOptions.SessionSameSite,
 	}
-
-	dbClient, err := db.NewClient(dbOptions)
-	if err != nil {
-		panic(err)
-	}
 	log.Trace().
-		Str("db_type", reflect.TypeOf(dbClient).String()).
-		Msg("Database client created")
-
-	relyingParty, err := serve.SetupOIDC(serveOptions, oidcOptions)
-	if err != nil {
-		panic(err)
-	}
-	log.Trace().
-		Str("client_id", oidcOptions.ClientId).
-		Msg("Relying party")
-
-	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
+		Str("path", serveOptions.ContextRoot).
+		Int("max_age", serveOptions.SessionMaxAge).
+		Msg("Session store ready")
 
 	otelShutdown, err := serve.SetupOTelSDK(initialContext, otelOptions)
 	if err != nil {
@@ -128,24 +112,43 @@ func startServer(
 	defer func() {
 		err = errors.Join(err, otelShutdown(initialContext))
 	}()
+	log.Trace().
+		Msg("Opentelemetry ready")
 
 	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
-	dbOptsContext := app_http.InjectDbOptions(serverContext, dbOptions)
-	sessionStoreContext := app_http.InjectSessionStore(dbOptsContext, sessionStore)
-	dbContext := app_http.InjectDb(sessionStoreContext, dbClient)
-	oidcContext := app_http.InjectRelyingParty(dbContext, relyingParty)
+	oidOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
+	sessionStoreContext := app_http.InjectSessionStore(oidOptionsContext, sessionStore)
+	var finalContext context.Context
 	log.Trace().
 		Msg("Application contextes ready")
 
-	resourceServer, err := rs.NewResourceServerClientCredentials(oidcContext, oidcOptions.Issuer, oidcOptions.ClientId, oidcOptions.ClientSecret)
-	if err != nil {
-		panic(err)
+	if !oidcOptions.Disabled {
+		relyingParty, err := serve.SetupOIDC(serveOptions, oidcOptions)
+		if err != nil {
+			panic(err)
+		}
+		log.Trace().
+			Str("client_id", oidcOptions.ClientId).
+			Msg("Relying party ready")
+
+		oidcContext := app_http.InjectRelyingParty(sessionStoreContext, relyingParty)
+		resourceServer, err := rs.NewResourceServerClientCredentials(oidcContext, oidcOptions.Issuer, oidcOptions.ClientId, oidcOptions.ClientSecret)
+		if err != nil {
+			panic(err)
+		}
+		finalContext = app_http.InjectOidcResource(oidcContext, resourceServer)
+
+		log.Trace().
+			Msg("Resource server client created")
+	} else {
+		finalContext = sessionStoreContext
+
+		log.Trace().
+			Msg("OIDC disabled")
 	}
-	oidcResourceContext := app_http.InjectOidcResource(oidcContext, resourceServer)
-	log.Trace().Msg("Resource server client created")
 
 	rootRouter := mux.NewRouter()
-	handlers.Handler(rootRouter, oidcResourceContext, example_http.ExampleHandlers)
+	handlers.Handler(rootRouter, finalContext, nil)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {
@@ -170,8 +173,12 @@ func startServer(
 
 	select {
 	case err = <-srvErr:
-		log.Info().Err(err).Msg("Server stopped")
-	case <-initialContext.Done():
+		log.Info().
+			Err(err).
+			Msg("Server stopped")
+	case <-finalContext.Done():
+		log.Info().
+			Msg("Server stopped")
 		stop()
 	}
 }

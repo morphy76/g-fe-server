@@ -19,6 +19,7 @@ type ContextDbKey string
 type ContextDbOptionsKey string
 type ContextLoggerKey string
 type ContextOwnershipKey string
+type ContextOIDCOptions string
 type ContextOIDCKey string
 type ContextOIDCResourceKey string
 
@@ -30,9 +31,18 @@ const (
 	ctx_DB_OPTIONS_KEY    ContextDbOptionsKey    = "dbOptions"
 	ctx_LOGGER_KEY        ContextLoggerKey       = "logger"
 	ctx_OWNERSHIP_KEY     ContextOwnershipKey    = "ownership"
+	ctx_OIDC_OPTIONS_KEY  ContextOIDCOptions     = "oidcOptions"
 	ctx_OIDC_KEY          ContextOIDCKey         = "oidc"
 	ctx_OIDC_RESOURCE_KEY ContextOIDCResourceKey = "oidcResource"
 )
+
+func InjectOidcOptions(ctx context.Context, oidcOptions *options.OidcOptions) context.Context {
+	return context.WithValue(ctx, ctx_OIDC_OPTIONS_KEY, oidcOptions)
+}
+
+func ExtractOidcOptions(ctx context.Context) *options.OidcOptions {
+	return ctx.Value(ctx_OIDC_OPTIONS_KEY).(*options.OidcOptions)
+}
 
 func InjectOidcResource(ctx context.Context, resource rs.ResourceServer) context.Context {
 	return context.WithValue(ctx, ctx_OIDC_RESOURCE_KEY, resource)

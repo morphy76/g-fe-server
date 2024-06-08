@@ -17,6 +17,7 @@ NPMFLAGS := --no-audit --no-fund
 # Cross-cutting runtime args
 OTEL_ARGS := -otel-enabled=false
 OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/gfes -oidc-client-id=ps -oidc-client-secret=BA4eYsij3vDerLdQTRp6khSKWSDQWdLr -oidc-scopes=openid,profile,email,offline_access
+NO_OIDC_ARGS := -oidc-disabled=true
 
 # Server
 
@@ -28,15 +29,19 @@ SERVER_TARGET := g-fe-server
 SERVER_TARGET_FE := ./web/build
 SERVER_DOCKERFILE := ./tools/docker/Dockerfile.server
 SERVER_DEPLOY_TAG ?= g-fe-service:0.0.1
+SERVER_TAG = $(word 1,$(subst :, ,$(SERVER_DEPLOY_TAG)))
+SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 
 ## Runtime args
-SERVER_SERVE_ARGS := -ctx=/fe -static=$(TARGET_FE) -host=localhost
+SERVER_SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost
 
 # Service (example)
 ## Define the target binary name
 SERVICE_TARGET := g-be-service
 SERVICE_DOCKERFILE := ./tools/docker/Dockerfile.service
 SERVICE_DEPLOY_TAG ?= g-be-service:0.0.1
+SERVICE_TAG = $(word 1,$(subst :, ,$(SERVICE_DEPLOY_TAG)))
+SERVICE_VERSION = $(word 2,$(subst :, ,$(SERVICE_DEPLOY_TAG)))
 
 ## Define the source files
 SERVICE_SOURCES := ./cmd/example/example.go
@@ -63,13 +68,13 @@ watch-fe:
 	@$(NPM) --prefix ./web/ui run watch
 
 watch-server:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVER_SERVE_ARGS) -trace $(OTEL_ARGS)
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVER_SERVE_ARGS) -trace $(OTEL_ARGS) $(NO_OIDC_ARGS)
 
 watch-service:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) -trace $(OTEL_ARGS)
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) -trace $(OTEL_ARGS) $(NO_OIDC_ARGS)
 
 watch-service-mongo:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) -trace $(OTEL_ARGS) $(SERVICE_MONGO_ARGS)
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) -trace $(OTEL_ARGS) $(SERVICE_MONGO_ARGS) $(NO_OIDC_ARGS)
 
 run-server: build-fe
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVER_SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
@@ -87,10 +92,6 @@ clean:
 	-@rm -rf $(SERVER_TARGET_FE)
 
 deploy: clean
-  SERVER_TAG = $(word 1,$(subst :, ,$(SERVER_DEPLOY_TAG)))
-  SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
-  SERVICE_TAG = $(word 1,$(subst :, ,$(SERVICE_DEPLOY_TAG)))
-  SERVICE_VERSION = $(word 2,$(subst :, ,$(SERVICE_DEPLOY_TAG)))
 	@$(DOCKER) run -d --network host --rm -v /var/run/docker.sock:/var/run/docker.sock --name socat alpine/socat tcp-listen:12345,fork,reuseaddr,ignoreeof unix-connect:/var/run/docker.sock
 	-$(DOCKER) build --network host \
     --build-arg TAG_NAME=$(SERVER_TAG) \
