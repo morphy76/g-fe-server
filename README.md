@@ -61,7 +61,7 @@ In this scenario, the BFF also performs CRUD operations instead of acting as a g
 
 So much freedom while structuring the project needs to be somehow tamed: <https://github.com/golang-standards/project-layout>.
 
-The entry point of the presentation server is `cmd/main.go`.
+The entry point of the presentation server is `cmd/server/serve.go`.
 
 It uses the following third party dependencies:
 
@@ -108,7 +108,7 @@ Logging is enriched by contextual information:
 
 #### Routing
 
-Routing is hierarchical, `cmd/main.go` prepares the server context and moves on to `internal/http/handlers/handler.go` to build the hierarchy.
+Routing is hierarchical, `cmd/server/serve.go` prepares the server context and moves on to `internal/http/handlers/handler.go` to build the hierarchy.
 
 First of all, the parent router which receives 3 middlewares:
 
@@ -128,11 +128,27 @@ The next routers are task-focused:
 
 Finally, waiting to learn how to plug stuff into a Go runtime, an hardcoded router to handle the _example_ resource.
 
+TODO: service-split
+
 Generally speaking, handle functions are provided by the router provided by each module, e.g. `internal/http/health/handler.go` has the health handle functions and `internal/example/http/handlers.go` has those related to the _example_ resource.
 
 Routers, the API router in particular, are integrated with Opentracing with a Gorilla extension: `go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux`.
 
 In the same way, such routers are configured to use Prometheus middlewares (`github.com/prometheus/client_golang`) to expose metrics about their usage.
+
+#### OIDC
+
+When OIDC integration is enabled (default), the request context is enriched with the _zytadel_ relaying party and resource server so that we can define 3 additional route components:
+
+- New routes to perform authentication under the `/auth` path, used by the presentation server to bind the IAM session with the HTTP session, these routes are not intended for APIs;
+- A middleware to test if the HTTP session is authenticated within an IAM session, again, not intended for APIs;
+- A middleware to inspect and, in case, renew the OIDC access token.
+
+APIs (TODO service split) leverage a middleware to test the access token from the HTTP request headers.
+
+#### Single repo & service split
+
+TODO
 
 #### MongoDB & domain repository
 

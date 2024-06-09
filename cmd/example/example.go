@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -11,18 +10,14 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
-	"github.com/quasoft/memstore"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/zitadel/oidc/v3/pkg/client/rs"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
 	"github.com/morphy76/g-fe-server/internal/db"
 	"github.com/morphy76/g-fe-server/internal/example"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/options"
-	"github.com/morphy76/g-fe-server/internal/serve"
 )
 
 func main() {
@@ -99,71 +94,28 @@ func startServer(
 	oidcOptions *options.OidcOptions,
 	dbOptions *options.DbOptions,
 ) {
-
 	start := time.Now()
+
 	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	sessionStore := memstore.NewMemStore([]byte(serveOptions.SessionKey))
-	sessionStore.Options = &sessions.Options{
-		Path:     serveOptions.ContextRoot,
-		MaxAge:   serveOptions.SessionMaxAge,
-		HttpOnly: serveOptions.SessionHttpOnly,
-		Domain:   serveOptions.SessionDomain,
-		Secure:   serveOptions.SessionSecureCookies,
-		SameSite: serveOptions.SessionSameSite,
-	}
-	log.Trace().
-		Str("path", serveOptions.ContextRoot).
-		Int("max_age", serveOptions.SessionMaxAge).
-		Msg("Session store ready")
-
-	otelShutdown, err := serve.SetupOTelSDK(initialContext, otelOptions)
+	shutdown, err := cli.SetupOTEL(initialContext, otelOptions)
+	defer shutdown()
 	if err != nil {
 		panic(err)
-	}
-	defer func() {
-		err = errors.Join(err, otelShutdown(initialContext))
-	}()
-	log.Trace().
-		Msg("Opentelemetry ready")
-
-	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
-	oidOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
-	sessionStoreContext := app_http.InjectSessionStore(oidOptionsContext, sessionStore)
-	var oidcContext context.Context
-	log.Trace().
-		Msg("Application contextes ready")
-
-	if oidcOptions.Disabled {
-		oidcContext = sessionStoreContext
-		log.Trace().
-			Msg("OIDC disabled")
-	} else {
-		relyingParty, err := serve.SetupOIDC(serveOptions, oidcOptions)
-		if err != nil {
-			panic(err)
-		}
-		log.Trace().
-			Str("client_id", oidcOptions.ClientId).
-			Msg("Relying party ready")
-
-		rpContext := app_http.InjectRelyingParty(sessionStoreContext, relyingParty)
-		resourceServer, err := rs.NewResourceServerClientCredentials(rpContext, oidcOptions.Issuer, oidcOptions.ClientId, oidcOptions.ClientSecret)
-		if err != nil {
-			panic(err)
-		}
-		oidcContext = app_http.InjectOidcResource(rpContext, resourceServer)
-
-		log.Trace().
-			Msg("Resource server client created")
 	}
 
 	dbClient, err := db.NewClient(dbOptions)
 	if err != nil {
 		panic(err)
 	}
+
+	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
+	oidOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
+	oidcContext := cli.CreateTheOIDCContext(oidOptionsContext, oidcOptions, serveOptions)
 	finalContext := app_http.InjectDb(app_http.InjectDbOptions(oidcContext, dbOptions), dbClient)
+	log.Trace().
+		Msg("Application contextes ready")
 
 	rootRouter := mux.NewRouter()
 	example.Handler(rootRouter, finalContext, nil)
