@@ -22,8 +22,6 @@ import (
 func Handler(
 	parent *mux.Router,
 	app_context context.Context,
-	registerFunctionalRouter func(functionalRouter *mux.Router, app_context context.Context),
-	addtionalHealthChecks ...health.HealthCheckFn,
 ) {
 	serveOptions := app_http.ExtractServeOptions(app_context)
 	sessionStore := app_http.ExtractSessionStore(app_context)
@@ -113,18 +111,6 @@ func Handler(
 	apiRouter.Use(middleware.PrometheusMiddleware)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("API router registered")
-	}
-
-	// // Domain functions
-	// example_handlers.ExampleHandlers(apiRouter, serveOptions.ContextRoot, dbOptions)
-	// if log.Trace().Enabled() {
-	// 	log.Trace().Msg("Example handler registered")
-	// }
-	if registerFunctionalRouter != nil {
-		registerFunctionalRouter(apiRouter, app_context)
-		if log.Trace().Enabled() {
-			log.Trace().Msg("Functional handler registered")
-		}
 	}
 
 	contextRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {

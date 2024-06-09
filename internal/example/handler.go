@@ -11,9 +11,9 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 
+	"github.com/morphy76/g-fe-server/internal/db"
 	example_http "github.com/morphy76/g-fe-server/internal/example/http"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
-	"github.com/morphy76/g-fe-server/internal/http/handlers/auth"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/metrics"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
@@ -22,11 +22,8 @@ import (
 func Handler(
 	parent *mux.Router,
 	app_context context.Context,
-	registerFunctionalRouter func(functionalRouter *mux.Router, app_context context.Context),
-	addtionalHealthChecks ...health.HealthCheckFn,
 ) {
 	serveOptions := app_http.ExtractServeOptions(app_context)
-	sessionStore := app_http.ExtractSessionStore(app_context)
 	oidcOptions := app_http.ExtractOidcOptions(app_context)
 
 	var relyingParty rp.RelyingParty
@@ -36,21 +33,20 @@ func Handler(
 		resourceServer = app_http.ExtractOidcResource(app_context)
 	}
 
-	dbOptions := app_http.ExtractDbOptions(app_context)
-	dbClient := app_http.ExtractDb(app_context)
+	dbOptions := db.ExtractDbOptions(app_context)
+	dbClient := db.ExtractDb(app_context)
 
 	// Parent router
 	parent.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			useRequest := r.WithContext(app_http.InjectSessionStore(r.Context(), sessionStore))
-			useRequest = useRequest.WithContext(app_http.InjectServeOptions(useRequest.Context(), serveOptions))
+			useRequest := r.WithContext(app_http.InjectServeOptions(r.Context(), serveOptions))
 			useRequest = useRequest.WithContext(app_http.InjectOidcOptions(useRequest.Context(), oidcOptions))
 			if !oidcOptions.Disabled {
 				useRequest = useRequest.WithContext(app_http.InjectRelyingParty(useRequest.Context(), relyingParty))
 				useRequest = useRequest.WithContext(app_http.InjectOidcResource(useRequest.Context(), resourceServer))
 			}
-			useRequest = useRequest.WithContext(app_http.InjectDbOptions(useRequest.Context(), dbOptions))
-			useRequest = useRequest.WithContext(app_http.InjectDb(useRequest.Context(), dbClient))
+			useRequest = useRequest.WithContext(db.InjectDbOptions(useRequest.Context(), dbOptions))
+			useRequest = useRequest.WithContext(db.InjectDb(useRequest.Context(), dbClient))
 
 			next.ServeHTTP(w, useRequest)
 		})
@@ -61,7 +57,7 @@ func Handler(
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Non functional router registered")
 	}
-	health.HealthHandlers(nonFunctionalRouter, app_context)
+	health.HealthHandlers(nonFunctionalRouter, app_context, db.CreateHealthCheck(dbOptions))
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Health handler registered")
 	}
@@ -78,24 +74,8 @@ func Handler(
 	))
 	contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
-	contextRouter.Path("/ui").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, serveOptions.ContextRoot+"/ui/", http.StatusTemporaryRedirect)
-	})
 	if log.Trace().Enabled() {
 		log.Trace().Msg("Context router registered")
-	}
-
-	// Auth router
-	if !oidcOptions.Disabled {
-		authRouter := contextRouter.PathPrefix("/auth").Subrouter()
-		authRouter.Use(middleware.InjectSession)
-		if log.Trace().Enabled() {
-			log.Trace().Msg("Auth router registered")
-		}
-		auth.IAMHandlers(authRouter, serveOptions.ContextRoot, relyingParty)
-		if log.Trace().Enabled() {
-			log.Trace().Msg("Auth handler registered")
-		}
 	}
 
 	// API router
@@ -109,15 +89,6 @@ func Handler(
 
 	// Domain functions
 	example_http.ExampleHandlers(apiRouter, app_context)
-	if log.Trace().Enabled() {
-		log.Trace().Msg("Example handler registered")
-	}
-	if registerFunctionalRouter != nil {
-		registerFunctionalRouter(apiRouter, app_context)
-		if log.Trace().Enabled() {
-			log.Trace().Msg("Functional handler registered")
-		}
-	}
 
 	contextRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 		if len(route.GetName()) > 0 {

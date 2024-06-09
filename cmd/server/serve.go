@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
+	"github.com/quasoft/memstore"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -86,7 +88,7 @@ func startServer(
 	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	sessionStore := cli.CreateSessionStore(serveOptions)
+	sessionStore := createSessionStore(serveOptions)
 
 	shutdown, err := cli.SetupOTEL(initialContext, otelOptions)
 	defer shutdown()
@@ -102,7 +104,7 @@ func startServer(
 		Msg("Application contextes ready")
 
 	rootRouter := mux.NewRouter()
-	server.Handler(rootRouter, finalContext, nil)
+	server.Handler(rootRouter, finalContext)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {
@@ -135,4 +137,21 @@ func startServer(
 			Msg("Server stopped")
 		stop()
 	}
+}
+
+func createSessionStore(serveOptions *options.ServeOptions) *memstore.MemStore {
+	sessionStore := memstore.NewMemStore([]byte(serveOptions.SessionKey))
+	sessionStore.Options = &sessions.Options{
+		Path:     serveOptions.ContextRoot,
+		MaxAge:   serveOptions.SessionMaxAge,
+		HttpOnly: serveOptions.SessionHttpOnly,
+		Domain:   serveOptions.SessionDomain,
+		Secure:   serveOptions.SessionSecureCookies,
+		SameSite: serveOptions.SessionSameSite,
+	}
+	log.Trace().
+		Str("path", serveOptions.ContextRoot).
+		Int("max_age", serveOptions.SessionMaxAge).
+		Msg("Session store ready")
+	return sessionStore
 }

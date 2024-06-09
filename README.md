@@ -22,6 +22,7 @@
   -> https://openid.net/specs/openid-connect-core-1_0-35.html
   - JWT authenticated APIs: direct call (http header) vs UI calls (http session?)
 - helm review & service mesh (istio)
+- abstraction of server and service handler
 - redis integration (as a client, as a mongo cache, as an http session store) + health
 - kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama), anyway more protocols
 - zookeeper playground?

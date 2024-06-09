@@ -113,12 +113,12 @@ func startServer(
 	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
 	oidOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
 	oidcContext := cli.CreateTheOIDCContext(oidOptionsContext, oidcOptions, serveOptions)
-	finalContext := app_http.InjectDb(app_http.InjectDbOptions(oidcContext, dbOptions), dbClient)
+	finalContext := db.InjectDb(db.InjectDbOptions(oidcContext, dbOptions), dbClient)
 	log.Trace().
 		Msg("Application contextes ready")
 
 	rootRouter := mux.NewRouter()
-	example.Handler(rootRouter, finalContext, nil)
+	example.Handler(rootRouter, finalContext)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {
