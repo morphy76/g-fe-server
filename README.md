@@ -23,6 +23,7 @@
   - JWT authenticated APIs: direct call (http header) vs UI calls (http session?)
 - helm review & service mesh (istio)
 - abstraction of server and service handler
+- split test exec for server and service
 - redis integration (as a client, as a mongo cache, as an http session store) + health
 - kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama), anyway more protocols
 - zookeeper playground?
