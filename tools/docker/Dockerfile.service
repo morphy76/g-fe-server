@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # Final image
 FROM gcr.io/distroless/base-nossl-debian12:nonroot
-COPY --from=backends-builder /app/g-be-service /g-be-service
+COPY --from=backend-builder /app/g-be-service /g-be-service
 ENV STATIC_PATH=/static
 CMD [ "/g-be-service" ]
 LABEL Name=$TAG_NAME \

@@ -4,9 +4,7 @@
 
 ### Doing
 
-- a new service with Pact
-  - e.g. (https://medium.com/@dees3g/pact-and-go-contract-testing-of-http-based-applications-e595e639334e)
-- resusable artifact: pluggable domain resources, API & FE -> or better self announcing backend services (https://zeromq.org) to enable gateway (BFF) routes
+- resusable artifact: pluggable domain resources (at compile time), API & FE -> or better self announcing backend services (udp) to enable gateway (BFF) routes
   - versioning
   - circuit braker
 
@@ -37,6 +35,7 @@
 - openapi
 - godoc
 - drill down about tests, e.g. fail when coverage is not achieved
+  - Pact (https://pkg.go.dev/github.com/pact-foundation/pact-go/v2)
 - Logging: create a functional approach to logs, attributes and log propagation
 - what's the vendor directory
 - Accessibility (fun)

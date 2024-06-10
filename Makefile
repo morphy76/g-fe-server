@@ -47,7 +47,7 @@ SERVICE_VERSION = $(word 2,$(subst :, ,$(SERVICE_DEPLOY_TAG)))
 SERVICE_SOURCES := ./cmd/example/example.go
 
 ## Runtime args
-SERVICE_SERVE_ARGS := -ctx=/be -host=localhost -port=8081
+SERVICE_SERVE_ARGS := -ctx=/be -host=localhost -port=8081 -announce-host=localhost
 SERVICE_MONGO_ARGS := -db=1 -db-mongo-url=mongodb://127.0.0.1:27017/go_db -db-mongo-user=go -db-mongo-password=go
 
 build-fe:

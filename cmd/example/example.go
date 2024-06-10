@@ -18,6 +18,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/example"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/internal/serve"
 )
 
 func main() {
@@ -140,6 +141,13 @@ func startServer(
 		Str("serving", serveOptions.StaticPath).
 		Int64("setup_ns", time.Since(start).Nanoseconds()).
 		Msg("Server started")
+
+	go func() {
+		for range time.Tick(10 * time.Second) {
+			// keep alive
+			serve.RegisterRoute(*serveOptions)
+		}
+	}()
 
 	select {
 	case err = <-srvErr:

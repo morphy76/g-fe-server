@@ -18,6 +18,7 @@ import (
 	"github.com/morphy76/g-fe-server/cmd/cli"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/internal/serve"
 	"github.com/morphy76/g-fe-server/internal/server"
 )
 
@@ -126,6 +127,19 @@ func startServer(
 		Str("serving", serveOptions.StaticPath).
 		Int64("setup_ns", time.Since(start).Nanoseconds()).
 		Msg("Server started")
+
+	newRoutesCh := make(chan []byte, 1024)
+	startFn, stopFn := serve.StartRouteRegistry(*serveOptions, newRoutesCh)
+	startFn()
+	defer stopFn()
+
+	go func() {
+		for newRoute := range newRoutesCh {
+			log.Info().
+				Bytes("route", newRoute).
+				Msg("New route received")
+		}
+	}()
 
 	select {
 	case err = <-srvErr:
