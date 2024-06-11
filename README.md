@@ -138,6 +138,10 @@ Routers, the API router in particular, are integrated with Opentracing with a Go
 
 In the same way, such routers are configured to use Prometheus middlewares (`github.com/prometheus/client_golang`) to expose metrics about their usage.
 
+#### Dynamic routes with service announcing
+
+TODO
+
 #### OIDC
 
 When OIDC integration is enabled (default), the request context is enriched with the _zytadel_ relaying party and resource server so that we can define 3 additional route components:
@@ -229,16 +233,18 @@ TODO
 TODO
 
 ```shell
-minikube start -p go --cpus=8 --memory=32g
+minikube start -p go --cpus=8 --memory=32g --kubernetes-version=v1.27.3
 eval $(minikube docker-env -p go)
 make deploy
 kubectl config use-context go
 kubectl create ns fe
+helm dependency update tools/helm/g-fe-server
 helm dependency build tools/helm/g-fe-server
 helm upgrade --install -n fe fe-server tools/helm/g-fe-server
 
 helm uninstall -n fe fe-server
 
+kubectl -n fe port-forward services/fe-server-g-be-example 8081:8080
 kubectl -n fe port-forward services/fe-server-g-fe-server 8080:8080
 kubectl -n fe port-forward services/fe-server-zipkin 9411:9411
 kubectl -n fe port-forward services/fe-server-prometheus-server 18080:80

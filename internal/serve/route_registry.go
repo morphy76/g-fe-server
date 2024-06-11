@@ -64,7 +64,7 @@ func StartRouteRegistry(servOptions options.ServeOptions, incomingMessage chan [
 	return
 }
 
-func RegisterRoute(servOptions options.ServeOptions) {
+func RegisterRoute(servOptions options.ServeOptions, routeUri string) {
 
 	usePort, err := strconv.Atoi(servOptions.AnnouncePort)
 	if err != nil {
@@ -107,7 +107,7 @@ func RegisterRoute(servOptions options.ServeOptions) {
 	for _, conn := range connections {
 		if conn != nil {
 			log.Trace().Msg("Announcing")
-			conn.Write([]byte("Hello"))
+			conn.Write([]byte(routeUri))
 		}
 	}
 }

@@ -5,63 +5,55 @@ metadata:
   labels:
     {{- include "g-fe-server.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
+  {{- if not .Values.g_fe_server.autoscaling.enabled }}
+  replicas: {{ .Values.g_fe_server.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
       {{- include "g-fe-server.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
+      {{- with .Values.g_fe_server.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
         {{- include "g-fe-server.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
+        {{- with .Values.g_fe_server.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- with .Values.g_fe_server.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "g-fe-server.serviceAccountName" . }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.g_fe_server.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+            {{- toYaml .Values.g_fe_server.securityContext | nindent 12 }}
+          image: "{{ .Values.g_fe_server.image.repository }}:{{ .Values.g_fe_server.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.g_fe_server.image.pullPolicy }}
           env:
             - name: CONTEXT_ROOT
-              value: {{ .Values.server.contextRoot | quote }}
-            - name: DB_TYPE
-              value: {{ .Values.server.db.type | quote }}
-            - name: DB_MONGO_URL
-              value: {{ .Values.server.db.mongodb.url | quote }}
-            - name: DB_MONGO_USER
-              value: {{ .Values.server.db.mongodb.user | quote }}
-            - name: DB_MONGO_PASSWORD
-              value: {{ .Values.server.db.mongodb.password | quote }}
+              value: {{ .Values.g_fe_server.contextRoot | quote }}
             - name: ENABLE_OTEL_EXPORT
-              value: {{ .Values.server.otlp.enabled | quote }}
+              value: {{ .Values.otlp.enabled | quote }}
             - name: OTLP_URL
-              value: {{ .Values.server.otlp.endpoint | quote }}
+              value: {{ .Values.otlp.endpoint | quote }}
             - name: OIDC_ISSUER
-              value: {{ .Values.server.oidc.issuer | quote }}
+              value: {{ .Values.oidc.issuer | quote }}
             - name: OIDC_CLIENT_ID
-              value: {{ .Values.server.oidc.clientId | quote }}
+              value: {{ .Values.oidc.clientId | quote }}
             - name: OIDC_CLIENT_SECRET
-              value: {{ .Values.server.oidc.clientSecret | quote }}
+              value: {{ .Values.oidc.clientSecret | quote }}
             - name: OIDC_SCOPES
-              value: {{ .Values.server.oidc.scopes | quote }}
+              value: {{ .Values.oidc.scopes | quote }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ .Values.g_fe_server.service.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
@@ -72,24 +64,24 @@ spec:
               path: "/g/health"
               port: http
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
+            {{- toYaml .Values.g_fe_server.resources | nindent 12 }}
+          {{- with .Values.g_fe_server.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.volumes }}
+      {{- with .Values.g_fe_server.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- with .Values.g_fe_server.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with .Values.g_fe_server.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.g_fe_server.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

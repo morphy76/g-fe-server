@@ -11,5 +11,5 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "g-fe-server.fullname" . }}:{{ .Values.service.port }}']
+      args: ['{{ include "g-fe-server.fullname" . }}:{{ .Values.g_fe_server.service.port }}']
   restartPolicy: Never

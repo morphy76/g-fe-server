@@ -32,11 +32,11 @@ FROM gcr.io/distroless/base-nossl-debian12:nonroot
 COPY --from=ps-builder /app/g-fe-server /g-fe-server
 COPY --from=fe-builder /app/web/build /static
 ENV STATIC_PATH=/static
-CMD [ "/g-fe-server" ]
+CMD [ "/g-fe-server", "-oidc-disabled=true" ]
 LABEL Name=$TAG_NAME \
       Version=$TAG_VERSION \
       Maintainer="Riccardo Pasquini <riccardo.pasquini@gmail.com>" \
       Vendor="sixdeex.net" \
       Description="Go frontend server" \
       License="WHOCARES" \
-      Usage="docker run --rm -d -p 8080:8080 -e CONTEXT_ROOT=/fe g-fe-server:0.0.1"
+      Usage="docker run --rm -d -p 8080:8080 -e CONTEXT_ROOT=/fe g-fe-service:0.0.1"

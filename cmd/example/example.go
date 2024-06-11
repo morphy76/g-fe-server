@@ -16,6 +16,7 @@ import (
 	"github.com/morphy76/g-fe-server/cmd/cli"
 	"github.com/morphy76/g-fe-server/internal/db"
 	"github.com/morphy76/g-fe-server/internal/example"
+	"github.com/morphy76/g-fe-server/internal/example/api"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/morphy76/g-fe-server/internal/serve"
@@ -145,7 +146,7 @@ func startServer(
 	go func() {
 		for range time.Tick(10 * time.Second) {
 			// keep alive
-			serve.RegisterRoute(*serveOptions)
+			serve.RegisterRoute(*serveOptions, api.RegisteredRouteUri)
 		}
 	}()
 
