@@ -3,6 +3,9 @@ package server
 import (
 	"context"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -22,7 +25,7 @@ import (
 func Handler(
 	parent *mux.Router,
 	app_context context.Context,
-) {
+) *mux.Router {
 	serveOptions := app_http.ExtractServeOptions(app_context)
 	sessionStore := app_http.ExtractSessionStore(app_context)
 	oidcOptions := app_http.ExtractOidcOptions(app_context)
@@ -122,4 +125,69 @@ func Handler(
 		}
 		return nil
 	})
+
+	return apiRouter
+}
+
+func ProxyRoute(apiRouter *mux.Router, remoteRoute string) {
+	after, found := strings.CutPrefix(remoteRoute, "route:")
+	if found {
+		createProxy(apiRouter, after)
+	} else {
+		after, found = strings.CutPrefix(remoteRoute, "unroute:")
+		if found {
+			removeProxy(apiRouter, after)
+		} else {
+			log.Warn().Str("route", remoteRoute).Msg("Invalid route protocol")
+		}
+	}
+}
+
+func removeProxy(apiRouter *mux.Router, remoteRoute string) {
+
+	parts := strings.SplitAfterN(remoteRoute, ":", 2)
+	if len(parts) < 1 {
+		log.Warn().Any("parts", parts).Msg("Invalid route resource")
+		return
+	}
+
+	route := apiRouter.Get(parts[0])
+	if route != nil {
+		route.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "", http.StatusNotFound)
+		})
+	}
+}
+
+func createProxy(apiRouter *mux.Router, remoteRoute string) {
+
+	parts := strings.SplitAfterN(remoteRoute, ":", 2)
+	if len(parts) != 2 {
+		log.Warn().Any("parts", parts).Msg("Invalid route resource")
+		return
+	}
+
+	resource := parts[0]
+	forward := parts[1]
+
+	route := apiRouter.Get(resource)
+
+	log.Trace().
+		Str("resource", resource).
+		Str("forward", forward).
+		Msg("Proxying route")
+
+	forwardURL, err := url.Parse(forward)
+	if err != nil {
+		log.Warn().Err(err).Str("route", remoteRoute).Msg("Invalid route URL")
+		return
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(forwardURL)
+
+	if route == nil {
+		apiRouter.NewRoute().Name(resource).PathPrefix(resource).Handler(proxy)
+	} else {
+		route.Handler(proxy)
+	}
 }

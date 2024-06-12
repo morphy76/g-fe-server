@@ -144,10 +144,16 @@ func startServer(
 		Msg("Server started")
 
 	go func() {
+		serve.RegisterRoute(*serveOptions, api.RegisteredRouteUri(serveOptions))
 		for range time.Tick(10 * time.Second) {
 			// keep alive
-			serve.RegisterRoute(*serveOptions, api.RegisteredRouteUri)
+			serve.RegisterRoute(*serveOptions, api.RegisteredRouteUri(serveOptions))
 		}
+	}()
+	defer func() {
+		log.Trace().
+			Msg("Unregistering route")
+		serve.UnRegisterRoute(*serveOptions, api.UnRegisteredRouteUri())
 	}()
 
 	select {
@@ -155,6 +161,7 @@ func startServer(
 		log.Info().
 			Err(err).
 			Msg("Server stopped")
+		stop()
 	case <-finalContext.Done():
 		log.Info().
 			Msg("Server stopped")

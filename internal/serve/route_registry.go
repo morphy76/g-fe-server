@@ -64,13 +64,25 @@ func StartRouteRegistry(servOptions options.ServeOptions, incomingMessage chan [
 	return
 }
 
-func RegisterRoute(servOptions options.ServeOptions, routeUri string) {
+func RegisterRoute(serveOptions options.ServeOptions, routeUri string) {
+	dispatchUDP(serveOptions, routeUri)
+}
 
-	usePort, err := strconv.Atoi(servOptions.AnnouncePort)
+func UnRegisterRoute(serveOptions options.ServeOptions, routeUri string) {
+	dispatchUDP(serveOptions, routeUri)
+}
+
+func dispatchUDP(serveOptions options.ServeOptions, routeUri string) {
+
+	usePort, err := strconv.Atoi(serveOptions.AnnouncePort)
 	if err != nil {
 		panic(err)
 	}
-	ips, err := net.LookupIP(servOptions.AnnounceHost)
+	log.Trace().
+		Int("port", usePort).
+		Msg("Announcing route")
+
+	ips, err := net.LookupIP(serveOptions.AnnounceHost)
 	if err != nil {
 		panic(err)
 	}
@@ -79,11 +91,16 @@ func RegisterRoute(servOptions options.ServeOptions, routeUri string) {
 	if err != nil {
 		panic(err)
 	}
+	log.Trace().
+		Str("host", serveOptions.AnnounceHost).
+		Str("local", local.String()).
+		Msg("Announcing route")
 
 	connections := make([]*net.UDPConn, 0)
 	defer func() {
 		for _, conn := range connections {
-			log.Trace().Msg("Closing connection")
+			log.Trace().
+				Msg("Closing connection")
 			if conn != nil {
 				conn.Close()
 			}
@@ -106,7 +123,8 @@ func RegisterRoute(servOptions options.ServeOptions, routeUri string) {
 
 	for _, conn := range connections {
 		if conn != nil {
-			log.Trace().Msg("Announcing")
+			log.Trace().
+				Msg("Announcing")
 			conn.Write([]byte(routeUri))
 		}
 	}

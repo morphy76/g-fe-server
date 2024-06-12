@@ -105,7 +105,7 @@ func startServer(
 		Msg("Application contextes ready")
 
 	rootRouter := mux.NewRouter()
-	server.Handler(rootRouter, finalContext)
+	apiRouter := server.Handler(rootRouter, finalContext)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {
@@ -135,9 +135,7 @@ func startServer(
 
 	go func() {
 		for newRoute := range newRoutesCh {
-			log.Info().
-				Bytes("route", newRoute).
-				Msg("New route received")
+			server.ProxyRoute(apiRouter, string(newRoute))
 		}
 	}()
 

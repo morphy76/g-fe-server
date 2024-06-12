@@ -19,6 +19,7 @@ type ContextOwnershipKey string
 type ContextOIDCOptions string
 type ContextOIDCKey string
 type ContextOIDCResourceKey string
+type RouteChannelKey string
 
 const (
 	ctx_CONTEXT_SERVE_KEY ContextModelKey        = "contextModel"
@@ -29,6 +30,7 @@ const (
 	ctx_OIDC_OPTIONS_KEY  ContextOIDCOptions     = "oidcOptions"
 	ctx_OIDC_KEY          ContextOIDCKey         = "oidc"
 	ctx_OIDC_RESOURCE_KEY ContextOIDCResourceKey = "oidcResource"
+	ctx_ROUTE_CHANNEL_KEY RouteChannelKey        = "routeChannel"
 )
 
 func InjectOidcOptions(ctx context.Context, oidcOptions *options.OidcOptions) context.Context {
