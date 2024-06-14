@@ -9,6 +9,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 
 	"github.com/morphy76/g-fe-server/internal/db"
@@ -68,9 +69,9 @@ func Handler(
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
-	contextRouter.Use(otelmux.Middleware("context",
-		otelmux.WithPublicEndpoint(),
-		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+	contextRouter.Use(otelhttp.NewMiddleware("context",
+		otelhttp.WithPublicEndpoint(),
+		otelhttp.WithPropagators(otel.GetTextMapPropagator()),
 	))
 	contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)

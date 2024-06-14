@@ -98,8 +98,8 @@ func startServer(
 	}
 
 	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
-	oidOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
-	sessionStoreContext := app_http.InjectSessionStore(oidOptionsContext, sessionStore)
+	oidcOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
+	sessionStoreContext := app_http.InjectSessionStore(oidcOptionsContext, sessionStore)
 	finalContext := cli.CreateTheOIDCContext(sessionStoreContext, oidcOptions, serveOptions)
 	log.Trace().
 		Msg("Application contextes ready")

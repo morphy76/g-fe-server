@@ -12,8 +12,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/auth"
@@ -69,9 +70,9 @@ func Handler(
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
-	contextRouter.Use(otelmux.Middleware("context",
-		otelmux.WithPublicEndpoint(),
-		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+	contextRouter.Use(otelhttp.NewMiddleware("context",
+		otelhttp.WithPublicEndpoint(),
+		otelhttp.WithPropagators(otel.GetTextMapPropagator()),
 	))
 	contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
@@ -117,15 +118,15 @@ func Handler(
 		log.Trace().Msg("API router registered")
 	}
 
-	contextRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
-		if len(route.GetName()) > 0 {
-			router.Use(otelmux.Middleware(route.GetName(),
-				otelmux.WithPublicEndpoint(),
-				otelmux.WithPropagators(otel.GetTextMapPropagator()),
-			))
-		}
-		return nil
-	})
+	// contextRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+	// 	if len(route.GetName()) > 0 {
+	// 		router.Use(otelmux.Middleware(route.GetName(),
+	// 			otelmux.WithPublicEndpoint(),
+	// 			otelmux.WithPropagators(otel.GetTextMapPropagator()),
+	// 		))
+	// 	}
+	// 	return nil
+	// })
 
 	return apiRouter
 }
@@ -171,7 +172,8 @@ func createProxy(ctxRoot string, apiRouter *mux.Router, remoteRoute string) {
 	resource := strings.TrimSuffix(parts[0], ":")
 	forward := parts[1]
 
-	route := apiRouter.Get(resource)
+	routeName := fmt.Sprintf("%s/api%s", ctxRoot, resource)
+	route := apiRouter.Get(routeName)
 
 	forwardURL, err := url.Parse(forward)
 	if err != nil {
@@ -188,19 +190,14 @@ func createProxy(ctxRoot string, apiRouter *mux.Router, remoteRoute string) {
 
 	if route == nil {
 		proxiedRouter := apiRouter.PathPrefix(resource).Subrouter()
-		// proxiedRouter.Use(otelmux.Middleware(resource,
+		// proxiedRouter.Use(otelmux.Middleware(routeName,
 		// 	otelmux.WithPublicEndpoint(),
 		// 	otelmux.WithPropagators(otel.GetTextMapPropagator()),
 		// ))
-		proxiedRouter.NewRoute().Methods(
-			http.MethodDelete,
-			http.MethodGet,
-			http.MethodPatch,
-			http.MethodPost,
-			http.MethodPut,
-		).Name(resource).Handler(proxy)
+		proxiedRouter.NewRoute().Name(routeName).Handler(proxy)
+
 		log.Debug().
-			Any("endpoint", fmt.Sprintf("%s/api%s", ctxRoot, resource)).
+			Any("endpoint", routeName).
 			Msg("Dynamic endpoint registered")
 	} else {
 		log.Trace().
@@ -214,6 +211,12 @@ func newReverseProxy(ctxRoot string, resource string, target *url.URL) *httputil
 	rewriteFun := func(r *httputil.ProxyRequest) {
 		r.SetXForwarded()
 
+		carrier := &propagation.HeaderCarrier{}
+		otel.GetTextMapPropagator().Inject(r.In.Context(), carrier)
+		log.Trace().
+			Any("carrier", carrier).
+			Msg("OTEL propagation")
+
 		r.Out = r.In
 		r.Out = r.In.Clone(r.In.Context())
 
@@ -224,10 +227,14 @@ func newReverseProxy(ctxRoot string, resource string, target *url.URL) *httputil
 		r.Out.URL.Scheme = target.Scheme
 		r.Out.URL.User = target.User
 
+		for _, key := range carrier.Keys() {
+			r.Out.Header.Add(key, carrier.Get(key))
+		}
+
 		log.Trace().
 			Any("target", target).
-			Any("in request", r.In.URL).
-			Any("out request", r.Out.URL).
+			Any("in request", r.In.Header).
+			Any("out request", r.Out.Header).
 			Msg("...proxying...")
 	}
 

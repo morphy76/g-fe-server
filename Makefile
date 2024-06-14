@@ -17,7 +17,7 @@ NPMFLAGS := --no-audit --no-fund
 # Cross-cutting runtime args
 OTEL_ARGS := -otel-enabled=false
 OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/gfes -oidc-client-id=ps -oidc-client-secret=BA4eYsij3vDerLdQTRp6khSKWSDQWdLr -oidc-scopes=openid,profile,email,offline_access
-NO_OIDC_ARGS := -oidc-disabled=true
+NO_OIDC_ARGS := -oidc-disabled
 
 # Server
 
