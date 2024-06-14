@@ -135,7 +135,7 @@ func startServer(
 
 	go func() {
 		for newRoute := range newRoutesCh {
-			server.ProxyRoute(apiRouter, string(newRoute))
+			server.ProxyRoute(serveOptions.ContextRoot, apiRouter, string(newRoute))
 		}
 	}()
 

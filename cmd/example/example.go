@@ -150,11 +150,11 @@ func startServer(
 			serve.RegisterRoute(*serveOptions, api.RegisteredRouteUri(serveOptions))
 		}
 	}()
-	defer func() {
-		log.Trace().
-			Msg("Unregistering route")
-		serve.UnRegisterRoute(*serveOptions, api.UnRegisteredRouteUri())
-	}()
+	// defer func() {
+	// 	log.Trace().
+	// 		Msg("Unregistering route")
+	// 	serve.UnRegisterRoute(*serveOptions, api.UnRegisteredRouteUri())
+	// }()
 
 	select {
 	case err = <-srvErr:

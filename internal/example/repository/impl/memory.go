@@ -8,7 +8,16 @@ type MemoryRepository struct {
 	db map[string]example.Example
 }
 
-var exampleDb map[string]example.Example = make(map[string]example.Example)
+var exampleDb map[string]example.Example = map[string]example.Example{
+	"1": {
+		Name: "1",
+		Age:  1,
+	},
+	"2": {
+		Name: "2",
+		Age:  2,
+	},
+}
 
 func NewMemoryRepository() example.Repository {
 	return &MemoryRepository{

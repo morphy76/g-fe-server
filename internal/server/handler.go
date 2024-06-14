@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -129,10 +130,10 @@ func Handler(
 	return apiRouter
 }
 
-func ProxyRoute(apiRouter *mux.Router, remoteRoute string) {
+func ProxyRoute(ctxRoot string, apiRouter *mux.Router, remoteRoute string) {
 	after, found := strings.CutPrefix(remoteRoute, "route:")
 	if found {
-		createProxy(apiRouter, after)
+		createProxy(ctxRoot, apiRouter, after)
 	} else {
 		after, found = strings.CutPrefix(remoteRoute, "unroute:")
 		if found {
@@ -159,7 +160,7 @@ func removeProxy(apiRouter *mux.Router, remoteRoute string) {
 	}
 }
 
-func createProxy(apiRouter *mux.Router, remoteRoute string) {
+func createProxy(ctxRoot string, apiRouter *mux.Router, remoteRoute string) {
 
 	parts := strings.SplitAfterN(remoteRoute, ":", 2)
 	if len(parts) != 2 {
@@ -167,15 +168,10 @@ func createProxy(apiRouter *mux.Router, remoteRoute string) {
 		return
 	}
 
-	resource := parts[0]
+	resource := strings.TrimSuffix(parts[0], ":")
 	forward := parts[1]
 
 	route := apiRouter.Get(resource)
-
-	log.Trace().
-		Str("resource", resource).
-		Str("forward", forward).
-		Msg("Proxying route")
 
 	forwardURL, err := url.Parse(forward)
 	if err != nil {
@@ -183,11 +179,59 @@ func createProxy(apiRouter *mux.Router, remoteRoute string) {
 		return
 	}
 
-	proxy := httputil.NewSingleHostReverseProxy(forwardURL)
+	proxy := newReverseProxy(ctxRoot, resource, forwardURL)
+
+	log.Trace().
+		Str("resource", resource).
+		Str("forward", forward).
+		Msg("Proxying route")
 
 	if route == nil {
-		apiRouter.NewRoute().Name(resource).PathPrefix(resource).Handler(proxy)
+		proxiedRouter := apiRouter.PathPrefix(resource).Subrouter()
+		// proxiedRouter.Use(otelmux.Middleware(resource,
+		// 	otelmux.WithPublicEndpoint(),
+		// 	otelmux.WithPropagators(otel.GetTextMapPropagator()),
+		// ))
+		proxiedRouter.NewRoute().Methods(
+			http.MethodDelete,
+			http.MethodGet,
+			http.MethodPatch,
+			http.MethodPost,
+			http.MethodPut,
+		).Name(resource).Handler(proxy)
+		log.Debug().
+			Any("endpoint", fmt.Sprintf("%s/api%s", ctxRoot, resource)).
+			Msg("Dynamic endpoint registered")
 	} else {
-		route.Handler(proxy)
+		log.Trace().
+			Str("resource", resource).
+			Msg("Route already exists")
+	}
+}
+
+func newReverseProxy(ctxRoot string, resource string, target *url.URL) *httputil.ReverseProxy {
+
+	rewriteFun := func(r *httputil.ProxyRequest) {
+		r.SetXForwarded()
+
+		r.Out = r.In
+		r.Out = r.In.Clone(r.In.Context())
+
+		tgtFunctionalRoot := strings.Replace(target.Path, resource, "", 1)
+		r.Out.URL.Path = strings.Replace(r.In.URL.Path, ctxRoot+"/api", tgtFunctionalRoot, 1)
+
+		r.Out.URL.Host = target.Host
+		r.Out.URL.Scheme = target.Scheme
+		r.Out.URL.User = target.User
+
+		log.Trace().
+			Any("target", target).
+			Any("in request", r.In.URL).
+			Any("out request", r.Out.URL).
+			Msg("...proxying...")
+	}
+
+	return &httputil.ReverseProxy{
+		Rewrite: rewriteFun,
 	}
 }
