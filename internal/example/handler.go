@@ -9,7 +9,6 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 
 	"github.com/morphy76/g-fe-server/internal/db"
@@ -18,6 +17,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/metrics"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
+	"github.com/morphy76/g-fe-server/internal/serve"
 )
 
 func Handler(
@@ -53,6 +53,11 @@ func Handler(
 		})
 	})
 
+	parent.Use(otelmux.Middleware(serve.OTEL_EXAMPLE_NAME,
+		otelmux.WithPublicEndpoint(),
+		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+	))
+
 	// Non functional router
 	nonFunctionalRouter := parent.PathPrefix("/g").Subrouter()
 	if log.Trace().Enabled() {
@@ -69,10 +74,6 @@ func Handler(
 
 	// Context root router
 	contextRouter := parent.PathPrefix(serveOptions.ContextRoot).Subrouter()
-	contextRouter.Use(otelhttp.NewMiddleware("context",
-		otelhttp.WithPublicEndpoint(),
-		otelhttp.WithPropagators(otel.GetTextMapPropagator()),
-	))
 	contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
 	if log.Trace().Enabled() {
@@ -84,20 +85,12 @@ func Handler(
 	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.Use(middleware.PrometheusMiddleware)
+	// TODO: bearer oriented auth, inspect and no renew
+	// apiRouter.Use(middleware.BearerAuthenticationRequired)
 	if log.Trace().Enabled() {
 		log.Trace().Msg("API router registered")
 	}
 
 	// Domain functions
 	example_http.ExampleHandlers(apiRouter, app_context)
-
-	contextRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
-		if len(route.GetName()) > 0 {
-			router.Use(otelmux.Middleware(route.GetName(),
-				otelmux.WithPublicEndpoint(),
-				otelmux.WithPropagators(otel.GetTextMapPropagator()),
-			))
-		}
-		return nil
-	})
 }

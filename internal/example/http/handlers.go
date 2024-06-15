@@ -13,6 +13,7 @@ import (
 
 	"github.com/morphy76/g-fe-server/internal/example/api"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/pkg/example"
 )
 
@@ -32,6 +33,7 @@ func ExampleHandlers(functionalRouter *mux.Router, app_context context.Context) 
 
 		itemRouter = functionalRouter.PathPrefix("/example").Subrouter()
 	)
+	itemRouter.Use(middleware.DumpHeaders)
 
 	itemRouter.Methods(http.MethodGet).HandlerFunc(onList).Path("").Name("GET " + apiRoot)
 	itemRouter.Methods(http.MethodPost).HandlerFunc(onCreate).Name("POST " + apiRoot)

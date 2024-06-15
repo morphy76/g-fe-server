@@ -78,9 +78,6 @@ func dispatchUDP(serveOptions options.ServeOptions, routeUri string) {
 	if err != nil {
 		panic(err)
 	}
-	log.Trace().
-		Int("port", usePort).
-		Msg("Announcing route")
 
 	ips, err := net.LookupIP(serveOptions.AnnounceHost)
 	if err != nil {
@@ -91,16 +88,10 @@ func dispatchUDP(serveOptions options.ServeOptions, routeUri string) {
 	if err != nil {
 		panic(err)
 	}
-	log.Trace().
-		Str("host", serveOptions.AnnounceHost).
-		Str("local", local.String()).
-		Msg("Announcing route")
 
 	connections := make([]*net.UDPConn, 0)
 	defer func() {
 		for _, conn := range connections {
-			log.Trace().
-				Msg("Closing connection")
 			if conn != nil {
 				conn.Close()
 			}
@@ -124,7 +115,8 @@ func dispatchUDP(serveOptions options.ServeOptions, routeUri string) {
 	for _, conn := range connections {
 		if conn != nil {
 			log.Trace().
-				Msg("Announcing")
+				Str("route", routeUri).
+				Msg("Announcing remote route")
 			conn.Write([]byte(routeUri))
 		}
 	}

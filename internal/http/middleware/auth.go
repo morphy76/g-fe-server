@@ -14,7 +14,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
 
-func InspectAndRenew(next http.Handler) http.Handler {
+func HttpSessionInspectAndRenew(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		oidcOptions := app_http.ExtractOidcOptions(r.Context())
@@ -86,7 +86,7 @@ func InspectAndRenew(next http.Handler) http.Handler {
 	})
 }
 
-func AuthenticationRequired(next http.Handler) http.Handler {
+func HttpSessionAuthenticationRequired(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		oidcOptions := app_http.ExtractOidcOptions(r.Context())

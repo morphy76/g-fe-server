@@ -28,17 +28,27 @@ func RequestLogger(next http.Handler) http.Handler {
 		}
 
 		activeSpan := trace.SpanFromContext(r.Context())
-
 		ownership := app_http.ExtractOwnership(r.Context())
-		useLogger := log.Logger.With().
+
+		useLoggerBuilder := log.Logger.With().
 			Dict("correlation", zerolog.Dict().
 				Str("span_id", activeSpan.SpanContext().SpanID().String()).
 				Str("trace_id", activeSpan.SpanContext().TraceID().String()),
-			).
-			Dict("ownership", zerolog.Dict().
-				Str("tenant", ownership.Tenant).
-				Str("subscription", ownership.Subscription),
-			).Logger()
+			)
+		if ownership.Tenant != "" {
+			useLoggerBuilder = useLoggerBuilder.
+				Dict("ownership", zerolog.Dict().
+					Str("tenant", ownership.Tenant).
+					Str("subscription", ownership.Subscription),
+				)
+		} else {
+			useLoggerBuilder = useLoggerBuilder.
+				Dict("ownership", zerolog.Dict().
+					Bool("anon", true),
+				)
+		}
+		useLogger := useLoggerBuilder.Logger()
+
 		newContext := app_http.InjectLogger(r.Context(), useLogger)
 		useRequestLogger := r.WithContext(newContext)
 
