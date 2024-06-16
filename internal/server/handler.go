@@ -41,6 +41,11 @@ func Handler(
 	}
 
 	// Parent router
+	parent.Use(otelmux.Middleware(serve.OTEL_GW_NAME,
+		otelmux.WithPublicEndpoint(),
+		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+		otelmux.WithTracerProvider(otel.GetTracerProvider()),
+	))
 	parent.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			useRequest := r.WithContext(app_http.InjectSessionStore(r.Context(), sessionStore))
@@ -54,10 +59,6 @@ func Handler(
 			next.ServeHTTP(w, useRequest)
 		})
 	})
-	parent.Use(otelmux.Middleware(serve.OTEL_GW_NAME,
-		otelmux.WithPublicEndpoint(),
-		otelmux.WithPropagators(otel.GetTextMapPropagator()),
-	))
 
 	// Non functional router
 	nonFunctionalRouter := parent.PathPrefix("/g").Subrouter()
@@ -235,10 +236,11 @@ func newReverseProxy(ctxRoot string, resource string, target *url.URL) *httputil
 		r.Out.URL.Host = target.Host
 		r.Out.URL.Scheme = target.Scheme
 		r.Out.URL.User = target.User
+		r.Out.Header = http.Header(otelCarrier)
 
 		log.Trace().
-			Any("in", r.In.URL).
-			Any("out", r.Out.URL).
+			Any("in", r.In.Header).
+			Any("out", r.Out.Header).
 			Msg("...proxying...")
 	}
 

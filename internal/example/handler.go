@@ -38,6 +38,11 @@ func Handler(
 	dbClient := db.ExtractDb(app_context)
 
 	// Parent router
+	parent.Use(otelmux.Middleware(serve.OTEL_EXAMPLE_NAME,
+		otelmux.WithPublicEndpoint(),
+		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+		otelmux.WithTracerProvider(otel.GetTracerProvider()),
+	))
 	parent.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			useRequest := r.WithContext(app_http.InjectServeOptions(r.Context(), serveOptions))
@@ -52,11 +57,6 @@ func Handler(
 			next.ServeHTTP(w, useRequest)
 		})
 	})
-
-	parent.Use(otelmux.Middleware(serve.OTEL_EXAMPLE_NAME,
-		otelmux.WithPublicEndpoint(),
-		otelmux.WithPropagators(otel.GetTextMapPropagator()),
-	))
 
 	// Non functional router
 	nonFunctionalRouter := parent.PathPrefix("/g").Subrouter()
