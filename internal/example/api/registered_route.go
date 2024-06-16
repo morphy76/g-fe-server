@@ -9,7 +9,11 @@ import (
 const routeName = "/example"
 
 func RegisteredRouteUri(serveOptions *options.ServeOptions) string {
-	return fmt.Sprintf("route:%s:%s://%s:%s%s/api/example", routeName, serveOptions.Protocol, serveOptions.Host, serveOptions.Port, serveOptions.ContextRoot)
+	return fmt.Sprintf("route:%s:%s", routeName, callbackUrl(serveOptions))
+}
+
+func callbackUrl(serveOptions *options.ServeOptions) string {
+	return fmt.Sprintf("%s%s/api%s", serveOptions.CallbackUrl, serveOptions.ContextRoot, routeName)
 }
 
 func UnRegisteredRouteUri() string {

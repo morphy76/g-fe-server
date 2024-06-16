@@ -26,6 +26,7 @@ func main() {
 
 	zerolog.TimeFieldFormat = time.RFC3339
 	trace := flag.Bool("trace", false, "sets log level to trace")
+	callbackUrlArg := flag.String("callback-url", "", "callback url")
 
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
 	otelOptionsBuilder := cli.OtelOptionsBuilder()
@@ -46,7 +47,16 @@ func main() {
 		zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	}
 
+	callbackUrl, found := os.LookupEnv("CALLBACK_URL")
+	if !found {
+		callbackUrl = *callbackUrlArg
+	}
+	if callbackUrl == "" {
+		panic("callback url is required")
+	}
+
 	serveOptions, err := serveOptionsBuilder()
+	serveOptions.CallbackUrl = callbackUrl
 	if err != nil {
 		log.Error().
 			Err(err).
