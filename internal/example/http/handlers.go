@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,7 +12,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/morphy76/g-fe-server/internal/example/api"
-	"github.com/morphy76/g-fe-server/internal/options"
+	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/pkg/example"
 )
 
@@ -19,15 +21,19 @@ const (
 	pathParamExampleId = "exampleId"
 )
 
-func ExampleHandlers(apiRouter *mux.Router, ctxRoot string, dbOptions *options.DbOptions) {
+func ExampleHandlers(functionalRouter *mux.Router, app_context context.Context) {
+
+	serveOptions := app_http.ExtractServeOptions(app_context)
+	ctxRoot := serveOptions.ContextRoot
 
 	var (
 		apiRoot              = fmt.Sprintf("%s/api/example", ctxRoot)
 		apiParamExampleId    = fmt.Sprintf("{%s}", pathParamExampleId)
 		apiResourceExampleId = fmt.Sprintf("%s/%s", apiRoot, apiParamExampleId)
 
-		itemRouter = apiRouter.PathPrefix("/example").Subrouter()
+		itemRouter = functionalRouter.PathPrefix("/example").Subrouter()
 	)
+	itemRouter.Use(middleware.DumpHeaders)
 
 	itemRouter.Methods(http.MethodGet).HandlerFunc(onList).Path("").Name("GET " + apiRoot)
 	itemRouter.Methods(http.MethodPost).HandlerFunc(onCreate).Name("POST " + apiRoot)

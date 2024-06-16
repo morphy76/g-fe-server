@@ -15,4 +15,7 @@ type ServeOptions struct {
 	SessionDomain        string
 	SessionSecureCookies bool
 	SessionSameSite      http.SameSite
+	AnnouncePort         string
+	AnnounceHost         string
+	CallbackUrl          string
 }

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"os"
 	"strings"
@@ -10,11 +11,21 @@ import (
 
 type oidcOptionsBuidler func() (*options.OidcOptions, error)
 
-// var errRequiredOTLPUrl = errors.New("OTLP export enabled but no URL has been specified")
+var errMissingIssuer = errors.New("OIDC issuer is required")
+var errMissingClientId = errors.New("OIDC client id is required")
+var errMissingClientSecret = errors.New("OIDC client secret is required")
 
-// func IsRequiredOTLPUrl(err error) bool {
-// 	return err == errRequiredOTLPUrl
-// }
+func IsMissingIssuer(err error) bool {
+	return err == errMissingIssuer
+}
+
+func IsMissingClientId(err error) bool {
+	return err == errMissingClientId
+}
+
+func IsMissingClientSecret(err error) bool {
+	return err == errMissingClientSecret
+}
 
 const (
 	ENV_OIDC_ISSUER        = "OIDC_ISSUER"
@@ -25,26 +36,38 @@ const (
 
 func OidcOptionsBuilder() oidcOptionsBuidler {
 
-	oidcIssuerArg := flag.String("oidc-issuer", "", "OIDC issuer. Environment: "+ENV_OIDC_ISSUER)
-	oidcClientIdArg := flag.String("oidc-client-id", "", "OIDC client id. Environment: "+ENV_OIDC_CLIENT_ID)
-	oidcClientSecretArg := flag.String("oidc-client-secret", "", "OIDC client secret. Environment: "+ENV_OIDC_CLIENT_SECRET)
-	oidcScopesArg := flag.String("oidc-scopes", "", "OIDC scopes")
+	oidcDisabledArg := flag.Bool("oidc-disabled", false, "Disable OIDC.")
+	oidcIssuerArg := flag.String("oidc-issuer", " ", "OIDC issuer. Environment: "+ENV_OIDC_ISSUER)
+	oidcClientIdArg := flag.String("oidc-client-id", " ", "OIDC client id. Environment: "+ENV_OIDC_CLIENT_ID)
+	oidcClientSecretArg := flag.String("oidc-client-secret", " ", "OIDC client secret. Environment: "+ENV_OIDC_CLIENT_SECRET)
+	oidcScopesArg := flag.String("oidc-scopes", " ", "OIDC scopes. Environment: "+ENV_OIDC_SCOPES)
 
 	rv := func() (*options.OidcOptions, error) {
+
+		oidcDisabled := *oidcDisabledArg
 
 		oidcIssuer, found := os.LookupEnv(ENV_OIDC_ISSUER)
 		if !found {
 			oidcIssuer = *oidcIssuerArg
+		}
+		if !oidcDisabled && oidcIssuer == "" {
+			return nil, errMissingIssuer
 		}
 
 		oidcClientId, found := os.LookupEnv(ENV_OIDC_CLIENT_ID)
 		if !found {
 			oidcClientId = *oidcClientIdArg
 		}
+		if !oidcDisabled && oidcClientId == "" {
+			return nil, errMissingClientId
+		}
 
 		oidcClientSecret, found := os.LookupEnv(ENV_OIDC_CLIENT_SECRET)
 		if !found {
 			oidcClientSecret = *oidcClientSecretArg
+		}
+		if !oidcDisabled && oidcClientSecret == "" {
+			return nil, errMissingClientSecret
 		}
 
 		oidcScopes, found := os.LookupEnv(ENV_OIDC_SCOPES)
@@ -53,6 +76,7 @@ func OidcOptionsBuilder() oidcOptionsBuidler {
 		}
 
 		return &options.OidcOptions{
+			Disabled:     oidcDisabled,
 			Issuer:       oidcIssuer,
 			ClientId:     oidcClientId,
 			ClientSecret: oidcClientSecret,

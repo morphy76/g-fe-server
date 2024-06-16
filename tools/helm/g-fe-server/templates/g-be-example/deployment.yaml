@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "g-be-example.fullname" . }}
+  labels:
+    {{- include "g-be-example.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.g_be_example.autoscaling.enabled }}
+  replicas: {{ .Values.g_be_example.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "g-be-example.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.g_be_example.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "g-be-example.labels" . | nindent 8 }}
+        {{- with .Values.g_be_example.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.g_be_example.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "g-be-example.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.g_be_example.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.g_be_example.securityContext | nindent 12 }}
+          image: "{{ .Values.g_be_example.image.repository }}:{{ .Values.g_be_example.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.g_be_example.image.pullPolicy }}
+          env:
+            - name: CONTEXT_ROOT
+              value: {{ .Values.g_be_example.contextRoot | quote }}
+            - name: DB_TYPE
+              value: {{ .Values.g_be_example.db.type | quote }}
+            - name: DB_MONGO_URL
+              value: {{ .Values.g_be_example.db.mongodb.url | quote }}
+            - name: DB_MONGO_USER
+              value: {{ .Values.g_be_example.db.mongodb.user | quote }}
+            - name: DB_MONGO_PASSWORD
+              value: {{ .Values.g_be_example.db.mongodb.password | quote }}
+            - name: ENABLE_OTEL_EXPORT
+              value: {{ .Values.otlp.enabled | quote }}
+            - name: OTLP_URL
+              value: {{ .Values.otlp.endpoint | quote }}
+            - name: OIDC_ISSUER
+              value: {{ .Values.oidc.issuer | quote }}
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.oidc.clientId | quote }}
+            - name: OIDC_CLIENT_SECRET
+              value: {{ .Values.oidc.clientSecret | quote }}
+            - name: OIDC_SCOPES
+              value: {{ .Values.oidc.scopes | quote }}
+            - name: ANNOUNCING_HOST
+              value: {{ include "g-fe-server.fullname" . }}-headless
+          ports:
+            - name: http
+              containerPort: {{ .Values.g_be_example.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: "/g/health"
+              port: http
+          readinessProbe:
+            httpGet:
+              path: "/g/health"
+              port: http
+          resources:
+            {{- toYaml .Values.g_be_example.resources | nindent 12 }}
+          {{- with .Values.g_be_example.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.g_be_example.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.g_be_example.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.g_be_example.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.g_be_example.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

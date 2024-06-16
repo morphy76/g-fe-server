@@ -6,6 +6,7 @@
 *.dylib
 deploy.env
 /g-fe-server
+/g-be-service
 /go.sum
 /web/build
 

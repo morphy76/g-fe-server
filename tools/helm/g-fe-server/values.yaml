@@ -1,87 +1,161 @@
 # No care so far for secrets (mongodb password, etc)
 
-server:
+otlp:
+  enabled: true
+  endpoint: http://fe-server-zipkin:9411/api/v2/spans
+
+oidc:
+  issuer: http://fe-server-keycloak:8080/realms/gfes
+  clientId: ps
+  clientSecret: UUIBfJBb7RlijkhmWd8x6laIp3xoy5NP
+  scopes: openid,profile,email,offline_access
+
+g_fe_server:
+
   contextRoot: /fe
+
+  replicaCount: 1
+
+  image:
+    repository: g-fe-service
+    pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+
+  imagePullSecrets: []
+  nameOverride: "g-fe-server"
+  fullnameOverride: ""
+
+  serviceAccount:
+    create: true
+    automount: true
+    annotations: {}
+    name: ""
+
+  podAnnotations:
+    prometheus.io/scrape: 'true'
+  podLabels:
+    app.kubernetes.io/name: g-fe-server
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: presentation-server
+
+  podSecurityContext: {}
+
+  securityContext: {}
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 32Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+
+  volumes: []
+  # - name: foo
+  #   secret:
+  #     secretName: mysecret
+  #     optional: false
+
+  # Additional volumeMounts on the output Deployment definition.
+  volumeMounts: []
+  # - name: foo
+  #   mountPath: "/etc/foo"
+  #   readOnly: true
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+g_be_example:
+
+  contextRoot: /be
+
   db:
     type: 1 # 0: in-memory, 1: mongodb
     mongodb:
       url: mongodb://fe-server-mongodb-headless:27017/go_db?replicaSet=rs_fe&w=1
       user: go_user
       password: go_password
-  otlp:
+
+  replicaCount: 1
+
+  image:
+    repository: g-be-service
+    pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+
+  imagePullSecrets: []
+  nameOverride: "g-be-example"
+  fullnameOverride: ""
+
+  serviceAccount:
+    create: true
+    automount: true
+    annotations: {}
+    name: ""
+
+  podAnnotations:
+    prometheus.io/scrape: 'true'
+  podLabels:
+    app.kubernetes.io/name: g-be-example
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: example-api
+
+  podSecurityContext: {}
+
+  securityContext: {}
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 32Mi
+
+  autoscaling:
     enabled: true
-    endpoint: http://fe-server-zipkin:9411/api/v2/spans
-  oidc:
-    issuer: http://fe-server-keycloak:8080/realms/gfes
-    clientId: ps
-    clientSecret: BA4eYsij3vDerLdQTRp6khSKWSDQWdLr
-    scopes: openid,profile,email,offline_access
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
 
-replicaCount: 1
+  volumes: []
+  # - name: foo
+  #   secret:
+  #     secretName: mysecret
+  #     optional: false
 
-image:
-  repository: g-fe-server
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  # Additional volumeMounts on the output Deployment definition.
+  volumeMounts: []
+  # - name: foo
+  #   mountPath: "/etc/foo"
+  #   readOnly: true
 
-imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: ""
+  nodeSelector: {}
 
-serviceAccount:
-  create: true
-  automount: true
-  annotations: {}
-  name: ""
+  tolerations: []
 
-podAnnotations:
-  prometheus.io/scrape: 'true'
-podLabels:
-  app.kubernetes.io/name: g-fe-server
-  app.kubernetes.io/managed-by: Helm
-  app.kubernetes.io/component: presentation-server
-
-podSecurityContext: {}
-
-securityContext: {}
-
-service:
-  type: ClusterIP
-  port: 8080
-
-resources:
-  limits:
-    cpu: 100m
-    memory: 128Mi
-  requests:
-    cpu: 50m
-    memory: 32Mi
-
-autoscaling:
-  enabled: true
-  minReplicas: 1
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
-
-volumes: []
-# - name: foo
-#   secret:
-#     secretName: mysecret
-#     optional: false
-
-# Additional volumeMounts on the output Deployment definition.
-volumeMounts: []
-# - name: foo
-#   mountPath: "/etc/foo"
-#   readOnly: true
-
-nodeSelector: {}
-
-tolerations: []
-
-affinity: {}
+  affinity: {}
 
 mongodb:
   architecture: replicaset
@@ -110,3 +184,11 @@ prometheus:
         kubernetes_sd_configs:
           - role: pod
         metrics_path: /g/metrics
+
+zipkin:
+  enabled: true
+
+keycloak:
+  auth:
+    adminUser: admin
+    adminPassword: admin

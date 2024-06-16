@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	impl "github.com/morphy76/g-fe-server/internal/example/impl"
-	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/db"
+	impl "github.com/morphy76/g-fe-server/internal/example/repository/impl"
 	"github.com/morphy76/g-fe-server/internal/options"
 	model "github.com/morphy76/g-fe-server/pkg/example"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -13,8 +13,8 @@ import (
 
 func NewRepository(requestContext context.Context) (model.Repository, error) {
 
-	dbOptions := app_http.ExtractDbOptions(requestContext)
-	dbClient := app_http.ExtractDb(requestContext)
+	dbOptions := db.ExtractDbOptions(requestContext)
+	dbClient := db.ExtractDb(requestContext)
 
 	switch dbOptions.Type {
 	case options.RepositoryTypeMemoryDB:

@@ -1,4 +1,6 @@
-package health
+package http
+
+import "context"
 
 type Status string
 
@@ -17,3 +19,5 @@ type Error struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
+
+type HealthCheckFn func(requestContext context.Context) (string, Status)

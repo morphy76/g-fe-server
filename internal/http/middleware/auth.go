@@ -14,8 +14,14 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
 
-func InspectAndRenew(next http.Handler) http.Handler {
+func HttpSessionInspectAndRenew(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		oidcOptions := app_http.ExtractOidcOptions(r.Context())
+		if oidcOptions.Disabled {
+			next.ServeHTTP(w, r)
+			return
+		}
 
 		serveOptions := app_http.ExtractServeOptions(r.Context())
 		session := app_http.ExtractSession(r.Context())
@@ -80,8 +86,15 @@ func InspectAndRenew(next http.Handler) http.Handler {
 	})
 }
 
-func AuthenticationRequired(next http.Handler) http.Handler {
+func HttpSessionAuthenticationRequired(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		oidcOptions := app_http.ExtractOidcOptions(r.Context())
+		if oidcOptions.Disabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		serveOptions := app_http.ExtractServeOptions(r.Context())
 		session := app_http.ExtractSession(r.Context())
 		logger := app_http.ExtractLogger(r.Context(), "auth")

@@ -13,7 +13,11 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
-const OTEL_APP_NAME = "g-fe-server"
+const (
+	OTEL_APP_NAME     = "g-fe-server"
+	OTEL_GW_NAME      = "gateway"
+	OTEL_EXAMPLE_NAME = "g-be-server"
+)
 
 func SetupOTelSDK(ctx context.Context, otelOptions *options.OtelOptions) (shutdown func(context.Context) error, err error) {
 

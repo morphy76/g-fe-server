@@ -3,9 +3,9 @@ package api
 import (
 	"net/http"
 
-	"github.com/morphy76/g-fe-server/internal/example/repository"
 	"github.com/rs/zerolog"
 
+	"github.com/morphy76/g-fe-server/internal/example/repository"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	model "github.com/morphy76/g-fe-server/pkg/example"
 )

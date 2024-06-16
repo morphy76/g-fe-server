@@ -6,17 +6,21 @@
 
 ### Backlog
 
+- multitenancy (must)
+  - HTTP header tenant resolver ("done")
+  - JWT tenant resolver
+  -> claims and email domain
+  -> fix logger tenant resolution
 - authentication & authorization (must)
   -> introspect just checks the token regardless the IDP session
   -> integrate KC in the helm
   -> https://openid.net/specs/openid-connect-core-1_0-35.html
   - JWT authenticated APIs: direct call (http header) vs UI calls (http session?)
-- multitenancy (must)
-  - HTTP header tenant resolver ("done")
-  - JWT tenant resolver
+- API versioning
+- circuit braker
 - helm review & service mesh (istio)
-- a new service with Pact
-  - e.g. (https://medium.com/@dees3g/pact-and-go-contract-testing-of-http-based-applications-e595e639334e)
+- abstraction of server and service handler
+- split test exec for server and service
 - redis integration (as a client, as a mongo cache, as an http session store) + health
 - kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama), anyway more protocols
 - zookeeper playground?
@@ -29,9 +33,9 @@
 - openapi
 - godoc
 - drill down about tests, e.g. fail when coverage is not achieved
+  - Pact (https://pkg.go.dev/github.com/pact-foundation/pact-go/v2)
 - Logging: create a functional approach to logs, attributes and log propagation
 - what's the vendor directory
-- resusable artifact: pluggable domain resources, API & FE -> or better self announcing backend services (https://zeromq.org) to enable gateway (BFF) routes
 - Accessibility (fun)
 - FE crud
   - use query cache and optimistic updates (must)
@@ -57,7 +61,7 @@ In this scenario, the BFF also performs CRUD operations instead of acting as a g
 
 So much freedom while structuring the project needs to be somehow tamed: <https://github.com/golang-standards/project-layout>.
 
-The entry point of the presentation server is `cmd/main.go`.
+The entry point of the presentation server is `cmd/server/serve.go`.
 
 It uses the following third party dependencies:
 
@@ -104,7 +108,7 @@ Logging is enriched by contextual information:
 
 #### Routing
 
-Routing is hierarchical, `cmd/main.go` prepares the server context and moves on to `internal/http/handlers/handler.go` to build the hierarchy.
+Routing is hierarchical, `cmd/server/serve.go` prepares the server context and moves on to `internal/http/handlers/handler.go` to build the hierarchy.
 
 First of all, the parent router which receives 3 middlewares:
 
@@ -129,6 +133,41 @@ Generally speaking, handle functions are provided by the router provided by each
 Routers, the API router in particular, are integrated with Opentracing with a Gorilla extension: `go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux`.
 
 In the same way, such routers are configured to use Prometheus middlewares (`github.com/prometheus/client_golang`) to expose metrics about their usage.
+
+#### Dynamic routes with service announcing
+
+The presentatin server listens for UDP messages to add proxy routes to backend service; the message is an URI for the following schemas:
+
+- `route` add a new reverse proxy
+- `unroute` remove an existing reverse proxy
+
+The `route` schema has the route name and the forward URL, e.g. `route:/example:http://example-service/be/api/example` which means that the presentation server forwards the requests to `http://presentation-server/fe/api/example` to the specified backend URL.
+
+The `unroute` schema ahs just the route name, e.g. `route:/example`.
+
+Multiple route registrations increase a counter, the route is removed when this counter reaches 0.
+
+The module is a single-repo containing:
+
+- presentation server packages,
+- backend service packages,
+- shared packages.
+
+The `Makefile` has tasks for each of them.
+
+#### OIDC
+
+When OIDC integration is enabled (default), the request context is enriched with the _zytadel_ relaying party and resource server so that we can define 3 additional route components:
+
+- New routes to perform authentication under the `/auth` path, used by the presentation server to bind the IAM session with the HTTP session, these routes are not intended for APIs;
+- A middleware to test if the HTTP session is authenticated within an IAM session, again, not intended for APIs;
+- A middleware to inspect and, in case, renew the OIDC access token.
+
+APIs (TODO service split) leverage a middleware to test the access token from the HTTP request headers.
+
+#### Single repo & service split
+
+TODO
 
 #### MongoDB & domain repository
 
@@ -207,16 +246,18 @@ TODO
 TODO
 
 ```shell
-minikube start -p go --cpus=8 --memory=32g
+minikube start -p go --cpus=8 --memory=32g --kubernetes-version=v1.27.3
 eval $(minikube docker-env -p go)
 make deploy
 kubectl config use-context go
 kubectl create ns fe
+helm dependency update tools/helm/g-fe-server
 helm dependency build tools/helm/g-fe-server
 helm upgrade --install -n fe fe-server tools/helm/g-fe-server
 
 helm uninstall -n fe fe-server
 
+kubectl -n fe port-forward services/fe-server-g-be-example 8081:8080
 kubectl -n fe port-forward services/fe-server-g-fe-server 8080:8080
 kubectl -n fe port-forward services/fe-server-zipkin 9411:9411
 kubectl -n fe port-forward services/fe-server-prometheus-server 18080:80

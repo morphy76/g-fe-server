@@ -42,6 +42,8 @@ const (
 	ENV_SESSION_DOMAIN    = "SESSION_DOMAIN"
 	ENV_SESSION_SECURE    = "SESSION_SECURE"
 	ENV_SESSION_SAME_SITE = "SESSION_SAME_SITE"
+	ENV_ANNOUNCING_PORT   = "ANNOUNCING_PORT"
+	EVN_ANNOUNCING_HOST   = "ANNOUNCING_HOST"
 )
 
 func ServeOptionsBuilder() serveOptionsBuilder {
@@ -57,6 +59,8 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 	sessionDomainArg := flag.String("session-domain", "", "session domain. Environment: "+ENV_SESSION_DOMAIN)
 	sessionSecureArg := flag.Bool("session-secure", false, "session secure. Environment: "+ENV_SESSION_SECURE)
 	sessionSameSiteArg := flag.String("session-same-site", "Lax", "session same site: Default, Lax, Strict or None. Environment: "+ENV_SESSION_SAME_SITE)
+	announcePortArg := flag.String("announce-port", "9999", "port to announce the server on. Environment: "+ENV_ANNOUNCING_PORT)
+	announceHostArg := flag.String("announce-host", "", "host to announce the server on, Use an headless service in k8s. Environment: "+EVN_ANNOUNCING_HOST)
 
 	rv := func() (*options.ServeOptions, error) {
 
@@ -152,6 +156,16 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			return nil, errInvalidSessionSameSite
 		}
 
+		announcePort, found := os.LookupEnv(ENV_ANNOUNCING_PORT)
+		if !found {
+			announcePort = *announcePortArg
+		}
+
+		announceHost, found := os.LookupEnv(EVN_ANNOUNCING_HOST)
+		if !found {
+			announceHost = *announceHostArg
+		}
+
 		return &options.ServeOptions{
 			ContextRoot:          ctxRoot,
 			StaticPath:           staticPath,
@@ -165,6 +179,8 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			SessionDomain:        useSessionDomain,
 			SessionSecureCookies: useSessionSecure,
 			SessionSameSite:      useSessionSameSite,
+			AnnouncePort:         announcePort,
+			AnnounceHost:         announceHost,
 		}, nil
 	}
 

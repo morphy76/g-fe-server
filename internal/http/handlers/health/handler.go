@@ -4,89 +4,56 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"reflect"
 	"time"
 
 	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
-	"github.com/morphy76/g-fe-server/internal/options"
 )
 
-func HealthHandlers(nonFunctionalRouter *mux.Router, ctxRoot string, dbOptions *options.DbOptions) {
+func HealthHandlers(
+	parent *mux.Router,
+	app_context context.Context,
+	additionalChecks ...app_http.HealthCheckFn,
+) {
+	serveOptions := app_http.ExtractServeOptions(app_context)
+	ctxRoot := serveOptions.ContextRoot
 
-	healthRouter := nonFunctionalRouter.Path("/health").Subrouter()
+	healthRouter := parent.Path("/health").Subrouter()
 	healthRouter.Use(middleware.JSONResponse)
 
-	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth()).Name("GET " + ctxRoot + "/g/health")
+	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth(additionalChecks)).Name("GET " + ctxRoot + "/health")
 }
 
-func onHealth() http.HandlerFunc {
+func onHealth(additionalChecks []app_http.HealthCheckFn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		overallStatus := Active
+		overallStatus := app_http.Active
 
-		timeoutContext, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+		timeoutContext, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		label, dbStatus := testDbStatus(timeoutContext)
-		if dbStatus == Inactive {
-			overallStatus = Inactive
+		var subsystems = make(map[string]app_http.HealthResponse)
+		for _, check := range additionalChecks {
+			label, status := check(timeoutContext)
+			if status == app_http.Inactive {
+				overallStatus = app_http.Inactive
+			}
+			subsystems[label] = app_http.HealthResponse{
+				Status: status,
+			}
 		}
 
-		if overallStatus == Active {
+		if overallStatus == app_http.Active {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}
 
-		json.NewEncoder(w).Encode(&HealthResponse{
-			Status: overallStatus,
-			SubSystems: map[string]HealthResponse{
-				label: {Status: dbStatus},
-			},
+		json.NewEncoder(w).Encode(&app_http.HealthResponse{
+			Status:     overallStatus,
+			SubSystems: subsystems,
 		})
 	}
-}
-
-func testDbStatus(requestContext context.Context) (string, Status) {
-
-	dbStatus := Inactive
-	label := ""
-
-	timeoutContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	dbOptions := app_http.ExtractDbOptions(requestContext)
-	if dbOptions.Type == options.RepositoryTypeMemoryDB {
-		dbStatus = Active
-		label = "MemoryDB"
-	} else if dbOptions.Type == options.RepositoryTypeMongoDB {
-		dbClient := app_http.ExtractDb(requestContext)
-		label = "MongoDB"
-		if reflect.TypeOf(dbClient) == reflect.TypeOf(&mongo.Client{}) {
-
-			mongoClient := dbClient.(*mongo.Client)
-			errChan := make(chan error, 1)
-
-			go func() {
-				errChan <- mongoClient.Ping(timeoutContext, nil)
-			}()
-
-			select {
-			case <-timeoutContext.Done():
-				dbStatus = Inactive
-			case err := <-errChan:
-				if err != nil {
-					dbStatus = Inactive
-				} else {
-					dbStatus = Active
-				}
-			}
-		}
-	}
-
-	return label, dbStatus
 }

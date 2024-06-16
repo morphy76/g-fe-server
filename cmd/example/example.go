@@ -2,26 +2,22 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
-	"reflect"
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
-	"github.com/quasoft/memstore"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/zitadel/oidc/v3/pkg/client/rs"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
 	"github.com/morphy76/g-fe-server/internal/db"
+	"github.com/morphy76/g-fe-server/internal/example"
+	"github.com/morphy76/g-fe-server/internal/example/api"
 	app_http "github.com/morphy76/g-fe-server/internal/http"
-	"github.com/morphy76/g-fe-server/internal/http/handlers"
 	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/morphy76/g-fe-server/internal/serve"
 )
@@ -30,11 +26,12 @@ func main() {
 
 	zerolog.TimeFieldFormat = time.RFC3339
 	trace := flag.Bool("trace", false, "sets log level to trace")
+	callbackUrlArg := flag.String("callback-url", "", "callback url")
 
-	dbOptionsBuilder := cli.DbOptionsBuilder()
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
 	otelOptionsBuilder := cli.OtelOptionsBuilder()
 	oidcOptionsBuilder := cli.OidcOptionsBuilder()
+	dbOptionsBuilder := cli.DbOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -50,101 +47,90 @@ func main() {
 		zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	}
 
-	dbOptions, err := dbOptionsBuilder()
-	if err != nil {
-		flag.Usage()
-		os.Exit(1)
+	callbackUrl, found := os.LookupEnv("CALLBACK_URL")
+	if !found {
+		callbackUrl = *callbackUrlArg
+	}
+	if callbackUrl == "" {
+		panic("callback url is required")
 	}
 
 	serveOptions, err := serveOptionsBuilder()
+	serveOptions.CallbackUrl = callbackUrl
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing serve options")
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	otelOptions, err := otelOptionsBuilder()
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing otel options")
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	oidcOptions, err := oidcOptionsBuilder()
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing oidc options")
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	dbOptions, err := dbOptionsBuilder()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing db options")
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	startServer(
 		serveOptions,
-		dbOptions,
 		otelOptions,
 		oidcOptions,
+		dbOptions,
 	)
 }
 
 func startServer(
 	serveOptions *options.ServeOptions,
-	dbOptions *options.DbOptions,
 	otelOptions *options.OtelOptions,
 	oidcOptions *options.OidcOptions,
+	dbOptions *options.DbOptions,
 ) {
-
 	start := time.Now()
 
-	sessionStore := memstore.NewMemStore([]byte(serveOptions.SessionKey))
-	sessionStore.Options = &sessions.Options{
-		Path:     serveOptions.ContextRoot,
-		MaxAge:   serveOptions.SessionMaxAge,
-		HttpOnly: serveOptions.SessionHttpOnly,
-		Domain:   serveOptions.SessionDomain,
-		Secure:   serveOptions.SessionSecureCookies,
-		SameSite: serveOptions.SessionSameSite,
+	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	shutdown, err := cli.SetupOTEL(initialContext, otelOptions)
+	defer shutdown()
+	if err != nil {
+		panic(err)
 	}
 
 	dbClient, err := db.NewClient(dbOptions)
 	if err != nil {
 		panic(err)
 	}
-	log.Trace().
-		Str("db_type", reflect.TypeOf(dbClient).String()).
-		Msg("Database client created")
-
-	relyingParty, err := serve.SetupOIDC(serveOptions, oidcOptions)
-	if err != nil {
-		panic(err)
-	}
-	log.Trace().
-		Str("client_id", oidcOptions.ClientId).
-		Msg("Relying party")
-
-	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
-	otelShutdown, err := serve.SetupOTelSDK(initialContext, otelOptions)
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		err = errors.Join(err, otelShutdown(initialContext))
-	}()
 
 	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
-	dbOptsContext := app_http.InjectDbOptions(serverContext, dbOptions)
-	sessionStoreContext := app_http.InjectSessionStore(dbOptsContext, sessionStore)
-	dbContext := app_http.InjectDb(sessionStoreContext, dbClient)
-	oidcContext := app_http.InjectRelyingParty(dbContext, relyingParty)
+	oidOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
+	oidcContext := cli.CreateTheOIDCContext(oidOptionsContext, oidcOptions, serveOptions)
+	finalContext := db.InjectDb(db.InjectDbOptions(oidcContext, dbOptions), dbClient)
 	log.Trace().
 		Msg("Application contextes ready")
 
-	resourceServer, err := rs.NewResourceServerClientCredentials(oidcContext, oidcOptions.Issuer, oidcOptions.ClientId, oidcOptions.ClientSecret)
-	if err != nil {
-		panic(err)
-	}
-	oidcResourceContext := app_http.InjectOidcResource(oidcContext, resourceServer)
-	log.Trace().Msg("Resource server client created")
-
 	rootRouter := mux.NewRouter()
-	handlers.Handler(rootRouter, oidcResourceContext)
+	example.Handler(rootRouter, finalContext)
 	if log.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {
@@ -163,14 +149,27 @@ func startServer(
 		Str("host", serveOptions.Host).
 		Str("port", serveOptions.Port).
 		Str("ctx", serveOptions.ContextRoot).
-		Str("serving", serveOptions.StaticPath).
 		Int64("setup_ns", time.Since(start).Nanoseconds()).
 		Msg("Server started")
 
+	go func() {
+		serve.RegisterRoute(*serveOptions, api.RegisteredRouteUri(serveOptions))
+		for range time.Tick(10 * time.Second) {
+			// keep alive
+			serve.RegisterRoute(*serveOptions, api.RegisteredRouteUri(serveOptions))
+		}
+	}()
+	defer serve.UnRegisterRoute(*serveOptions, api.UnRegisteredRouteUri())
+
 	select {
 	case err = <-srvErr:
-		log.Info().Err(err).Msg("Server stopped")
-	case <-initialContext.Done():
+		log.Info().
+			Err(err).
+			Msg("Server stopped")
+		stop()
+	case <-finalContext.Done():
+		log.Info().
+			Msg("Server stopped")
 		stop()
 	}
 }

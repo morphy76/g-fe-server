@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	example "github.com/morphy76/g-fe-server/internal/example/impl"
-	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/db"
+	example "github.com/morphy76/g-fe-server/internal/example/repository/impl"
 	"github.com/morphy76/g-fe-server/internal/options"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -13,11 +13,11 @@ import (
 func TestFactorySuite(t *testing.T) {
 	t.Log("Test Factory Suite")
 
-	testContext := app_http.InjectDb(context.Background(), &mongo.Client{})
+	testContext := db.InjectDb(context.Background(), &mongo.Client{})
 
 	t.Run("Test RepositoryTypeMemoryDB", func(t *testing.T) {
 		t.Log("Test Factory RepositoryTypeMemoryDB")
-		useContext := app_http.InjectDbOptions(testContext, &options.DbOptions{
+		useContext := db.InjectDbOptions(testContext, &options.DbOptions{
 			Type: options.RepositoryTypeMemoryDB,
 		})
 		if repo, err := NewRepository(useContext); err != nil {
@@ -29,7 +29,7 @@ func TestFactorySuite(t *testing.T) {
 
 	t.Run("Test RepositoryTypeMongoDB", func(t *testing.T) {
 		t.Log("Test Factory RepositoryTypeMongoDB")
-		useContext := app_http.InjectDbOptions(testContext, &options.DbOptions{
+		useContext := db.InjectDbOptions(testContext, &options.DbOptions{
 			Type: options.RepositoryTypeMongoDB,
 		})
 		if repo, err := NewRepository(useContext); err != nil {

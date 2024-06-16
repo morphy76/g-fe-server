@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/gorilla/sessions"
-	"github.com/morphy76/g-fe-server/internal/db"
 	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/morphy76/g-fe-server/internal/serve"
 	"github.com/rs/zerolog"
@@ -15,24 +14,32 @@ import (
 type ContextModelKey string
 type ContextSessionKey string
 type ContextSessionStoreKey string
-type ContextDbKey string
-type ContextDbOptionsKey string
 type ContextLoggerKey string
 type ContextOwnershipKey string
+type ContextOIDCOptions string
 type ContextOIDCKey string
 type ContextOIDCResourceKey string
+type RouteChannelKey string
 
 const (
 	ctx_CONTEXT_SERVE_KEY ContextModelKey        = "contextModel"
 	ctx_SESSION_STORE_KEY ContextSessionStoreKey = "sessionStore"
 	ctx_SESSION_KEY       ContextSessionKey      = "session"
-	ctx_DB_KEY            ContextDbKey           = "db"
-	ctx_DB_OPTIONS_KEY    ContextDbOptionsKey    = "dbOptions"
 	ctx_LOGGER_KEY        ContextLoggerKey       = "logger"
 	ctx_OWNERSHIP_KEY     ContextOwnershipKey    = "ownership"
+	ctx_OIDC_OPTIONS_KEY  ContextOIDCOptions     = "oidcOptions"
 	ctx_OIDC_KEY          ContextOIDCKey         = "oidc"
 	ctx_OIDC_RESOURCE_KEY ContextOIDCResourceKey = "oidcResource"
+	ctx_ROUTE_CHANNEL_KEY RouteChannelKey        = "routeChannel"
 )
+
+func InjectOidcOptions(ctx context.Context, oidcOptions *options.OidcOptions) context.Context {
+	return context.WithValue(ctx, ctx_OIDC_OPTIONS_KEY, oidcOptions)
+}
+
+func ExtractOidcOptions(ctx context.Context) *options.OidcOptions {
+	return ctx.Value(ctx_OIDC_OPTIONS_KEY).(*options.OidcOptions)
+}
 
 func InjectOidcResource(ctx context.Context, resource rs.ResourceServer) context.Context {
 	return context.WithValue(ctx, ctx_OIDC_RESOURCE_KEY, resource)
@@ -48,14 +55,6 @@ func ExtractServeOptions(ctx context.Context) *options.ServeOptions {
 
 func InjectServeOptions(ctx context.Context, serveOptions *options.ServeOptions) context.Context {
 	return context.WithValue(ctx, ctx_CONTEXT_SERVE_KEY, serveOptions)
-}
-
-func ExtractDbOptions(ctx context.Context) *options.DbOptions {
-	return ctx.Value(ctx_DB_OPTIONS_KEY).(*options.DbOptions)
-}
-
-func InjectDbOptions(ctx context.Context, dbOptions *options.DbOptions) context.Context {
-	return context.WithValue(ctx, ctx_DB_OPTIONS_KEY, dbOptions)
 }
 
 func ExtractLogger(ctx context.Context, forPackage string) zerolog.Logger {
@@ -88,14 +87,6 @@ func ExtractSession(ctx context.Context) *sessions.Session {
 
 func InjectSession(ctx context.Context, session *sessions.Session) context.Context {
 	return context.WithValue(ctx, ctx_SESSION_KEY, session)
-}
-
-func ExtractDb(ctx context.Context) db.DbClient {
-	return ctx.Value(ctx_DB_KEY)
-}
-
-func InjectDb(ctx context.Context, db db.DbClient) context.Context {
-	return context.WithValue(ctx, ctx_DB_KEY, db)
 }
 
 func ExtractRelyingParty(ctx context.Context) rp.RelyingParty {

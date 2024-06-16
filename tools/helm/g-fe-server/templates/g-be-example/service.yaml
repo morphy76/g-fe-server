@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "g-be-example.fullname" . }}
+  labels:
+    {{- include "g-be-example.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.g_be_example.service.type }}
+  ports:
+    - port: {{ .Values.g_be_example.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "g-be-example.selectorLabels" . | nindent 4 }}
