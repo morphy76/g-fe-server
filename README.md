@@ -4,10 +4,6 @@
 
 ### Doing
 
-- resusable artifact: pluggable domain resources (at compile time), API & FE -> or better self announcing backend services (udp) to enable gateway (BFF) routes
-  - versioning
-  - circuit braker
-
 ### Backlog
 
 - multitenancy (must)
@@ -20,6 +16,8 @@
   -> integrate KC in the helm
   -> https://openid.net/specs/openid-connect-core-1_0-35.html
   - JWT authenticated APIs: direct call (http header) vs UI calls (http session?)
+- API versioning
+- circuit braker
 - helm review & service mesh (istio)
 - abstraction of server and service handler
 - split test exec for server and service
@@ -130,8 +128,6 @@ The next routers are task-focused:
 
 Finally, waiting to learn how to plug stuff into a Go runtime, an hardcoded router to handle the _example_ resource.
 
-TODO: service-split
-
 Generally speaking, handle functions are provided by the router provided by each module, e.g. `internal/http/health/handler.go` has the health handle functions and `internal/example/http/handlers.go` has those related to the _example_ resource.
 
 Routers, the API router in particular, are integrated with Opentracing with a Gorilla extension: `go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux`.
@@ -140,7 +136,24 @@ In the same way, such routers are configured to use Prometheus middlewares (`git
 
 #### Dynamic routes with service announcing
 
-TODO
+The presentatin server listens for UDP messages to add proxy routes to backend service; the message is an URI for the following schemas:
+
+- `route` add a new reverse proxy
+- `unroute` remove an existing reverse proxy
+
+The `route` schema has the route name and the forward URL, e.g. `route:/example:http://example-service/be/api/example` which means that the presentation server forwards the requests to `http://presentation-server/fe/api/example` to the specified backend URL.
+
+The `unroute` schema ahs just the route name, e.g. `route:/example`.
+
+Multiple route registrations increase a counter, the route is removed when this counter reaches 0.
+
+The module is a single-repo containing:
+
+- presentation server packages,
+- backend service packages,
+- shared packages.
+
+The `Makefile` has tasks for each of them.
 
 #### OIDC
 
