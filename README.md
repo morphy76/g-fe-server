@@ -4,6 +4,8 @@
 
 ### Doing
 
+- helm review & service mesh (istio)
+
 ### Backlog
 
 - multitenancy (must)
@@ -18,7 +20,6 @@
   - JWT authenticated APIs: direct call (http header) vs UI calls (http session?)
 - API versioning
 - circuit braker
-- helm review & service mesh (istio)
 - abstraction of server and service handler
 - split test exec for server and service
 - redis integration (as a client, as a mongo cache, as an http session store) + health
