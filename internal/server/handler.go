@@ -62,15 +62,18 @@ func Handler(
 	// Non functional router
 	nonFunctionalRouter := parent.PathPrefix("/g").Subrouter()
 	if log.Trace().Enabled() {
-		log.Trace().Msg("Non functional router registered")
+		log.Trace().
+			Msg("Non functional router registered")
 	}
 	health.HealthHandlers(nonFunctionalRouter, app_context)
 	if log.Trace().Enabled() {
-		log.Trace().Msg("Health handler registered")
+		log.Trace().
+			Msg("Health handler registered")
 	}
 	metrics.PrometheusHandlers(nonFunctionalRouter, serveOptions.ContextRoot)
 	if log.Trace().Enabled() {
-		log.Trace().Msg("Metrics handler registered")
+		log.Trace().
+			Msg("Metrics handler registered")
 	}
 
 	// Context root router with OTEL
@@ -81,7 +84,8 @@ func Handler(
 		http.Redirect(w, r, serveOptions.ContextRoot+"/ui/", http.StatusTemporaryRedirect)
 	})
 	if log.Trace().Enabled() {
-		log.Trace().Msg("Context router registered")
+		log.Trace().
+			Msg("Context router registered")
 	}
 
 	// Auth router
@@ -89,11 +93,13 @@ func Handler(
 		authRouter := contextRouter.PathPrefix("/auth").Subrouter()
 		authRouter.Use(middleware.InjectSession)
 		if log.Trace().Enabled() {
-			log.Trace().Msg("Auth router registered")
+			log.Trace().
+				Msg("Auth router registered")
 		}
 		auth.IAMHandlers(authRouter, serveOptions.ContextRoot, relyingParty)
 		if log.Trace().Enabled() {
-			log.Trace().Msg("Auth handler registered")
+			log.Trace().
+				Msg("Auth handler registered")
 		}
 	}
 
@@ -103,11 +109,13 @@ func Handler(
 	staticRouter.Use(middleware.HttpSessionAuthenticationRequired)
 	staticRouter.Use(middleware.HttpSessionInspectAndRenew)
 	if log.Trace().Enabled() {
-		log.Trace().Msg("Static router registered")
+		log.Trace().
+			Msg("Static router registered")
 	}
 	static.HandleStatic(staticRouter, serveOptions.ContextRoot, serveOptions.StaticPath)
 	if log.Trace().Enabled() {
-		log.Trace().Msg("Static handler registered")
+		log.Trace().
+			Msg("Static handler registered")
 	}
 
 	// API router
@@ -119,51 +127,67 @@ func Handler(
 	// apiRouter.Use(middleware.MixedAuthenticationRequired)
 	// apiRouter.Use(middleware.MixedInspectAndRenew)
 	if log.Trace().Enabled() {
-		log.Trace().Msg("API router registered")
+		log.Trace().
+			Msg("API router registered")
 	}
 
 	return apiRouter
 }
 
+var routeCounter map[string]int = make(map[string]int)
+
 func ProxyRoute(ctxRoot string, apiRouter *mux.Router, remoteRoute string) {
-	after, found := strings.CutPrefix(remoteRoute, "route:")
+
+	after, found := strings.CutPrefix(remoteRoute, "unroute:")
 	if found {
-		createProxy(ctxRoot, apiRouter, after)
-	} else {
-		after, found = strings.CutPrefix(remoteRoute, "unroute:")
-		if found {
-			removeProxy(apiRouter, after)
-		} else {
-			log.Warn().Str("route", remoteRoute).Msg("Invalid route protocol")
+		resource := strings.TrimSuffix(after, ":")
+		routeCounter[resource] -= 1
+		if routeCounter[resource] <= 0 {
+			removeProxy(ctxRoot, apiRouter, resource)
 		}
-	}
-}
-
-func removeProxy(apiRouter *mux.Router, remoteRoute string) {
-
-	parts := strings.SplitAfterN(remoteRoute, ":", 2)
-	if len(parts) < 1 {
-		log.Warn().Any("parts", parts).Msg("Invalid route resource")
 		return
 	}
 
-	route := apiRouter.Get(parts[0])
+	after, found = strings.CutPrefix(remoteRoute, "route:")
+	if found {
+		parts := strings.SplitAfterN(after, ":", 2)
+		resource := strings.TrimSuffix(parts[0], ":")
+		if routeCounter[resource] == 0 {
+			createProxy(ctxRoot, apiRouter, after, parts, resource)
+		}
+		routeCounter[resource] += 1
+		return
+	}
+
+	log.Warn().
+		Str("route", remoteRoute).
+		Msg("Invalid route protocol")
+}
+
+func removeProxy(ctxRoot string, apiRouter *mux.Router, resource string) {
+
+	routeName := fmt.Sprintf("%s/api%s", ctxRoot, resource)
+	route := apiRouter.Get(routeName)
+
 	if route != nil {
-		route.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "", http.StatusNotFound)
-		})
+		route.Handler(nil)
+
+		log.Debug().
+			Str("resource", resource).
+			Any("endpoint", routeName).
+			Msg("Dynamic endpoint unregistered")
 	}
 }
 
-func createProxy(ctxRoot string, apiRouter *mux.Router, remoteRoute string) {
+func createProxy(ctxRoot string, apiRouter *mux.Router, remoteRoute string, parts []string, resource string) {
 
-	parts := strings.SplitAfterN(remoteRoute, ":", 2)
 	if len(parts) != 2 {
-		log.Warn().Any("parts", parts).Msg("Invalid route resource")
+		log.Warn().
+			Any("parts", parts).
+			Msg("Invalid route resource")
 		return
 	}
 
-	resource := strings.TrimSuffix(parts[0], ":")
 	forward := parts[1]
 
 	routeName := fmt.Sprintf("%s/api%s", ctxRoot, resource)
@@ -171,15 +195,17 @@ func createProxy(ctxRoot string, apiRouter *mux.Router, remoteRoute string) {
 
 	forwardURL, err := url.Parse(forward)
 	if err != nil {
-		log.Warn().Err(err).Str("route", remoteRoute).Msg("Invalid route URL")
+		log.Warn().
+			Err(err).
+			Str("route", remoteRoute).
+			Msg("Invalid route URL")
 		return
 	}
 
 	proxy := newReverseProxy(ctxRoot, resource, forwardURL)
 
-	if route == nil {
-		proxiedRouter := apiRouter.PathPrefix(resource).Subrouter()
-		proxiedRouter.NewRoute().Name(routeName).Handler(proxy)
+	if route == nil || route.GetHandler() == nil {
+		apiRouter.NewRoute().Name(routeName).Handler(proxy)
 
 		log.Debug().
 			Str("resource", resource).

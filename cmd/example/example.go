@@ -139,7 +139,6 @@ func startServer(
 		Str("host", serveOptions.Host).
 		Str("port", serveOptions.Port).
 		Str("ctx", serveOptions.ContextRoot).
-		Str("serving", serveOptions.StaticPath).
 		Int64("setup_ns", time.Since(start).Nanoseconds()).
 		Msg("Server started")
 
@@ -150,11 +149,7 @@ func startServer(
 			serve.RegisterRoute(*serveOptions, api.RegisteredRouteUri(serveOptions))
 		}
 	}()
-	// defer func() {
-	// 	log.Trace().
-	// 		Msg("Unregistering route")
-	// 	serve.UnRegisterRoute(*serveOptions, api.UnRegisteredRouteUri())
-	// }()
+	defer serve.UnRegisterRoute(*serveOptions, api.UnRegisteredRouteUri())
 
 	select {
 	case err = <-srvErr:

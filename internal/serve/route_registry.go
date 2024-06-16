@@ -21,7 +21,8 @@ func StartRouteRegistry(servOptions options.ServeOptions, incomingMessage chan [
 	ctx, cancel := context.WithCancel(context.Background())
 
 	start = func() {
-		log.Info().Msg("Starting route registry")
+		log.Debug().
+			Msg("Starting route registry")
 
 		udpConnection, err = net.ListenUDP("udp", &net.UDPAddr{
 			Port: usePort,
@@ -44,7 +45,9 @@ func StartRouteRegistry(servOptions options.ServeOptions, incomingMessage chan [
 					if err, ok := err.(*net.OpError); ok && err.Err.Error() == "use of closed network connection" {
 						return
 					}
-					log.Warn().Err(err).Msg("Error reading from UDP connection")
+					log.Warn().
+						Err(err).
+						Msg("Error reading from UDP connection")
 				}
 				incomingMessage <- buffer[:n]
 			}
@@ -52,7 +55,8 @@ func StartRouteRegistry(servOptions options.ServeOptions, incomingMessage chan [
 	}
 
 	stop = func() {
-		log.Info().Msg("Stopping route registry")
+		log.Info().
+			Msg("Stopping route registry")
 
 		cancel()
 
@@ -65,10 +69,16 @@ func StartRouteRegistry(servOptions options.ServeOptions, incomingMessage chan [
 }
 
 func RegisterRoute(serveOptions options.ServeOptions, routeUri string) {
+	log.Trace().
+		Str("route", routeUri).
+		Msg("Register remote route")
 	dispatchUDP(serveOptions, routeUri)
 }
 
 func UnRegisterRoute(serveOptions options.ServeOptions, routeUri string) {
+	log.Trace().
+		Str("route", routeUri).
+		Msg("Unregister remote route")
 	dispatchUDP(serveOptions, routeUri)
 }
 
@@ -107,7 +117,9 @@ func dispatchUDP(serveOptions options.ServeOptions, routeUri string) {
 			Port: usePort,
 		})
 		if err != nil {
-			log.Warn().Err(err).Msg("Error dialing UDP connection")
+			log.Warn().
+				Err(err).
+				Msg("Error dialing UDP connection")
 		}
 		connections = append(connections, udpConnection)
 	}
