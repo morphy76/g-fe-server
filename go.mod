@@ -13,7 +13,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/mongodb v0.31.0
 	github.com/zitadel/oidc/v3 v3.25.1
 	go.mongodb.org/mongo-driver v1.16.0
-	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.52.0
+	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.53.0
 	go.opentelemetry.io/otel v1.28.0
 	go.opentelemetry.io/otel/exporters/zipkin v1.28.0
 	go.opentelemetry.io/otel/sdk v1.28.0
