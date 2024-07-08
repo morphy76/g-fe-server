@@ -10,7 +10,7 @@ require (
 	github.com/quasoft/memstore v0.0.0-20191010062613-2bce066d2b0b
 	github.com/rs/zerolog v1.33.0
 	github.com/testcontainers/testcontainers-go v0.32.0
-	github.com/testcontainers/testcontainers-go/modules/mongodb v0.31.0
+	github.com/testcontainers/testcontainers-go/modules/mongodb v0.32.0
 	github.com/zitadel/oidc/v3 v3.25.1
 	go.mongodb.org/mongo-driver v1.16.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.53.0
