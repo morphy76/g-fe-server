@@ -11,7 +11,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/testcontainers/testcontainers-go v0.32.0
 	github.com/testcontainers/testcontainers-go/modules/mongodb v0.32.0
-	github.com/zitadel/oidc/v3 v3.25.1
+	github.com/zitadel/oidc/v3 v3.26.0
 	go.mongodb.org/mongo-driver v1.16.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.53.0
 	go.opentelemetry.io/otel v1.28.0
