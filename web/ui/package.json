@@ -50,7 +50,7 @@
     "mini-css-extract-plugin": "^2.7.7",
     "npm-check-updates": "^16.14.20",
     "sass": "^1.70.0",
-    "sass-loader": "^14.0.0",
+    "sass-loader": "^15.0.0",
     "style-loader": "^4.0.0",
     "ts-jest": "^29.1.2",
     "ts-loader": "^9.5.1",
