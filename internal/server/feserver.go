@@ -22,7 +22,8 @@ type FEServer struct {
 
 	NonFunctionalRoot string
 
-	ServeOpts *options.ServeOptions
+	ServeOpts    *options.ServeOptions
+	SessionStore sessions.Store
 }
 
 // ExtractFEServer returns the FEServer from the context
@@ -58,7 +59,8 @@ func NewFEServer(
 		//TODO: get it from serve options
 		NonFunctionalRoot: "/g",
 
-		ServeOpts: serveOpts,
+		ServeOpts:    serveOpts,
+		SessionStore: sessionStore,
 	}
 
 	return context.WithValue(ctx, appModelCtxKey, feServer)

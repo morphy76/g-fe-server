@@ -18,53 +18,53 @@ var errInvalidContextRoot = errors.New("invalid context root")
 var errInvalidStaticPath = errors.New("invalid static path")
 var errInvalidSessionSameSite = errors.New("invalid session same site")
 
+// IsInvalidContextRoot checks if the error is due to an invalid context root
 func IsInvalidContextRoot(err error) bool {
 	return err == errInvalidContextRoot
 }
 
+// IsInvalidStaticPath checks if the error is due to an invalid static path
 func IsInvalidStaticPath(err error) bool {
 	return err == errInvalidStaticPath
 }
 
+// IsInvalidSessionSameSite checks if the error is due to an invalid session same site
 func IsInvalidSessionSameSite(err error) bool {
 	return err == errInvalidSessionSameSite
 }
 
 const (
-	ENV_CONTEXT_ROOT      = "CONTEXT_ROOT"
-	ENV_STATIC_PATH       = "STATIC_PATH"
-	ENV_PORT              = "SERVE_PORT"
-	ENV_HOST              = "SERVE_HOST"
-	ENV_SESSION_KEY       = "SESSION_KEY"
-	ENV_SESSION_NAME      = "SESSION_NAME"
-	ENV_SESSION_MAX_AGE   = "SESSION_MAX_AGE"
-	ENV_SESSION_HTTP_ONLY = "SESSION_HTTP_ONLY"
-	ENV_SESSION_DOMAIN    = "SESSION_DOMAIN"
-	ENV_SESSION_SECURE    = "SESSION_SECURE"
-	ENV_SESSION_SAME_SITE = "SESSION_SAME_SITE"
-	ENV_ANNOUNCING_PORT   = "ANNOUNCING_PORT"
-	EVN_ANNOUNCING_HOST   = "ANNOUNCING_HOST"
+	envCtxRoot         = "CONTEXT_ROOT"
+	envStaticPath      = "STATIC_PATH"
+	envPort            = "SERVE_PORT"
+	envHost            = "SERVE_HOST"
+	envSessionKey      = "SESSION_KEY"
+	envSessionName     = "SESSION_NAME"
+	envSessionMaxAge   = "SESSION_MAX_AGE"
+	envSessionHTTPOnly = "SESSION_HTTP_ONLY"
+	envSessionDomain   = "SESSION_DOMAIN"
+	envSessionSecure   = "SESSION_SECURE"
+	envSessionSameSite = "SESSION_SAME_SITE"
 )
 
+// ServeOptionsBuilder returns a function that builds ServeOptions from the command line arguments and environment variables
 func ServeOptionsBuilder() serveOptionsBuilder {
 
-	ctxRootArg := flag.String("ctx", "", "presentation server context root. Environment: "+ENV_CONTEXT_ROOT)
-	staticPathArg := flag.String("static", "/static", "static path of the served application. Environment: "+ENV_STATIC_PATH)
-	portArg := flag.String("port", "8080", "binding port of the presentation server. Environment: "+ENV_PORT)
-	hostArg := flag.String("host", "0.0.0.0", "binding host of the presentation server. Environment: "+ENV_HOST)
-	sessionKeyArg := flag.String("session-key", "", "session key. Environment: "+ENV_SESSION_KEY)
-	sessionNameArg := flag.String("session-name", "gofe.sid", "session name. Environment: "+ENV_SESSION_NAME)
-	sessionMaxAgeArg := flag.Int("session-max-age", 0, "session max age. Environment: "+ENV_SESSION_MAX_AGE)
-	sessionHttpOnlyArg := flag.Bool("session-http-only", false, "session http only. Environment: "+ENV_SESSION_HTTP_ONLY)
-	sessionDomainArg := flag.String("session-domain", "", "session domain. Environment: "+ENV_SESSION_DOMAIN)
-	sessionSecureArg := flag.Bool("session-secure", false, "session secure. Environment: "+ENV_SESSION_SECURE)
-	sessionSameSiteArg := flag.String("session-same-site", "Lax", "session same site: Default, Lax, Strict or None. Environment: "+ENV_SESSION_SAME_SITE)
-	announcePortArg := flag.String("announce-port", "9999", "port to announce the server on. Environment: "+ENV_ANNOUNCING_PORT)
-	announceHostArg := flag.String("announce-host", "", "host to announce the server on, Use an headless service in k8s. Environment: "+EVN_ANNOUNCING_HOST)
+	ctxRootArg := flag.String("ctx", "", "presentation server context root. Environment: "+envCtxRoot)
+	staticPathArg := flag.String("static", "/static", "static path of the served application. Environment: "+envStaticPath)
+	portArg := flag.String("port", "8080", "binding port of the presentation server. Environment: "+envPort)
+	hostArg := flag.String("host", "0.0.0.0", "binding host of the presentation server. Environment: "+envHost)
+	sessionKeyArg := flag.String("session-key", "", "session key. Environment: "+envSessionKey)
+	sessionNameArg := flag.String("session-name", "gofe.sid", "session name. Environment: "+envSessionName)
+	sessionMaxAgeArg := flag.Int("session-max-age", 0, "session max age. Environment: "+envSessionMaxAge)
+	sessionHTTPOnlyArg := flag.Bool("session-http-only", false, "session http only. Environment: "+envSessionHTTPOnly)
+	sessionDomainArg := flag.String("session-domain", "", "session domain. Environment: "+envSessionDomain)
+	sessionSecureArg := flag.Bool("session-secure", false, "session secure. Environment: "+envSessionSecure)
+	sessionSameSiteArg := flag.String("session-same-site", "Lax", "session same site: Default, Lax, Strict or None. Environment: "+envSessionSameSite)
 
 	rv := func() (*options.ServeOptions, error) {
 
-		ctxRoot, found := os.LookupEnv(ENV_CONTEXT_ROOT)
+		ctxRoot, found := os.LookupEnv(envCtxRoot)
 		if !found {
 			ctxRoot = *ctxRootArg
 		}
@@ -72,7 +72,7 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			return nil, errInvalidContextRoot
 		}
 
-		staticPath, found := os.LookupEnv(ENV_STATIC_PATH)
+		staticPath, found := os.LookupEnv(envStaticPath)
 		if !found {
 			staticPath = *staticPathArg
 		}
@@ -80,17 +80,17 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			return nil, errInvalidStaticPath
 		}
 
-		usePort, found := os.LookupEnv(ENV_PORT)
+		usePort, found := os.LookupEnv(envPort)
 		if !found {
 			usePort = *portArg
 		}
 
-		useHost, found := os.LookupEnv(ENV_HOST)
+		useHost, found := os.LookupEnv(envHost)
 		if !found {
 			useHost = *hostArg
 		}
 
-		useSessionKey, found := os.LookupEnv(ENV_SESSION_KEY)
+		useSessionKey, found := os.LookupEnv(envSessionKey)
 		if !found {
 			useSessionKey = *sessionKeyArg
 		}
@@ -98,7 +98,7 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			useSessionKey = string(securecookie.GenerateRandomKey(32))
 		}
 
-		useSessionName, found := os.LookupEnv(ENV_SESSION_NAME)
+		useSessionName, found := os.LookupEnv(envSessionName)
 		if !found {
 			useSessionName = *sessionNameArg
 		}
@@ -107,7 +107,7 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 		}
 
 		var useSessionMaxAge int
-		strSessionMaxAge, found := os.LookupEnv(ENV_SESSION_MAX_AGE)
+		strSessionMaxAge, found := os.LookupEnv(envSessionMaxAge)
 		if !found {
 			useSessionMaxAge = *sessionMaxAgeArg
 		} else {
@@ -118,21 +118,21 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			useSessionMaxAge = maxAge
 		}
 
-		var useSessionHttpOnly bool
-		strSessionHttpOnly, found := os.LookupEnv(ENV_SESSION_HTTP_ONLY)
+		var useSessionHTTPOnly bool
+		strSessionHTTPOnly, found := os.LookupEnv(envSessionHTTPOnly)
 		if !found {
-			useSessionHttpOnly = *sessionHttpOnlyArg
+			useSessionHTTPOnly = *sessionHTTPOnlyArg
 		} else {
-			useSessionHttpOnly = strSessionHttpOnly == "true"
+			useSessionHTTPOnly = strSessionHTTPOnly == "true"
 		}
 
-		useSessionDomain, found := os.LookupEnv(ENV_SESSION_DOMAIN)
+		useSessionDomain, found := os.LookupEnv(envSessionDomain)
 		if !found {
 			useSessionDomain = *sessionDomainArg
 		}
 
 		var useSessionSecure bool
-		strSessionSecure, found := os.LookupEnv(ENV_SESSION_SECURE)
+		strSessionSecure, found := os.LookupEnv(envSessionSecure)
 		if !found {
 			useSessionSecure = *sessionSecureArg
 		} else {
@@ -140,7 +140,7 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 		}
 
 		var useSessionSameSite http.SameSite
-		strSessionSameSite, found := os.LookupEnv(ENV_SESSION_SAME_SITE)
+		strSessionSameSite, found := os.LookupEnv(envSessionSameSite)
 		if !found {
 			strSessionSameSite = *sessionSameSiteArg
 		}
@@ -156,16 +156,6 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			return nil, errInvalidSessionSameSite
 		}
 
-		announcePort, found := os.LookupEnv(ENV_ANNOUNCING_PORT)
-		if !found {
-			announcePort = *announcePortArg
-		}
-
-		announceHost, found := os.LookupEnv(EVN_ANNOUNCING_HOST)
-		if !found {
-			announceHost = *announceHostArg
-		}
-
 		return &options.ServeOptions{
 			ContextRoot:          ctxRoot,
 			StaticPath:           staticPath,
@@ -175,12 +165,10 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 			SessionKey:           useSessionKey,
 			SessionName:          useSessionName,
 			SessionMaxAge:        useSessionMaxAge,
-			SessionHttpOnly:      useSessionHttpOnly,
+			SessionHttpOnly:      useSessionHTTPOnly,
 			SessionDomain:        useSessionDomain,
 			SessionSecureCookies: useSessionSecure,
 			SessionSameSite:      useSessionSameSite,
-			AnnouncePort:         announcePort,
-			AnnounceHost:         announceHost,
 		}, nil
 	}
 

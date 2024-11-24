@@ -10,19 +10,16 @@ import (
 
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
-	"github.com/morphy76/g-fe-server/internal/options"
 )
 
 // Handlers registers the health check handlers
 func Handlers(
 	appContext context.Context,
 	parent *mux.Router,
-	serveOptions *options.ServeOptions,
+	ctxRoot string,
 	additionalChecks ...app_http.HealthCheckFn,
 ) {
-	ctxRoot := serveOptions.ContextRoot
-
-	healthRouter := parent.Path("/health").Subrouter()
+	healthRouter := parent.PathPrefix("/health").Subrouter()
 	healthRouter.Use(middleware.JSONResponse)
 
 	healthRouter.Methods(http.MethodGet).HandlerFunc(onHealth(additionalChecks)).Name("GET " + ctxRoot + "/health")

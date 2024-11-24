@@ -35,21 +35,6 @@ SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 ## Runtime args
 SERVER_SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=8080
 
-# Service (example)
-## Define the target binary name
-SERVICE_TARGET := g-be-service
-SERVICE_DOCKERFILE := ./tools/docker/Dockerfile.service
-SERVICE_DEPLOY_TAG ?= g-be-service:0.0.1
-SERVICE_TAG = $(word 1,$(subst :, ,$(SERVICE_DEPLOY_TAG)))
-SERVICE_VERSION = $(word 2,$(subst :, ,$(SERVICE_DEPLOY_TAG)))
-
-## Define the source files
-SERVICE_SOURCES := ./cmd/example/example.go
-
-## Runtime args
-SERVICE_SERVE_ARGS := -ctx=/be -host=localhost -port=8081 -announce-host=localhost -callback-url=http://localhost:8081
-SERVICE_MONGO_ARGS := -db=1 -db-mongo-url=mongodb://127.0.0.1:27017/go_db -db-mongo-user=go -db-mongo-password=go
-
 build-fe:
 	@$(NPM) $(NPMFLAGS) --prefix ./web/ui i
 	@$(NPM) --prefix ./web/ui test
@@ -59,10 +44,6 @@ build-server:
 	@$(GO) test $(TESTFLAGS) ./...
 	@$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVER_TARGET) $(SERVER_SOURCES)
 
-build-service:
-	@$(GO) test $(TESTFLAGS) ./...
-	@$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVICE_TARGET) $(SERVICE_SOURCES)
-
 watch-fe:
 	@$(NPM) --prefix ./web/ui i
 	@$(NPM) --prefix ./web/ui run watch
@@ -70,25 +51,18 @@ watch-fe:
 watch-server:
 	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVER_SERVE_ARGS) -trace $(OTEL_ARGS) $(NO_OIDC_ARGS)
 
-watch-service:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) -trace $(OTEL_ARGS) $(NO_OIDC_ARGS)
-
-watch-service-mongo:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) -trace $(OTEL_ARGS) $(SERVICE_MONGO_ARGS) $(NO_OIDC_ARGS)
+# watch-service-mongo:
+# 	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) -trace $(OTEL_ARGS) $(SERVICE_MONGO_ARGS) $(NO_OIDC_ARGS)
 
 run-server: build-fe
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVER_SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
 
-run-service:
-	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
-
-run-service-mongo:
-	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) $(SERVICE_MONGO_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
+# run-service-mongo:
+# 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) $(SERVICE_MONGO_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
 
 # Define the clean target
 clean:
 	-@rm -f $(SERVER_TARGET)
-	-@rm -f $(SERVICE_TARGET)
 	-@rm -rf $(SERVER_TARGET_FE)
 
 deploy: clean
@@ -97,8 +71,4 @@ deploy: clean
     --build-arg TAG_NAME=$(SERVER_TAG) \
     --build-arg TAG_VERSION=$(SERVER_VERSION) \
     -t $(SERVER_DEPLOY_TAG) -f $(SERVER_DOCKERFILE) $(DOCKERBUILDFLAGS) .
-	-$(DOCKER) build --network host \
-    --build-arg TAG_NAME=$(SERVICE_TAG) \
-    --build-arg TAG_VERSION=$(SERVICE_VERSION) \
-    -t $(SERVICE_DEPLOY_TAG) -f $(SERVICE_DOCKERFILE) $(DOCKERBUILDFLAGS) .
 	@$(DOCKER) stop socat

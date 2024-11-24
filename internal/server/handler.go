@@ -15,9 +15,8 @@ import (
 // Handler registers all HTTP handlers for the application
 func Handler(
 	appContext context.Context,
-	parent *mux.Router,
+	rootRouter *mux.Router,
 ) *mux.Router {
-	// sessionStore := app_http.ExtractSessionStore(app_context)
 	// oidcOptions := app_http.ExtractOidcOptions(app_context)
 
 	// var relyingParty rp.RelyingParty
@@ -37,28 +36,27 @@ func Handler(
 	feServer := ExtractFEServer(appContext)
 	routerLog := logger.GetLogger(appContext, "router")
 
-	parent.Use(func(next http.Handler) http.Handler {
+	rootRouter.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// useRequest := r.WithContext(app_http.InjectSessionStore(r.Context(), sessionStore))
+			useRequest := r.WithContext(appContext)
 			// useRequest = useRequest.WithContext(app_http.InjectOidcOptions(useRequest.Context(), oidcOptions))
 			// if !oidcOptions.Disabled {
 			// 	useRequest = useRequest.WithContext(app_http.InjectRelyingParty(useRequest.Context(), relyingParty))
 			// 	useRequest = useRequest.WithContext(app_http.InjectOidcResource(useRequest.Context(), resourceServer))
 			// }
 
-			// next.ServeHTTP(w, useRequest)
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, useRequest)
 		})
 	})
 
 	// Non functional router
-	nonFunctionalRouter := parent.PathPrefix(feServer.NonFunctionalRoot).Subrouter()
+	nonFunctionalRouter := rootRouter.PathPrefix(feServer.NonFunctionalRoot).Subrouter()
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Non functional router registered")
 	}
 	// Add additional checks to test mongodb
-	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts)
+	health.Handlers(appContext, nonFunctionalRouter, feServer.NonFunctionalRoot)
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Health handler registered")
@@ -70,7 +68,7 @@ func Handler(
 	// }
 
 	// Context root router with OTEL
-	contextRouter := parent.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
+	contextRouter := rootRouter.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
 	// contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
 	contextRouter.Path("/ui").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +82,7 @@ func Handler(
 	// Auth router
 	// if !oidcOptions.Disabled {
 	// 	authRouter := contextRouter.PathPrefix("/auth").Subrouter()
-	// 	authRouter.Use(middleware.InjectSession)
+	// 	authRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.ServeOpts.SessionName))
 	// 	if log.Trace().Enabled() {
 	// 		log.Trace().
 	// 			Msg("Auth router registered")
@@ -98,9 +96,9 @@ func Handler(
 
 	// Static content
 	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()
-	// staticRouter.Use(middleware.InjectSession)
-	// staticRouter.Use(middleware.HttpSessionAuthenticationRequired)
-	// staticRouter.Use(middleware.HttpSessionInspectAndRenew)
+	staticRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.ServeOpts.SessionName))
+	staticRouter.Use(middleware.HTTPSessionAuthenticationRequired)
+	staticRouter.Use(middleware.HTTPSessionInspectAndRenew)
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Static router registered")
@@ -117,6 +115,7 @@ func Handler(
 	apiRouter.Use(middleware.JSONResponse)
 	// apiRouter.Use(middleware.PrometheusMiddleware)
 	// TODO: gw oriented auth, inspect and renew
+	// apiRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.ServeOpts.SessionName)) ????
 	// apiRouter.Use(middleware.MixedAuthenticationRequired)
 	// apiRouter.Use(middleware.MixedInspectAndRenew)
 	if routerLog.Trace().Enabled() {

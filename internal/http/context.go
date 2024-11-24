@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 
+	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/morphy76/g-fe-server/internal/serve"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
@@ -20,6 +21,7 @@ type ContextOIDCResourceKey string
 type RouteChannelKey string
 
 const (
+	ctx_SESSION_KEY       ContextSessionKey      = "session"
 	ctx_OWNERSHIP_KEY     ContextOwnershipKey    = "ownership"
 	ctx_OIDC_OPTIONS_KEY  ContextOIDCOptions     = "oidcOptions"
 	ctx_OIDC_KEY          ContextOIDCKey         = "oidc"
@@ -49,6 +51,14 @@ func ExtractOwnership(ctx context.Context) serve.Ownership {
 
 func InjectOwnership(ctx context.Context, ownership serve.Ownership) context.Context {
 	return context.WithValue(ctx, ctx_OWNERSHIP_KEY, ownership)
+}
+
+func ExtractSession(ctx context.Context) *sessions.Session {
+	return ctx.Value(ctx_SESSION_KEY).(*sessions.Session)
+}
+
+func InjectSession(ctx context.Context, session *sessions.Session) context.Context {
+	return context.WithValue(ctx, ctx_SESSION_KEY, session)
 }
 
 func ExtractRelyingParty(ctx context.Context) rp.RelyingParty {
