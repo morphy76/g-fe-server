@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/quasoft/memstore"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
@@ -77,19 +78,19 @@ func startServer(
 	sessionStore := createSessionStore(serveOptions)
 
 	appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, otelOptions, trace)
-	bootLogger := logger.GetLogger(appContext, "boot")
+	bootLogger := logger.GetLogger(appContext, "feServer")
 	defer cancel()
 
 	rootRouter := mux.NewRouter()
 	server.Handler(appContext, rootRouter)
-	if bootLogger.Trace().Enabled() {
-		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
-			if len(route.GetName()) > 0 {
-				bootLogger.Trace().Str("endpoint", route.GetName()).Msg("Endpoint registered")
-			}
-			return nil
-		})
-	}
+	events := zerolog.Arr()
+	rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		if len(route.GetName()) > 0 {
+			events.Str(route.GetName())
+		}
+		return nil
+	})
+	bootLogger.Info().Array("endpoints", events).Msg("Endpoint registered")
 
 	srvErr := make(chan error, 1)
 	go func() {

@@ -10,6 +10,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/common"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/rs/zerolog"
 
 	"github.com/google/uuid"
 )
@@ -70,11 +71,11 @@ func NewFEServer(
 func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Router) error {
 
 	feLogger := logger.GetLogger(ctx, "feServer")
-	feLogger.Info().
+	feLogger.Info().Dict("serve_opts", zerolog.Dict().
 		Str("host", feServer.ServeOpts.Host).
 		Str("port", feServer.ServeOpts.Port).
 		Str("ctx", feServer.ServeOpts.ContextRoot).
-		Str("serving", feServer.ServeOpts.StaticPath).
+		Str("serving", feServer.ServeOpts.StaticPath)).
 		Msg("Server started")
 
 	return http.ListenAndServe(fmt.Sprintf("%s:%s", feServer.ServeOpts.Host, feServer.ServeOpts.Port), rootRouter)
