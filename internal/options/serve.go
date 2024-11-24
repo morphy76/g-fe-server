@@ -3,6 +3,7 @@ package options
 import "net/http"
 
 type ServeOptions struct {
+	NonFunctionalRoot    string
 	ContextRoot          string
 	StaticPath           string
 	Protocol             string

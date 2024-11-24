@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -10,7 +9,10 @@ import (
 	"github.com/morphy76/g-fe-server/internal/common"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/internal/serve"
 	"github.com/rs/zerolog"
+	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	"github.com/zitadel/oidc/v3/pkg/client/rs"
 
 	"github.com/google/uuid"
 )
@@ -21,10 +23,11 @@ const appModelCtxKey common.CtxKey = "App"
 type FEServer struct {
 	UID string
 
-	NonFunctionalRoot string
-
 	ServeOpts    *options.ServeOptions
 	SessionStore sessions.Store
+
+	RelayingParty  rp.RelyingParty
+	ResourceServer rs.ResourceServer
 }
 
 // ExtractFEServer returns the FEServer from the context
@@ -37,31 +40,34 @@ func NewFEServer(
 	ctx context.Context,
 	serveOpts *options.ServeOptions,
 	sessionStore sessions.Store,
-	oidcOptions *options.OidcOptions,
-	otelOptions *options.OtelOptions,
+	oidcOptions *options.OIDCOptions,
+	// otelOptions *options.OtelOptions,
 ) context.Context {
-
 	// shutdown, err := cli.SetupOTEL(initialContext, otelOptions)
 	// defer shutdown()
 	// if err != nil {
 	// 	panic(err)
 	// }
 
-	// serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
-	// oidcOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
-	// sessionStoreContext := app_http.InjectSessionStore(oidcOptionsContext, sessionStore)
-	// finalContext := cli.CreateTheOIDCContext(sessionStoreContext, oidcOptions, serveOptions)
-	// log.Trace().
-	// 	Msg("Application contextes ready")
-
 	feServer := &FEServer{
 		UID: uuid.New().String(),
 
-		//TODO: get it from serve options
-		NonFunctionalRoot: "/g",
-
 		ServeOpts:    serveOpts,
 		SessionStore: sessionStore,
+	}
+
+	if !oidcOptions.Disabled {
+		rp, err := serve.SetupOIDC(serveOpts, oidcOptions)
+		if err != nil {
+			panic(err)
+		}
+		feServer.RelayingParty = rp
+
+		rs, err := rs.NewResourceServerClientCredentials(context.Background(), oidcOptions.Issuer, oidcOptions.ClientID, oidcOptions.ClientSecret)
+		if err != nil {
+			panic(err)
+		}
+		feServer.ResourceServer = rs
 	}
 
 	return context.WithValue(ctx, appModelCtxKey, feServer)
@@ -78,7 +84,12 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 		Str("serving", feServer.ServeOpts.StaticPath)).
 		Msg("Server started")
 
-	return http.ListenAndServe(fmt.Sprintf("%s:%s", feServer.ServeOpts.Host, feServer.ServeOpts.Port), rootRouter)
+	return http.ListenAndServe(feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port, rootRouter)
+}
+
+// IsOIDCEnabled returns true if OIDC is enabled
+func (feServer *FEServer) IsOIDCEnabled() bool {
+	return feServer.RelayingParty != nil
 }
 
 // func addMonitoring(ctx context.Context, builder zerolog.Context) zerolog.Context {

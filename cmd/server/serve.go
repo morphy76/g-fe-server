@@ -22,8 +22,8 @@ func main() {
 	trace := flag.Bool("trace", false, "sets log level to trace")
 
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
-	otelOptionsBuilder := cli.OtelOptionsBuilder()
-	oidcOptionsBuilder := cli.OidcOptionsBuilder()
+	// otelOptionsBuilder := cli.OtelOptionsBuilder()
+	oidcOptionsBuilder := cli.OIDCOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -43,14 +43,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	otelOptions, err := otelOptionsBuilder()
-	if err != nil {
-		log.Error().
-			Err(err).
-			Msg("Error parsing otel options")
-		flag.Usage()
-		os.Exit(1)
-	}
+	// otelOptions, err := otelOptionsBuilder()
+	// if err != nil {
+	// 	log.Error().
+	// 		Err(err).
+	// 		Msg("Error parsing otel options")
+	// 	flag.Usage()
+	// 	os.Exit(1)
+	// }
 
 	oidcOptions, err := oidcOptionsBuilder()
 	if err != nil {
@@ -63,7 +63,7 @@ func main() {
 
 	startServer(
 		serveOptions,
-		otelOptions,
+		// otelOptions,
 		oidcOptions,
 		trace,
 	)
@@ -71,13 +71,14 @@ func main() {
 
 func startServer(
 	serveOptions *options.ServeOptions,
-	otelOptions *options.OtelOptions,
-	oidcOptions *options.OidcOptions,
+	// otelOptions *options.OtelOptions,
+	oidcOptions *options.OIDCOptions,
 	trace *bool,
 ) {
 	sessionStore := createSessionStore(serveOptions)
 
-	appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, otelOptions, trace)
+	appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, trace)
+	// appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, otelOptions, trace)
 	bootLogger := logger.GetLogger(appContext, "feServer")
 	defer cancel()
 
@@ -126,11 +127,12 @@ func createSessionStore(serveOptions *options.ServeOptions) sessions.Store {
 func createAppContext(
 	serveOpts *options.ServeOptions,
 	sessionStore sessions.Store,
-	oidcOptions *options.OidcOptions,
-	otelOptions *options.OtelOptions,
+	oidcOptions *options.OIDCOptions,
+	// otelOptions *options.OtelOptions,
 	trace *bool,
 ) (context.Context, context.CancelFunc) {
 	appContext := logger.InitLogger(context.Background(), trace)
-	appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions, otelOptions)
+	appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions)
+	// appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions, otelOptions)
 	return context.WithCancel(appContext)
 }

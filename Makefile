@@ -15,8 +15,8 @@ TESTFLAGS := -v
 NPMFLAGS := --no-audit --no-fund
 
 # Cross-cutting runtime args
-OTEL_ARGS := -otel-enabled=false
-OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/sfe -oidc-client-id=fe -oidc-client-secret=d6IgN3ipmUm9TXbnW3OIAMQPSYnCmrKT -oidc-scopes=openid,profile,email,offline_access
+OTEL_ARGS := #-otel-enabled=false
+OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/sfe -oidc-client-id=fe -oidc-client-secret=d6IgN3ipmUm9TXbnW3OIAMQPSYnCmrKT -oidc-scopes=openid,profile,email
 NO_OIDC_ARGS := -oidc-disabled
 
 # Server

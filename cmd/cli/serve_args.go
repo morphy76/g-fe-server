@@ -12,7 +12,8 @@ import (
 	"github.com/morphy76/g-fe-server/internal/options"
 )
 
-type serveOptionsBuilder func() (*options.ServeOptions, error)
+// ServeOptionsBuilderFn is a function that returns ServeOptions
+type ServeOptionsBuilderFn func() (*options.ServeOptions, error)
 
 var errInvalidContextRoot = errors.New("invalid context root")
 var errInvalidStaticPath = errors.New("invalid static path")
@@ -34,6 +35,7 @@ func IsInvalidSessionSameSite(err error) bool {
 }
 
 const (
+	envNonFnRoot       = "NON_FUNCTIONAL_ROOT"
 	envCtxRoot         = "CONTEXT_ROOT"
 	envStaticPath      = "STATIC_PATH"
 	envPort            = "SERVE_PORT"
@@ -48,8 +50,9 @@ const (
 )
 
 // ServeOptionsBuilder returns a function that builds ServeOptions from the command line arguments and environment variables
-func ServeOptionsBuilder() serveOptionsBuilder {
+func ServeOptionsBuilder() ServeOptionsBuilderFn {
 
+	nonFnRootArg := flag.String("non-fn", "/g", "presentation server non functional root. Environment: "+envNonFnRoot)
 	ctxRootArg := flag.String("ctx", "", "presentation server context root. Environment: "+envCtxRoot)
 	staticPathArg := flag.String("static", "/static", "static path of the served application. Environment: "+envStaticPath)
 	portArg := flag.String("port", "8080", "binding port of the presentation server. Environment: "+envPort)
@@ -63,6 +66,14 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 	sessionSameSiteArg := flag.String("session-same-site", "Lax", "session same site: Default, Lax, Strict or None. Environment: "+envSessionSameSite)
 
 	rv := func() (*options.ServeOptions, error) {
+
+		nonFnPath, found := os.LookupEnv(envNonFnRoot)
+		if !found {
+			nonFnPath = *nonFnRootArg
+		}
+		if len(nonFnPath) == 0 || strings.Contains(nonFnPath, " ") {
+			return nil, errInvalidStaticPath
+		}
 
 		ctxRoot, found := os.LookupEnv(envCtxRoot)
 		if !found {
@@ -157,6 +168,7 @@ func ServeOptionsBuilder() serveOptionsBuilder {
 		}
 
 		return &options.ServeOptions{
+			NonFunctionalRoot:    nonFnPath,
 			ContextRoot:          ctxRoot,
 			StaticPath:           staticPath,
 			Protocol:             "http",

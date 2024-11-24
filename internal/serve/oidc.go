@@ -11,9 +11,10 @@ import (
 	httphelper "github.com/zitadel/oidc/v3/pkg/http"
 )
 
+// SetupOIDC sets up the OIDC client
 func SetupOIDC(
 	serveOptions *options.ServeOptions,
-	oidcOptions *options.OidcOptions,
+	oidcOptions *options.OIDCOptions,
 ) (rp.RelyingParty, error) {
 
 	redirectURI := fmt.Sprintf(
@@ -52,7 +53,7 @@ func SetupOIDC(
 	oidcClient, err := rp.NewRelyingPartyOIDC(
 		context.Background(),
 		oidcOptions.Issuer,
-		oidcOptions.ClientId,
+		oidcOptions.ClientID,
 		oidcOptions.ClientSecret,
 		redirectURI,
 		oidcOptions.Scopes,
