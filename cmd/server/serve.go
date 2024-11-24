@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -22,7 +24,7 @@ func main() {
 	trace := flag.Bool("trace", false, "sets log level to trace")
 
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
-	// otelOptionsBuilder := cli.OtelOptionsBuilder()
+	OTelOptionsBuilder := cli.OTelOptionsBuilder()
 	oidcOptionsBuilder := cli.OIDCOptionsBuilder()
 	dbOptionsBuilder := cli.DBOptionsBuilder()
 
@@ -44,14 +46,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	// otelOptions, err := otelOptionsBuilder()
-	// if err != nil {
-	// 	log.Error().
-	// 		Err(err).
-	// 		Msg("Error parsing otel options")
-	// 	flag.Usage()
-	// 	os.Exit(1)
-	// }
+	OTelOptions, err := OTelOptionsBuilder()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing OTel options")
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	oidcOptions, err := oidcOptionsBuilder()
 	if err != nil {
@@ -73,7 +75,7 @@ func main() {
 
 	startServer(
 		serveOptions,
-		// otelOptions,
+		OTelOptions,
 		oidcOptions,
 		dbOptions,
 		trace,
@@ -82,17 +84,19 @@ func main() {
 
 func startServer(
 	serveOptions *options.ServeOptions,
-	// otelOptions *options.OtelOptions,
+	otelOptions *options.OTelOptions,
 	oidcOptions *options.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	trace *bool,
 ) {
+	srvErr := make(chan error, 1)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	sessionStore := createSessionStore(serveOptions)
 
-	appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, dbOptions, trace)
-	// appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, otelOptions, trace)
+	appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, dbOptions, otelOptions, trace)
 	bootLogger := logger.GetLogger(appContext, "feServer")
-	defer cancel()
 
 	rootRouter := mux.NewRouter()
 	server.Handler(appContext, rootRouter)
@@ -105,20 +109,21 @@ func startServer(
 	})
 	bootLogger.Info().Array("endpoints", events).Msg("Endpoint registered")
 
-	srvErr := make(chan error, 1)
 	go func() {
 		srvErr <- server.ExtractFEServer(appContext).ListenAndServe(appContext, rootRouter)
 	}()
 
-	select {
-	case err := <-srvErr:
-		bootLogger.Info().
-			Err(err).
-			Msg("Server stopped")
-	case <-appContext.Done():
-		bootLogger.Info().
-			Msg("Server stopped")
-		cancel()
+	for {
+		select {
+		case <-sigChan:
+			cancel()
+		case err := <-srvErr:
+			bootLogger.Err(err).Msg("Fail to start server")
+			cancel()
+		case <-appContext.Done():
+			server.ExtractFEServer(appContext).Shutdown(appContext)
+			return
+		}
 	}
 }
 
@@ -140,12 +145,11 @@ func createAppContext(
 	serveOpts *options.ServeOptions,
 	sessionStore sessions.Store,
 	oidcOptions *options.OIDCOptions,
-	// otelOptions *options.OtelOptions,
 	dbOptions *options.MongoDBOptions,
+	otelOptions *options.OTelOptions,
 	trace *bool,
 ) (context.Context, context.CancelFunc) {
 	appContext := logger.InitLogger(context.Background(), trace)
-	appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions, dbOptions)
-	// appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions, otelOptions)
+	appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions, dbOptions, otelOptions)
 	return context.WithCancel(appContext)
 }

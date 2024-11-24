@@ -26,9 +26,12 @@ type FEServer struct {
 	ServeOpts    *options.ServeOptions
 	SessionStore sessions.Store
 	DBOpts       *options.MongoDBOptions
+	OTelOpts     *options.OTelOptions
 
 	RelayingParty  rp.RelyingParty
 	ResourceServer rs.ResourceServer
+
+	OtelShutdownFn func() error
 }
 
 // ExtractFEServer returns the FEServer from the context
@@ -42,14 +45,14 @@ func NewFEServer(
 	serveOpts *options.ServeOptions,
 	sessionStore sessions.Store,
 	oidcOptions *options.OIDCOptions,
-	// otelOptions *options.OtelOptions,
 	dbOptions *options.MongoDBOptions,
+	otelOptions *options.OTelOptions,
 ) context.Context {
-	// shutdown, err := cli.SetupOTEL(initialContext, otelOptions)
-	// defer shutdown()
-	// if err != nil {
-	// 	panic(err)
-	// }
+
+	otelShutdown, err := serve.SetupOTelSDK(otelOptions)
+	if err != nil {
+		panic(err)
+	}
 
 	feServer := &FEServer{
 		UID: uuid.New().String(),
@@ -57,6 +60,9 @@ func NewFEServer(
 		ServeOpts:    serveOpts,
 		SessionStore: sessionStore,
 		DBOpts:       dbOptions,
+		OTelOpts:     otelOptions,
+
+		OtelShutdownFn: otelShutdown,
 	}
 
 	if !oidcOptions.Disabled {
@@ -78,8 +84,8 @@ func NewFEServer(
 
 // ListenAndServe starts the server
 func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Router) error {
-
 	feLogger := logger.GetLogger(ctx, "feServer")
+
 	feLogger.Info().
 		Dict("serve_opts", zerolog.Dict().
 			Str("host", feServer.ServeOpts.Host).
@@ -88,10 +94,12 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 			Str("serving", feServer.ServeOpts.StaticPath)).
 		Dict(("oidc_opts"), zerolog.Dict().
 			Bool("enabled", feServer.IsOIDCEnabled()).
-			Str("relaying_party", feServer.RelayingParty.Issuer()).
-			Str("resource_server", feServer.ResourceServer.TokenEndpoint())).
+			Str("issuer", feServer.RelayingParty.Issuer())).
 		Dict("db_opts", zerolog.Dict().
 			Str("url", feServer.DBOpts.URL)).
+		Dict("otel_opts", zerolog.Dict().
+			Bool("enabled", feServer.OTelOpts.Enabled).
+			Str("url", feServer.OTelOpts.URL)).
 		Msg("Server started")
 
 	return http.ListenAndServe(feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port, rootRouter)
@@ -102,9 +110,13 @@ func (feServer *FEServer) IsOIDCEnabled() bool {
 	return feServer.RelayingParty != nil
 }
 
-// func addMonitoring(ctx context.Context, builder zerolog.Context) zerolog.Context {
-// 	feServer := server.ExtractFEServer(ctx)
-// 	return builder.Dict("monitoring", zerolog.Dict().
-// 		Str("fe_server_id", feServer.UID),
-// 	)
-// }
+// Shutdown stops the server
+func (feServer *FEServer) Shutdown(ctx context.Context) {
+	feLogger := logger.GetLogger(ctx, "feServer")
+	if feServer.OtelShutdownFn != nil {
+		if err := feServer.OtelShutdownFn(); err != nil {
+			feLogger.Error().Err(err).Msg("Error shutting down opentelemetry")
+		}
+	}
+	feLogger.Info().Msg("Server stopped")
+}

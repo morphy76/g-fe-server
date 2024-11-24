@@ -14,32 +14,34 @@ import (
 )
 
 const (
-	OTEL_APP_NAME     = "g-fe-server"
-	OTEL_GW_NAME      = "gateway"
-	OTEL_EXAMPLE_NAME = "g-be-server"
+	// OTelAppName is the name of the application
+	OTelAppName = "g-fe-server"
 )
 
-func SetupOTelSDK(ctx context.Context, otelOptions *options.OtelOptions) (shutdown func(context.Context) error, err error) {
+// SetupOTelSDK sets up the OTel SDK
+func SetupOTelSDK(otelOptions *options.OTelOptions) (shutdown func() error, err error) {
 
+	ctx := context.Background()
 	var shutdownFuncs []func(context.Context) error
 
-	shutdown = func(ctx context.Context) error {
+	shutdown = func() error {
 		var err error
 		for _, fn := range shutdownFuncs {
-			err = errors.Join(err, fn(ctx))
+			useCtx := ctx
+			err = errors.Join(err, fn(useCtx))
 		}
 		shutdownFuncs = nil
 		return err
 	}
 
 	handleErr := func(inErr error) {
-		err = errors.Join(inErr, shutdown(ctx))
+		err = errors.Join(inErr, shutdown())
 	}
 
 	propagator := newPropagator()
 	otel.SetTextMapPropagator(propagator)
 
-	tracerProvider, err := newTraceProvider(otelOptions.Enabled, otelOptions.Url)
+	tracerProvider, err := newTraceProvider(otelOptions.Enabled, otelOptions.URL)
 	if err != nil {
 		handleErr(err)
 		return
@@ -58,7 +60,6 @@ func newPropagator() propagation.TextMapPropagator {
 }
 
 func newTraceProvider(enabled bool, url string) (*trace.TracerProvider, error) {
-
 	var traceProvider *trace.TracerProvider
 
 	if enabled {
@@ -69,7 +70,7 @@ func newTraceProvider(enabled bool, url string) (*trace.TracerProvider, error) {
 		traceProvider = trace.NewTracerProvider(
 			trace.WithBatcher(traceExporter),
 			trace.WithResource(resource.NewSchemaless(
-				attribute.String("service.name", OTEL_APP_NAME),
+				attribute.String("service.name", OTelAppName),
 			)),
 		)
 	} else {

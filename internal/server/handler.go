@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/otel"
 
 	"github.com/morphy76/g-fe-server/internal/db"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/auth"
@@ -12,23 +14,18 @@ import (
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/internal/logger"
+	"github.com/morphy76/g-fe-server/internal/serve"
 )
 
 // Handler registers all HTTP handlers for the application
 func Handler(
 	appContext context.Context,
 	rootRouter *mux.Router,
-) *mux.Router {
+) {
 	feServer := ExtractFEServer(appContext)
 	routerLog := logger.GetLogger(appContext, "router")
 
 	// Parent router
-	// parent.Use(otelmux.Middleware(serve.OTEL_GW_NAME,
-	// 	otelmux.WithPublicEndpoint(),
-	// 	otelmux.WithPropagators(otel.GetTextMapPropagator()),
-	// 	otelmux.WithTracerProvider(otel.GetTracerProvider()),
-	// ))
-
 	rootRouter.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			useRequest := r.WithContext(appContext)
@@ -54,8 +51,13 @@ func Handler(
 	// 		Msg("Metrics handler registered")
 	// }
 
-	// Context root router with OTEL
+	// Context root router with OTel
 	contextRouter := rootRouter.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
+	contextRouter.Use(otelmux.Middleware(serve.OTelAppName,
+		otelmux.WithPublicEndpoint(),
+		otelmux.WithPropagators(otel.GetTextMapPropagator()),
+		otelmux.WithTracerProvider(otel.GetTracerProvider()),
+	))
 	// TODO CORS: in the context router to allow MFE and APIs
 	// contextRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 	// contextRouter.Use(middleware.TenantResolver)
@@ -101,6 +103,9 @@ func Handler(
 	// API router
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
 	apiRouter.Use(middleware.JSONResponse)
+	apiRouter.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello, World!\n"))
+	})
 	// apiRouter.Use(middleware.PrometheusMiddleware)
 	// TODO: gw oriented auth, inspect and renew
 	// apiRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.ServeOpts.SessionName)) ????
@@ -110,6 +115,4 @@ func Handler(
 		routerLog.Trace().
 			Msg("API router registered")
 	}
-
-	return apiRouter
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type statusRecorder struct {
@@ -25,14 +26,9 @@ func RequestLogger(next http.Handler) http.Handler {
 			Status:         200,
 		}
 
-		// activeSpan := trace.SpanFromContext(r.Context())
+		activeSpan := trace.SpanFromContext(r.Context())
 		// ownership := app_http.ExtractOwnership(r.Context())
 
-		// useLoggerBuilder := log.Logger.With().
-		// 	Dict("correlation", zerolog.Dict().
-		// 		Str("span_id", activeSpan.SpanContext().SpanID().String()).
-		// 		Str("trace_id", activeSpan.SpanContext().TraceID().String()),
-		// 	)
 		// if ownership.Tenant != "" {
 		// 	useLoggerBuilder = useLoggerBuilder.
 		// 		Dict("ownership", zerolog.Dict().
@@ -45,12 +41,13 @@ func RequestLogger(next http.Handler) http.Handler {
 		// 			Bool("anon", true),
 		// 		)
 		// }
-		// useLogger := useLoggerBuilder.Logger()
 
-		// newContext := app_http.InjectLogger(r.Context(), useLogger)
-		// useRequestLogger := r.WithContext(newContext)
-
-		requestLogger := logger.GetLogger(r.Context(), "http")
+		requestLogger := logger.GetLogger(r.Context(), "http").With().
+			Dict("correlation", zerolog.Dict().
+				Str("span_id", activeSpan.SpanContext().SpanID().String()).
+				Str("trace_id", activeSpan.SpanContext().TraceID().String()),
+			).
+			Logger()
 		next.ServeHTTP(recorder, r)
 
 		if requestLogger.Trace().Enabled() {

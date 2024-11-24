@@ -1,6 +1,7 @@
 package options
 
-type OtelOptions struct {
+// OTelOptions holds the configuration for OpenTelemetry
+type OTelOptions struct {
 	Enabled bool
-	Url     string
+	URL     string
 }
