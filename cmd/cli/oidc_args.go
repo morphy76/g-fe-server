@@ -12,23 +12,28 @@ import (
 // OIDCOptionsBuidlerFn is a function that returns OIDC options
 type OIDCOptionsBuidlerFn func() (*options.OIDCOptions, error)
 
-var errMissingIssuer = errors.New("OIDC issuer is required")
-var errMissingClientID = errors.New("OIDC client id is required")
-var errMissingClientSecret = errors.New("OIDC client secret is required")
+// ErrMissingIssuer is a missing OIDC issuer error
+var ErrMissingIssuer = errors.New("OIDC issuer is required")
+
+// ErrMissingClientID is a missing OIDC client id error
+var ErrMissingClientID = errors.New("OIDC client id is required")
+
+// ErrMissingClientSecret is a missing OIDC client secret error
+var ErrMissingClientSecret = errors.New("OIDC client secret is required")
 
 // IsMissingIssuer returns true if the error is due to a missing OIDC issuer
 func IsMissingIssuer(err error) bool {
-	return err == errMissingIssuer
+	return err == ErrMissingIssuer
 }
 
 // IsMissingClientID returns true if the error is due to a missing OIDC client id
 func IsMissingClientID(err error) bool {
-	return err == errMissingClientID
+	return err == ErrMissingClientID
 }
 
 // IsMissingClientSecret returns true if the error is due to a missing OIDC client secret
 func IsMissingClientSecret(err error) bool {
-	return err == errMissingClientSecret
+	return err == ErrMissingClientSecret
 }
 
 const (
@@ -56,7 +61,7 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 			oidcIssuer = *oidcIssuerArg
 		}
 		if !oidcDisabled && oidcIssuer == "" {
-			return nil, errMissingIssuer
+			return nil, ErrMissingIssuer
 		}
 
 		oidcClientID, found := os.LookupEnv(envOIDCClientID)
@@ -64,7 +69,7 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 			oidcClientID = *oidcClientIDArg
 		}
 		if !oidcDisabled && oidcClientID == "" {
-			return nil, errMissingClientID
+			return nil, ErrMissingClientID
 		}
 
 		oidcClientSecret, found := os.LookupEnv(envOIDCClientSecret)
@@ -72,7 +77,7 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 			oidcClientSecret = *oidcClientSecretArg
 		}
 		if !oidcDisabled && oidcClientSecret == "" {
-			return nil, errMissingClientSecret
+			return nil, ErrMissingClientSecret
 		}
 
 		oidcScopes, found := os.LookupEnv(envOIDCScopes)

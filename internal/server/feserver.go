@@ -25,6 +25,7 @@ type FEServer struct {
 
 	ServeOpts    *options.ServeOptions
 	SessionStore sessions.Store
+	DBOpts       *options.MongoDBOptions
 
 	RelayingParty  rp.RelyingParty
 	ResourceServer rs.ResourceServer
@@ -42,6 +43,7 @@ func NewFEServer(
 	sessionStore sessions.Store,
 	oidcOptions *options.OIDCOptions,
 	// otelOptions *options.OtelOptions,
+	dbOptions *options.MongoDBOptions,
 ) context.Context {
 	// shutdown, err := cli.SetupOTEL(initialContext, otelOptions)
 	// defer shutdown()
@@ -54,6 +56,7 @@ func NewFEServer(
 
 		ServeOpts:    serveOpts,
 		SessionStore: sessionStore,
+		DBOpts:       dbOptions,
 	}
 
 	if !oidcOptions.Disabled {
@@ -77,11 +80,18 @@ func NewFEServer(
 func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Router) error {
 
 	feLogger := logger.GetLogger(ctx, "feServer")
-	feLogger.Info().Dict("serve_opts", zerolog.Dict().
-		Str("host", feServer.ServeOpts.Host).
-		Str("port", feServer.ServeOpts.Port).
-		Str("ctx", feServer.ServeOpts.ContextRoot).
-		Str("serving", feServer.ServeOpts.StaticPath)).
+	feLogger.Info().
+		Dict("serve_opts", zerolog.Dict().
+			Str("host", feServer.ServeOpts.Host).
+			Str("port", feServer.ServeOpts.Port).
+			Str("ctx", feServer.ServeOpts.ContextRoot).
+			Str("serving", feServer.ServeOpts.StaticPath)).
+		Dict(("oidc_opts"), zerolog.Dict().
+			Bool("enabled", feServer.IsOIDCEnabled()).
+			Str("relaying_party", feServer.RelayingParty.Issuer()).
+			Str("resource_server", feServer.ResourceServer.TokenEndpoint())).
+		Dict("db_opts", zerolog.Dict().
+			Str("url", feServer.DBOpts.URL)).
 		Msg("Server started")
 
 	return http.ListenAndServe(feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port, rootRouter)

@@ -72,12 +72,18 @@ func onLogout(serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) 
 			return
 		}
 
-		sessionState := session.Values["session_state"].(string)
-
 		session.Options.MaxAge = -1
 		delete(session.Values, "id_token")
 		session.Save(r, w)
-		url, err := rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, sessionState)
+		sessionState, found := session.Values["session_state"]
+
+		var url *url.URL
+		var err error
+		if found {
+			url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, sessionState.(string))
+		} else {
+			url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, "")
+		}
 		if err != nil {
 			logger.Error().Err(err).Msg("End session failed")
 			http.Error(w, "End session failed", http.StatusInternalServerError)

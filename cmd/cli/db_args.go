@@ -4,109 +4,58 @@ import (
 	"errors"
 	"flag"
 	"os"
-	"strconv"
 
 	"github.com/morphy76/g-fe-server/internal/options"
 )
 
-type dbOptionsBuidler func() (*options.DbOptions, error)
+// DBOptionsBuidlerFn is a function that builds a DbOptions object from the command line arguments
+type DBOptionsBuidlerFn func() (*options.MongoDBOptions, error)
 
-var errUnknownDbType = errors.New("unknown db type")
-var errRequiredMongoDbUrl = errors.New("mongo db url is required")
+// ErrRequiredMongoDbUrl is a required mongo db url error
+var ErrRequiredMongoDbUrl = errors.New("mongo db url is required")
 
-func IsUnknownDbType(err error) bool {
-	return err == errUnknownDbType
-}
-
+// IsRequiredMongoDbUrl returns true if the error is a required mongo db url error
 func IsRequiredMongoDbUrl(err error) bool {
-	return err == errRequiredMongoDbUrl
+	return err == ErrRequiredMongoDbUrl
 }
 
 const (
-	ENV_DB_TYPE                = "DB_TYPE"
-	ENV_DB_MONGO_URL           = "DB_MONGO_URL"
-	ENV_DB_MONGO_USER          = "DB_MONGO_USER"
-	ENV_DB_MONGO_PASS          = "DB_MONGO_PASSWORD"
-	ENV_DB_MONG_MAX_POOL_SIZE  = "DB_MONGO_MAX_POOL_SIZE"
-	ENV_DB_MONGO_MIN_POOL_SIZE = "DB_MONGO_MIN_POOL_SIZE"
+	envDBMongoURL      = "DB_MONGO_URL"
+	envDBMongoUser     = "DB_MONGO_USER"
+	envDBMongoPassword = "DB_MONGO_PASSWORD"
 )
 
-func DbOptionsBuilder() dbOptionsBuidler {
+// DBOptionsBuilder returns a function that builds a DbOptions object from the command line arguments
+func DBOptionsBuilder() DBOptionsBuidlerFn {
 
-	dbTypeArg := flag.String("db", "0", "type of the database: 0: memory - 1: mongo. Environment: "+ENV_DB_TYPE)
-	dbMongoUrlArg := flag.String("db-mongo-url", "", "mongo database URL in the form of mongodb://<user>:<pass>@<host>:<port>/<db>?<args>. Environment: "+ENV_DB_MONGO_URL)
-	dbMongoUserArg := flag.String("db-mongo-user", "", "mongo database username. Environment: "+ENV_DB_MONGO_USER)
-	dbMongoPasswordArg := flag.String("db-mongo-password", "", "mongo database password. Environment: "+ENV_DB_MONGO_PASS)
-	dbMongoMaxPoolSizeArg := flag.Uint64("db-mongo-max-pool-size", 100, "mongo database maximum pool size. Environment: "+ENV_DB_MONG_MAX_POOL_SIZE)
-	dbMongoMinPoolSizeArg := flag.Uint64("db-mongo-min-pool-size", 1, "mongo database minimum pool size. Environment: "+ENV_DB_MONGO_MIN_POOL_SIZE)
+	dbMongoUrlArg := flag.String("db-mongo-url", "", "mongo database URL in the form of mongodb://<user>:<pass>@<host>:<port>/<db>?<args>. Environment: "+envDBMongoURL)
+	dbMongoUserArg := flag.String("db-mongo-user", "", "mongo database username. Environment: "+envDBMongoUser)
+	dbMongoPasswordArg := flag.String("db-mongo-password", "", "mongo database password. Environment: "+envDBMongoPassword)
 
-	rv := func() (*options.DbOptions, error) {
+	rv := func() (*options.MongoDBOptions, error) {
 
-		dbType, found := os.LookupEnv(ENV_DB_TYPE)
-		if !found {
-			dbType = *dbTypeArg
-		}
-		if dbType != "0" && dbType != "1" {
-			return nil, errUnknownDbType
-		}
-
-		url, found := os.LookupEnv(ENV_DB_MONGO_URL)
+		url, found := os.LookupEnv(envDBMongoURL)
 		if !found {
 			url = *dbMongoUrlArg
 		}
-		if url == "" && dbType == "1" {
-			return nil, errRequiredMongoDbUrl
+		if url == "" {
+			return nil, ErrRequiredMongoDbUrl
 		}
 
-		user, found := os.LookupEnv(ENV_DB_MONGO_USER)
+		user, found := os.LookupEnv(envDBMongoUser)
 		if !found {
 			user = *dbMongoUserArg
 		}
 
-		password, found := os.LookupEnv(ENV_DB_MONGO_PASS)
+		password, found := os.LookupEnv(envDBMongoPassword)
 		if !found {
 			password = *dbMongoPasswordArg
 		}
 
-		dbTypeAsInt, err := strconv.Atoi(dbType)
-		if err != nil {
-			return nil, err
-		}
-		useDbType := options.RepositoryType(dbTypeAsInt)
-
-		maxPoolSize, found := os.LookupEnv(ENV_DB_MONG_MAX_POOL_SIZE)
-		if !found {
-			maxPoolSize = strconv.FormatUint(*dbMongoMaxPoolSizeArg, 10)
-		}
-		maxPoolSizeAsInt, err := strconv.ParseUint(maxPoolSize, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		if maxPoolSizeAsInt <= 0 {
-			maxPoolSizeAsInt = 100
-		}
-
-		minPoolSize, found := os.LookupEnv(ENV_DB_MONGO_MIN_POOL_SIZE)
-		if !found {
-			minPoolSize = strconv.FormatUint(*dbMongoMinPoolSizeArg, 10)
-		}
-		minPoolSizeAsInt, err := strconv.ParseUint(minPoolSize, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		if minPoolSizeAsInt <= 0 {
-			minPoolSizeAsInt = 1
-		}
-
-		return &options.DbOptions{
-			Type: useDbType,
-			MongoDbOptions: options.MongoDbOptions{
-				Url:         url,
-				User:        user,
-				Password:    password,
-				MaxPoolSize: maxPoolSizeAsInt,
-				MinPoolSize: minPoolSizeAsInt,
-			},
+		return &options.MongoDBOptions{
+			URL:      url,
+			User:     user,
+			Password: password,
 		}, nil
 	}
 

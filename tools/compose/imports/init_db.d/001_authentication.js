@@ -1,5 +1,5 @@
 db.createUser({
-    user: 'go',
-    pwd: 'go',
-    roles: [ { role: 'readWrite', db: 'go_db' } ]
+    user: 'fe_user',
+    pwd: 'fe_password',
+    roles: [ { role: 'readWrite', db: 'fe_db' } ]
 });

@@ -15,23 +15,28 @@ import (
 // ServeOptionsBuilderFn is a function that returns ServeOptions
 type ServeOptionsBuilderFn func() (*options.ServeOptions, error)
 
-var errInvalidContextRoot = errors.New("invalid context root")
-var errInvalidStaticPath = errors.New("invalid static path")
-var errInvalidSessionSameSite = errors.New("invalid session same site")
+// ErrInvalidContextRoot is an invalid context root error
+var ErrInvalidContextRoot = errors.New("invalid context root")
+
+// ErrInvalidStaticPath is an invalid static path error
+var ErrInvalidStaticPath = errors.New("invalid static path")
+
+// ErrInvalidSessionSameSite is an invalid session same site error
+var ErrInvalidSessionSameSite = errors.New("invalid session same site")
 
 // IsInvalidContextRoot checks if the error is due to an invalid context root
 func IsInvalidContextRoot(err error) bool {
-	return err == errInvalidContextRoot
+	return err == ErrInvalidContextRoot
 }
 
 // IsInvalidStaticPath checks if the error is due to an invalid static path
 func IsInvalidStaticPath(err error) bool {
-	return err == errInvalidStaticPath
+	return err == ErrInvalidStaticPath
 }
 
 // IsInvalidSessionSameSite checks if the error is due to an invalid session same site
 func IsInvalidSessionSameSite(err error) bool {
-	return err == errInvalidSessionSameSite
+	return err == ErrInvalidSessionSameSite
 }
 
 const (
@@ -72,7 +77,7 @@ func ServeOptionsBuilder() ServeOptionsBuilderFn {
 			nonFnPath = *nonFnRootArg
 		}
 		if len(nonFnPath) == 0 || strings.Contains(nonFnPath, " ") {
-			return nil, errInvalidStaticPath
+			return nil, ErrInvalidStaticPath
 		}
 
 		ctxRoot, found := os.LookupEnv(envCtxRoot)
@@ -80,7 +85,7 @@ func ServeOptionsBuilder() ServeOptionsBuilderFn {
 			ctxRoot = *ctxRootArg
 		}
 		if len(ctxRoot) == 0 || strings.Contains(ctxRoot, " ") || !strings.HasPrefix(ctxRoot, "/") {
-			return nil, errInvalidContextRoot
+			return nil, ErrInvalidContextRoot
 		}
 
 		staticPath, found := os.LookupEnv(envStaticPath)
@@ -88,7 +93,7 @@ func ServeOptionsBuilder() ServeOptionsBuilderFn {
 			staticPath = *staticPathArg
 		}
 		if len(staticPath) == 0 || strings.Contains(staticPath, " ") {
-			return nil, errInvalidStaticPath
+			return nil, ErrInvalidStaticPath
 		}
 
 		usePort, found := os.LookupEnv(envPort)
@@ -164,7 +169,7 @@ func ServeOptionsBuilder() ServeOptionsBuilderFn {
 		} else if strSessionSameSite == "Default" {
 			useSessionSameSite = http.SameSiteDefaultMode
 		} else {
-			return nil, errInvalidSessionSameSite
+			return nil, ErrInvalidSessionSameSite
 		}
 
 		return &options.ServeOptions{

@@ -10,46 +10,35 @@ import (
 	mongo_opts "go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type DbClient any
-type MemoryDbClient struct{}
+// ErrMissingDBOptions is returned when the db options are missing
+var ErrMissingDBOptions = errors.New("missing db options")
 
-var ErrMissingDbOptions = errors.New("missing db options")
-
-var ErrUnknownDbType = errors.New("unknown database type")
-
-func IsMissingDbOptions(err error) bool {
-	return err == ErrMissingDbOptions
+// IsMissingDBOptions returns true if the error is ErrMissingDBOptions
+func IsMissingDBOptions(err error) bool {
+	return err == ErrMissingDBOptions
 }
 
-func IsUnknownDbType(err error) bool {
-	return err == ErrUnknownDbType
-}
-
-func NewClient(dbOptions *options.DbOptions) (DbClient, error) {
+// NewClient creates a new db client based on the db options
+func NewClient(dbOptions *options.MongoDBOptions) (*mongo.Client, error) {
 	if dbOptions == nil {
-		return nil, ErrMissingDbOptions
-	} else if dbOptions.Type == options.RepositoryTypeMemoryDB {
-		var rv *MemoryDbClient = new(MemoryDbClient)
-		return rv, nil
-	} else if dbOptions.Type == options.RepositoryTypeMongoDB {
+		return nil, ErrMissingDBOptions
+	} else {
 		var clientOpts *mongo_opts.ClientOptions
 		serverAPI := mongo_opts.ServerAPI(mongo_opts.ServerAPIVersion1)
 
-		useUrl, err := url.Parse(dbOptions.Url)
+		useURL, err := url.Parse(dbOptions.URL)
 		if err != nil {
 			return nil, err
 		}
 
-		if useUrl.User == nil {
+		if useURL.User == nil {
 			useCredentials := url.UserPassword(dbOptions.User, dbOptions.Password)
-			useUrl.User = useCredentials
+			useURL.User = useCredentials
 		}
 
 		clientOpts = mongo_opts.Client().
-			ApplyURI(useUrl.String()).
-			SetServerAPIOptions(serverAPI).
-			SetMaxPoolSize(dbOptions.MaxPoolSize).
-			SetMinPoolSize(dbOptions.MinPoolSize)
+			ApplyURI(useURL.String()).
+			SetServerAPIOptions(serverAPI)
 
 		mongoClient, err := mongo.Connect(context.Background(), clientOpts)
 		if err != nil {
@@ -57,7 +46,5 @@ func NewClient(dbOptions *options.DbOptions) (DbClient, error) {
 		}
 
 		return mongoClient, nil
-	} else {
-		return nil, ErrUnknownDbType
 	}
 }

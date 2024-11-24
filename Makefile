@@ -1,25 +1,18 @@
 -include deploy.env
 
-# Set binary commands
+## Set binary commands
 GO := go
 DOCKER := docker
 NPM := npm
 NODEMON := nodemon
 
-# Set the flags
+## Set the flags
 #GOFLAGS := -mod=vendor
 LDFLAGS := -ldflags="-s -w"
 GCFLAGS := -gcflags="-m -l"
 TESTFLAGS := -v
 # DOCKERBUILDFLAGS := --no-cache
 NPMFLAGS := --no-audit --no-fund
-
-# Cross-cutting runtime args
-OTEL_ARGS := #-otel-enabled=false
-OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/sfe -oidc-client-id=fe -oidc-client-secret=d6IgN3ipmUm9TXbnW3OIAMQPSYnCmrKT -oidc-scopes=openid,profile,email
-NO_OIDC_ARGS := -oidc-disabled
-
-# Server
 
 ## Define the source files
 SERVER_SOURCES := ./cmd/server/serve.go
@@ -32,8 +25,12 @@ SERVER_DEPLOY_TAG ?= g-fe-service:0.0.1
 SERVER_TAG = $(word 1,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 
-## Runtime args
-SERVER_SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=8080
+## Define the runtime args
+OTEL_ARGS := #-otel-enabled=false
+# OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/sfe -oidc-client-id=fe -oidc-client-secret=d6IgN3ipmUm9TXbnW3OIAMQPSYnCmrKT -oidc-scopes=openid,profile,email
+OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/sfe -oidc-client-id=fe -oidc-client-secret=xz1KKrtutYBGn9Wm5ARe2B8y5Y0IOdJw -oidc-scopes=openid,profile,email
+SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=8080
+MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-url=mongodb://localhost:27017/fe_db
 
 build-fe:
 	@$(NPM) $(NPMFLAGS) --prefix ./web/ui i
@@ -49,19 +46,10 @@ watch-fe:
 	@$(NPM) --prefix ./web/ui run watch
 
 watch-server:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVER_SERVE_ARGS) -trace $(OTEL_ARGS) $(NO_OIDC_ARGS)
-
-watch-server-oidc:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVER_SERVE_ARGS) -trace $(OTEL_ARGS) $(OIDC_ARGS)
-
-# watch-service-mongo:
-# 	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) -trace $(OTEL_ARGS) $(SERVICE_MONGO_ARGS) $(NO_OIDC_ARGS)
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) -trace $(OTEL_ARGS) $(NO_OIDC_ARGS) $(OIDC_ARGS) $(MONGO_ARGS)
 
 run-server: build-fe
-	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVER_SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
-
-# run-service-mongo:
-# 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVICE_SOURCES) $(SERVICE_SERVE_ARGS) $(SERVICE_MONGO_ARGS) $(OTEL_ARGS) $(OIDC_ARGS)
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS)
 
 # Define the clean target
 clean:

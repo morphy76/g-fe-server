@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/morphy76/g-fe-server/internal/db"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/auth"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
@@ -42,7 +43,7 @@ func Handler(
 			Msg("Non functional router registered")
 	}
 	// Add additional checks to test mongodb
-	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot)
+	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot, db.CreateHealthCheck(feServer.DBOpts))
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Health handler registered")

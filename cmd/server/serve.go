@@ -24,6 +24,7 @@ func main() {
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
 	// otelOptionsBuilder := cli.OtelOptionsBuilder()
 	oidcOptionsBuilder := cli.OIDCOptionsBuilder()
+	dbOptionsBuilder := cli.DBOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -61,10 +62,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	dbOptions, err := dbOptionsBuilder()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing db options")
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	startServer(
 		serveOptions,
 		// otelOptions,
 		oidcOptions,
+		dbOptions,
 		trace,
 	)
 }
@@ -73,11 +84,12 @@ func startServer(
 	serveOptions *options.ServeOptions,
 	// otelOptions *options.OtelOptions,
 	oidcOptions *options.OIDCOptions,
+	dbOptions *options.MongoDBOptions,
 	trace *bool,
 ) {
 	sessionStore := createSessionStore(serveOptions)
 
-	appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, trace)
+	appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, dbOptions, trace)
 	// appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, otelOptions, trace)
 	bootLogger := logger.GetLogger(appContext, "feServer")
 	defer cancel()
@@ -129,10 +141,11 @@ func createAppContext(
 	sessionStore sessions.Store,
 	oidcOptions *options.OIDCOptions,
 	// otelOptions *options.OtelOptions,
+	dbOptions *options.MongoDBOptions,
 	trace *bool,
 ) (context.Context, context.CancelFunc) {
 	appContext := logger.InitLogger(context.Background(), trace)
-	appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions)
+	appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions, dbOptions)
 	// appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions, otelOptions)
 	return context.WithCancel(appContext)
 }
