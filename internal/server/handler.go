@@ -69,6 +69,8 @@ func Handler(
 
 	// Context root router with OTEL
 	contextRouter := rootRouter.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
+	// TODO CORS: in the context router to allow MFE and APIs
+	// contextRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 	// contextRouter.Use(middleware.TenantResolver)
 	contextRouter.Use(middleware.RequestLogger)
 	contextRouter.Path("/ui").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +113,6 @@ func Handler(
 
 	// API router
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
-	apiRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 	apiRouter.Use(middleware.JSONResponse)
 	// apiRouter.Use(middleware.PrometheusMiddleware)
 	// TODO: gw oriented auth, inspect and renew
