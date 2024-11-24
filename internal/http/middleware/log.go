@@ -3,9 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/morphy76/g-fe-server/internal/logger"
+	"github.com/rs/zerolog"
 )
 
 type statusRecorder struct {
@@ -55,9 +54,7 @@ func RequestLogger(next http.Handler) http.Handler {
 		next.ServeHTTP(recorder, r)
 
 		if requestLogger.Trace().Enabled() {
-			for k, v := range r.Header {
-				log.Trace().Strs(k, v).Msg("Header")
-			}
+			requestLogger.Trace().Dict("headers", dumpHeaders(r.Header)).Msg("Request Header")
 		}
 
 		requestLogger.Debug().
@@ -67,9 +64,16 @@ func RequestLogger(next http.Handler) http.Handler {
 			Msg("HTTP Request")
 
 		if requestLogger.Trace().Enabled() {
-			for k, v := range recorder.ResponseWriter.Header() {
-				log.Trace().Strs(k, v).Msg("Response Header")
-			}
+			requestLogger.Trace().Dict("headers", dumpHeaders(recorder.ResponseWriter.Header())).Msg("Request Header")
 		}
 	})
+}
+
+func dumpHeaders(headers http.Header) *zerolog.Event {
+	events := zerolog.Dict()
+	for k, v := range headers {
+		events.Strs(k, v)
+	}
+	return events
+
 }
