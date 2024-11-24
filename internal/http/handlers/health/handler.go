@@ -10,14 +10,16 @@ import (
 
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
+	"github.com/morphy76/g-fe-server/internal/options"
 )
 
-func HealthHandlers(
+// Handlers registers the health check handlers
+func Handlers(
+	appContext context.Context,
 	parent *mux.Router,
-	app_context context.Context,
+	serveOptions *options.ServeOptions,
 	additionalChecks ...app_http.HealthCheckFn,
 ) {
-	serveOptions := app_http.ExtractServeOptions(app_context)
 	ctxRoot := serveOptions.ContextRoot
 
 	healthRouter := parent.Path("/health").Subrouter()
@@ -28,7 +30,6 @@ func HealthHandlers(
 
 func onHealth(additionalChecks []app_http.HealthCheckFn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		overallStatus := app_http.Active
 
 		timeoutContext, cancel := context.WithTimeout(r.Context(), 5*time.Second)

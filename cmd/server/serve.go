@@ -3,28 +3,21 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"net/http"
 	"os"
-	"os/signal"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/quasoft/memstore"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
-	app_http "github.com/morphy76/g-fe-server/internal/http"
+	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/options"
-	"github.com/morphy76/g-fe-server/internal/serve"
 	"github.com/morphy76/g-fe-server/internal/server"
 )
 
 func main() {
 
-	zerolog.TimeFieldFormat = time.RFC3339
 	trace := flag.Bool("trace", false, "sets log level to trace")
 
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
@@ -38,11 +31,6 @@ func main() {
 	if *help {
 		flag.Usage()
 		os.Exit(0)
-	}
-
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	if *trace {
-		zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	}
 
 	serveOptions, err := serveOptionsBuilder()
@@ -76,6 +64,7 @@ func main() {
 		serveOptions,
 		otelOptions,
 		oidcOptions,
+		trace,
 	)
 }
 
@@ -83,33 +72,20 @@ func startServer(
 	serveOptions *options.ServeOptions,
 	otelOptions *options.OtelOptions,
 	oidcOptions *options.OidcOptions,
+	trace *bool,
 ) {
-	start := time.Now()
-
-	initialContext, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
 	sessionStore := createSessionStore(serveOptions)
 
-	shutdown, err := cli.SetupOTEL(initialContext, otelOptions)
-	defer shutdown()
-	if err != nil {
-		panic(err)
-	}
-
-	serverContext := app_http.InjectServeOptions(initialContext, serveOptions)
-	oidcOptionsContext := app_http.InjectOidcOptions(serverContext, oidcOptions)
-	sessionStoreContext := app_http.InjectSessionStore(oidcOptionsContext, sessionStore)
-	finalContext := cli.CreateTheOIDCContext(sessionStoreContext, oidcOptions, serveOptions)
-	log.Trace().
-		Msg("Application contextes ready")
+	appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, otelOptions, trace)
+	bootLogger := logger.GetLogger(appContext, "boot")
+	defer cancel()
 
 	rootRouter := mux.NewRouter()
-	apiRouter := server.Handler(rootRouter, finalContext)
-	if log.Trace().Enabled() {
+	server.Handler(appContext, rootRouter)
+	if bootLogger.Trace().Enabled() {
 		rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 			if len(route.GetName()) > 0 {
-				log.Trace().Str("endpoint", route.GetName()).Msg("Endpoint registered")
+				bootLogger.Trace().Str("endpoint", route.GetName()).Msg("Endpoint registered")
 			}
 			return nil
 		})
@@ -117,41 +93,23 @@ func startServer(
 
 	srvErr := make(chan error, 1)
 	go func() {
-		srvErr <- http.ListenAndServe(fmt.Sprintf("%s:%s", serveOptions.Host, serveOptions.Port), rootRouter)
-	}()
-
-	log.Info().
-		Str("host", serveOptions.Host).
-		Str("port", serveOptions.Port).
-		Str("ctx", serveOptions.ContextRoot).
-		Str("serving", serveOptions.StaticPath).
-		Int64("setup_ns", time.Since(start).Nanoseconds()).
-		Msg("Server started")
-
-	newRoutesCh := make(chan []byte, 1024)
-	startFn, stopFn := serve.StartRouteRegistry(*serveOptions, newRoutesCh)
-	startFn()
-	defer stopFn()
-
-	go func() {
-		for newRoute := range newRoutesCh {
-			server.ProxyRoute(serveOptions.ContextRoot, apiRouter, string(newRoute))
-		}
+		srvErr <- server.ExtractFEServer(appContext).ListenAndServe(appContext, rootRouter)
 	}()
 
 	select {
-	case err = <-srvErr:
-		log.Info().
+	case err := <-srvErr:
+		bootLogger.Info().
 			Err(err).
 			Msg("Server stopped")
-	case <-finalContext.Done():
-		log.Info().
+	case <-appContext.Done():
+		bootLogger.Info().
 			Msg("Server stopped")
-		stop()
+		cancel()
 	}
 }
 
-func createSessionStore(serveOptions *options.ServeOptions) *memstore.MemStore {
+func createSessionStore(serveOptions *options.ServeOptions) sessions.Store {
+	// TODO from memstore to https://github.com/kidstuff/mongostore
 	sessionStore := memstore.NewMemStore([]byte(serveOptions.SessionKey))
 	sessionStore.Options = &sessions.Options{
 		Path:     serveOptions.ContextRoot,
@@ -161,9 +119,17 @@ func createSessionStore(serveOptions *options.ServeOptions) *memstore.MemStore {
 		Secure:   serveOptions.SessionSecureCookies,
 		SameSite: serveOptions.SessionSameSite,
 	}
-	log.Trace().
-		Str("path", serveOptions.ContextRoot).
-		Int("max_age", serveOptions.SessionMaxAge).
-		Msg("Session store ready")
 	return sessionStore
+}
+
+func createAppContext(
+	serveOpts *options.ServeOptions,
+	sessionStore sessions.Store,
+	oidcOptions *options.OidcOptions,
+	otelOptions *options.OtelOptions,
+	trace *bool,
+) (context.Context, context.CancelFunc) {
+	appContext := logger.InitLogger(context.Background(), trace)
+	appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions, otelOptions)
+	return context.WithCancel(appContext)
 }
