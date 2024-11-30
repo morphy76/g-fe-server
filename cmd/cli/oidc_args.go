@@ -46,7 +46,6 @@ const (
 // OIDCOptionsBuilder returns a function that can be used to build OIDC options
 func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 
-	oidcDisabledArg := flag.Bool("oidc-disabled", false, "Disable OIDC.")
 	oidcIssuerArg := flag.String("oidc-issuer", " ", "OIDC issuer. Environment: "+envOIDCIssuer)
 	oidcClientIDArg := flag.String("oidc-client-id", " ", "OIDC client id. Environment: "+envOIDCClientID)
 	oidcClientSecretArg := flag.String("oidc-client-secret", " ", "OIDC client secret. Environment: "+envOIDCClientSecret)
@@ -54,13 +53,11 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 
 	rv := func() (*options.OIDCOptions, error) {
 
-		oidcDisabled := *oidcDisabledArg
-
 		oidcIssuer, found := os.LookupEnv(envOIDCIssuer)
 		if !found {
 			oidcIssuer = *oidcIssuerArg
 		}
-		if !oidcDisabled && oidcIssuer == "" {
+		if oidcIssuer == "" {
 			return nil, ErrMissingIssuer
 		}
 
@@ -68,7 +65,7 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 		if !found {
 			oidcClientID = *oidcClientIDArg
 		}
-		if !oidcDisabled && oidcClientID == "" {
+		if oidcClientID == "" {
 			return nil, ErrMissingClientID
 		}
 
@@ -76,7 +73,7 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 		if !found {
 			oidcClientSecret = *oidcClientSecretArg
 		}
-		if !oidcDisabled && oidcClientSecret == "" {
+		if oidcClientSecret == "" {
 			return nil, ErrMissingClientSecret
 		}
 
@@ -86,7 +83,6 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 		}
 
 		return &options.OIDCOptions{
-			Disabled:     oidcDisabled,
 			Issuer:       oidcIssuer,
 			ClientID:     oidcClientID,
 			ClientSecret: oidcClientSecret,

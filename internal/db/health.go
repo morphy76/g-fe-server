@@ -6,11 +6,11 @@ import (
 
 	app_http "github.com/morphy76/g-fe-server/internal/http"
 	"github.com/morphy76/g-fe-server/internal/options"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 // CreateHealthCheck creates a health check function for the db
-func CreateHealthCheck(dbOptions *options.MongoDBOptions) app_http.HealthCheckFn {
+func CreateHealthCheck(dbOptions *options.MongoDBOptions) app_http.AdditionalCheckFn {
 	client, err := NewClient(dbOptions)
 	if err != nil {
 		panic(err)
@@ -18,31 +18,34 @@ func CreateHealthCheck(dbOptions *options.MongoDBOptions) app_http.HealthCheckFn
 	return testDbStatus(client)
 }
 
-func testDbStatus(client *mongo.Client) func(requestContext context.Context) (string, app_http.Status) {
-	return func(requestContext context.Context) (string, app_http.Status) {
-		dbStatus := app_http.Inactive
-		label := "MongoDB"
+func testDbStatus(client *mongo.Client) app_http.AdditionalCheckFn {
+	return func(requestContext context.Context) (app_http.HealthCheckFn, app_http.Probe) {
+		return func(requestContext context.Context) (string, app_http.Status) {
 
-		timeoutContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+			dbStatus := app_http.Inactive
+			label := "MongoDB"
 
-		errChan := make(chan error, 1)
+			timeoutContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-		go func() {
-			errChan <- client.Ping(timeoutContext, nil)
-		}()
+			errChan := make(chan error, 1)
 
-		select {
-		case <-timeoutContext.Done():
-			dbStatus = app_http.Inactive
-		case err := <-errChan:
-			if err != nil {
+			go func() {
+				errChan <- client.Ping(timeoutContext, nil)
+			}()
+
+			select {
+			case <-timeoutContext.Done():
 				dbStatus = app_http.Inactive
-			} else {
-				dbStatus = app_http.Active
+			case err := <-errChan:
+				if err != nil {
+					dbStatus = app_http.Inactive
+				} else {
+					dbStatus = app_http.Active
+				}
 			}
-		}
 
-		return label, dbStatus
+			return label, dbStatus
+		}, app_http.Live | app_http.Ready
 	}
 }

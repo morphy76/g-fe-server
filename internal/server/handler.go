@@ -40,7 +40,10 @@ func Handler(
 			Msg("Non functional router registered")
 	}
 	// Add additional checks to test mongodb
-	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot, db.CreateHealthCheck(feServer.DBOpts))
+	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot,
+		CreateHealthCheck(feServer.RelayingParty),
+		db.CreateHealthCheck(feServer.DBOpts),
+	)
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Health handler registered")
@@ -71,25 +74,23 @@ func Handler(
 	}
 
 	// Auth router
-	if feServer.IsOIDCEnabled() {
-		authRouter := contextRouter.PathPrefix("/auth").Subrouter()
-		authRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.ServeOpts.SessionName))
-		if routerLog.Trace().Enabled() {
-			routerLog.Trace().
-				Msg("Auth router registered")
-		}
-		auth.IAMHandlers(authRouter, feServer.ServeOpts, feServer.RelayingParty)
-		if routerLog.Trace().Enabled() {
-			routerLog.Trace().
-				Msg("Auth handler registered")
-		}
+	authRouter := contextRouter.PathPrefix("/auth").Subrouter()
+	authRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.ServeOpts.SessionName))
+	if routerLog.Trace().Enabled() {
+		routerLog.Trace().
+			Msg("Auth router registered")
+	}
+	auth.IAMHandlers(authRouter, feServer.ServeOpts, feServer.RelayingParty)
+	if routerLog.Trace().Enabled() {
+		routerLog.Trace().
+			Msg("Auth handler registered")
 	}
 
 	// Static content
 	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()
 	staticRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.ServeOpts.SessionName))
-	staticRouter.Use(middleware.HTTPSessionAuthenticationRequired(feServer.IsOIDCEnabled(), feServer.ServeOpts))
-	staticRouter.Use(middleware.HTTPSessionInspectAndRenew(feServer.IsOIDCEnabled(), feServer.ResourceServer, feServer.RelayingParty, feServer.ServeOpts))
+	staticRouter.Use(middleware.HTTPSessionAuthenticationRequired(feServer.ServeOpts))
+	staticRouter.Use(middleware.HTTPSessionInspectAndRenew(feServer.ResourceServer, feServer.RelayingParty, feServer.ServeOpts))
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Static router registered")

@@ -65,19 +65,17 @@ func NewFEServer(
 		OtelShutdownFn: otelShutdown,
 	}
 
-	if !oidcOptions.Disabled {
-		rp, err := serve.SetupOIDC(serveOpts, oidcOptions)
-		if err != nil {
-			panic(err)
-		}
-		feServer.RelayingParty = rp
-
-		rs, err := rs.NewResourceServerClientCredentials(context.Background(), oidcOptions.Issuer, oidcOptions.ClientID, oidcOptions.ClientSecret)
-		if err != nil {
-			panic(err)
-		}
-		feServer.ResourceServer = rs
+	rp, err := serve.SetupOIDC(serveOpts, oidcOptions)
+	if err != nil {
+		panic(err)
 	}
+	feServer.RelayingParty = rp
+
+	rs, err := rs.NewResourceServerClientCredentials(context.Background(), oidcOptions.Issuer, oidcOptions.ClientID, oidcOptions.ClientSecret)
+	if err != nil {
+		panic(err)
+	}
+	feServer.ResourceServer = rs
 
 	return context.WithValue(ctx, appModelCtxKey, feServer)
 }
@@ -93,7 +91,6 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 			Str("ctx", feServer.ServeOpts.ContextRoot).
 			Str("serving", feServer.ServeOpts.StaticPath)).
 		Dict(("oidc_opts"), zerolog.Dict().
-			Bool("enabled", feServer.IsOIDCEnabled()).
 			Str("issuer", feServer.RelayingParty.Issuer())).
 		Dict("db_opts", zerolog.Dict().
 			Str("url", feServer.DBOpts.URL)).
@@ -103,11 +100,6 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 		Msg("Server started")
 
 	return http.ListenAndServe(feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port, rootRouter)
-}
-
-// IsOIDCEnabled returns true if OIDC is enabled
-func (feServer *FEServer) IsOIDCEnabled() bool {
-	return feServer.RelayingParty != nil
 }
 
 // Shutdown stops the server

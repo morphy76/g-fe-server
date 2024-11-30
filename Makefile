@@ -27,7 +27,7 @@ SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 
 ## Define the runtime args
 OTEL_ARGS := #-otel-enabled=false
-# OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/sfe -oidc-client-id=fe -oidc-client-secret=d6IgN3ipmUm9TXbnW3OIAMQPSYnCmrKT -oidc-scopes=openid,profile,email
+#OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/sfe -oidc-client-id=fe -oidc-client-secret=d6IgN3ipmUm9TXbnW3OIAMQPSYnCmrKT -oidc-scopes=openid,profile,email
 OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/sfe -oidc-client-id=fe -oidc-client-secret=xz1KKrtutYBGn9Wm5ARe2B8y5Y0IOdJw -oidc-scopes=openid,profile,email
 SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=8080
 MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-url=mongodb://localhost:27017/fe_db

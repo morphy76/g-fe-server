@@ -58,6 +58,22 @@ services:
     networks:
       - fe-private-network
 
+  # zipkin:
+  #   image: openzipkin/zipkin:latest
+  #   restart: unless-stopped
+  #   ports:
+  #     - 38080:9411
+  #   networks:
+  #     - fe-private-network
+
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   restart: unless-stopped
+  #   ports:
+  #     - 48080:9090
+  #   networks:
+  #     - fe-private-network
+
 networks:
   fe-private-network:
 

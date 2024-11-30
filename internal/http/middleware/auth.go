@@ -19,14 +19,9 @@ import (
 const authLogout = "/auth/logout"
 
 // HTTPSessionInspectAndRenew checks the session for an active token and renews it if necessary
-func HTTPSessionInspectAndRenew(enabled bool, resourceServer rs.ResourceServer, relyingParty rp.RelyingParty, serveOpts *options.ServeOptions) func(http.Handler) http.Handler {
+func HTTPSessionInspectAndRenew(resourceServer rs.ResourceServer, relyingParty rp.RelyingParty, serveOpts *options.ServeOptions) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !enabled {
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			session := app_http.ExtractSession(r.Context())
 			logger := logger.GetLogger(r.Context(), "auth")
 
@@ -89,14 +84,9 @@ func HTTPSessionInspectAndRenew(enabled bool, resourceServer rs.ResourceServer, 
 }
 
 // HTTPSessionAuthenticationRequired checks the session for an active token and redirects to the login page if necessary
-func HTTPSessionAuthenticationRequired(enabled bool, serveOpts *options.ServeOptions) func(http.Handler) http.Handler {
+func HTTPSessionAuthenticationRequired(serveOpts *options.ServeOptions) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !enabled {
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			session := app_http.ExtractSession(r.Context())
 			logger := logger.GetLogger(r.Context(), "auth")
 
