@@ -2,10 +2,14 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/morphy76/g-fe-server/internal/db"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/auth"
@@ -103,7 +107,14 @@ func Handler(
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
 	apiRouter.Use(middleware.JSONResponse)
 	apiRouter.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		<-time.After(1 * time.Second)
+		_, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "testSpan")
+		defer span.End()
+		span.AddEvent("testEvent")
 		w.Write([]byte("{\"message\": \"Hello, World!\"}"))
+		<-time.After(1 * time.Second)
+		span.RecordError(errors.New("testError"))
+		span.SetStatus(codes.Error, "testError")
 	})
 	// apiRouter.Use(middleware.PrometheusMiddleware)
 	// TODO: gw oriented auth, inspect and renew

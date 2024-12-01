@@ -26,7 +26,7 @@ SERVER_TAG = $(word 1,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 
 ## Define the runtime args
-OTEL_ARGS := #-otel-enabled=false
+OTEL_ARGS := -otel-enabled=true --otlp-url=http://localhost:38080/api/v2/spans
 #OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/sfe -oidc-client-id=fe -oidc-client-secret=d6IgN3ipmUm9TXbnW3OIAMQPSYnCmrKT -oidc-scopes=openid,profile,email
 OIDC_ARGS := -oidc-issuer=http://localhost:28080/realms/sfe -oidc-client-id=fe -oidc-client-secret=xz1KKrtutYBGn9Wm5ARe2B8y5Y0IOdJw -oidc-scopes=openid,profile,email
 SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=8080
