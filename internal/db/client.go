@@ -2,11 +2,13 @@ package db
 
 import (
 	"errors"
+	"net/http"
 	"net/url"
 
 	"github.com/morphy76/g-fe-server/internal/options"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	mongo_opts "go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // ErrMissingDBOptions is returned when the db options are missing
@@ -36,7 +38,8 @@ func NewClient(dbOptions *options.MongoDBOptions) (*mongo.Client, error) {
 
 		clientOpts := mongo_opts.Client().
 			ApplyURI(useURL.String()).
-			SetServerAPIOptions(serverAPI)
+			SetServerAPIOptions(serverAPI).
+			SetHTTPClient(instrumentNewHTTPClient())
 
 		mongoClient, err := mongo.Connect(clientOpts)
 		if err != nil {
@@ -45,4 +48,12 @@ func NewClient(dbOptions *options.MongoDBOptions) (*mongo.Client, error) {
 
 		return mongoClient, nil
 	}
+}
+
+func instrumentNewHTTPClient() *http.Client {
+	transport := otelhttp.NewTransport(http.DefaultTransport)
+	client := &http.Client{
+		Transport: transport,
+	}
+	return client
 }

@@ -21,6 +21,7 @@ func IsRequiredOTLPURL(err error) bool {
 
 const (
 	envEnableOTelExport = "ENABLE_OTEL_EXPORT"
+	envServiceName      = "OTLP_SERVICE_NAME"
 	envOTLPURL          = "OTLP_URL"
 )
 
@@ -28,6 +29,7 @@ const (
 func OTelOptionsBuilder() OTelOptionsBuidlerFn {
 
 	otlpEnabledArg := flag.Bool("otel-enabled", false, "Enable to export onto OTLP. Environment: "+envEnableOTelExport)
+	otlpServiceNameArg := flag.String("otel-service-name", "fe-server", "OTLP service name. Environment: "+envServiceName)
 	otlpUrlArg := flag.String("otlp-url", "", "OTLP collector. Environment: "+envOTLPURL)
 
 	rv := func() (*options.OTelOptions, error) {
@@ -36,6 +38,11 @@ func OTelOptionsBuilder() OTelOptionsBuidlerFn {
 		otlpEnabledStr, found := os.LookupEnv(envEnableOTelExport)
 		if found {
 			otlpEnabled = otlpEnabledStr == "true"
+		}
+
+		serviceName, found := os.LookupEnv(envServiceName)
+		if !found {
+			serviceName = *otlpServiceNameArg
 		}
 
 		url, found := os.LookupEnv(envOTLPURL)
@@ -47,8 +54,9 @@ func OTelOptionsBuilder() OTelOptionsBuidlerFn {
 		}
 
 		return &options.OTelOptions{
-			Enabled: otlpEnabled,
-			URL:     url,
+			Enabled:     otlpEnabled,
+			ServiceName: serviceName,
+			URL:         url,
 		}, nil
 	}
 

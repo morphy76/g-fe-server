@@ -16,6 +16,7 @@ require (
 	github.com/zitadel/oidc/v3 v3.33.1
 	go.mongodb.org/mongo-driver/v2 v2.0.0-beta2
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.57.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.57.0
 	go.opentelemetry.io/otel v1.32.0
 	go.opentelemetry.io/otel/exporters/zipkin v1.32.0
 	go.opentelemetry.io/otel/sdk v1.32.0

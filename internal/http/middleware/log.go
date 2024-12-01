@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/rs/zerolog"
@@ -26,7 +27,6 @@ func RequestLogger(next http.Handler) http.Handler {
 			Status:         200,
 		}
 
-		activeSpan := trace.SpanFromContext(r.Context())
 		// ownership := app_http.ExtractOwnership(r.Context())
 
 		// if ownership.Tenant != "" {
@@ -42,23 +42,31 @@ func RequestLogger(next http.Handler) http.Handler {
 		// 		)
 		// }
 
-		requestLogger := logger.GetLogger(r.Context(), "http").With().
-			Dict("correlation", zerolog.Dict().
-				Str("span_id", activeSpan.SpanContext().SpanID().String()).
-				Str("trace_id", activeSpan.SpanContext().TraceID().String()),
-			).
-			Logger()
+		hook := zerolog.HookFunc(func(e *zerolog.Event, level zerolog.Level, msg string) {
+			activeSpan := trace.SpanFromContext(r.Context())
+			if activeSpan.SpanContext().TraceID().IsValid() {
+				e.Dict("correlation", zerolog.Dict().
+					Str("span_id", activeSpan.SpanContext().SpanID().String()).
+					Str("trace_id", activeSpan.SpanContext().TraceID().String()),
+				)
+			}
+		})
+		requestLogger := logger.GetLogger(r.Context(), "http").Hook(hook)
+
+		before := time.Now()
 		next.ServeHTTP(recorder, r)
+		requestDuration := time.Since(before)
 
 		if requestLogger.Trace().Enabled() {
 			requestLogger.Trace().Dict("headers", dumpHeaders(r.Header)).Msg("Request Header")
 		}
 
-		requestLogger.Debug().
+		requestLogger.Debug().Dict("request", zerolog.Dict().
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
-			Int("code", recorder.Status).
-			Msg("HTTP Request")
+			Dur("duration_ns", time.Duration(requestDuration)).
+			Int("code", recorder.Status),
+		).Msg("HTTP Request")
 
 		if requestLogger.Trace().Enabled() {
 			requestLogger.Trace().Dict("headers", dumpHeaders(recorder.ResponseWriter.Header())).Msg("Request Header")

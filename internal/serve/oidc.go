@@ -9,6 +9,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	httphelper "github.com/zitadel/oidc/v3/pkg/http"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // SetupOIDC sets up the OIDC client
@@ -40,14 +41,10 @@ func SetupOIDC(
 		cookieHandlerOpts...,
 	)
 
-	httpClient := &http.Client{
-		Timeout: time.Minute,
-	}
-
 	oidcOpts := []rp.Option{
 		rp.WithCookieHandler(cookieHandler),
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
-		rp.WithHTTPClient(httpClient),
+		rp.WithHTTPClient(instrumentNewHTTPClient()),
 	}
 
 	oidcClient, err := rp.NewRelyingPartyOIDC(
@@ -64,4 +61,12 @@ func SetupOIDC(
 	}
 
 	return oidcClient, err
+}
+
+func instrumentNewHTTPClient() *http.Client {
+	transport := otelhttp.NewTransport(http.DefaultTransport)
+	client := &http.Client{
+		Transport: transport,
+	}
+	return client
 }

@@ -12,7 +12,6 @@ import (
 )
 
 const (
-	// LoggerCtxKey is the key used to store the logger in the context
 	LoggerCtxKey common.CtxKey = "Logger"
 	t0CtxKey     common.CtxKey = "T0"
 )
@@ -20,6 +19,15 @@ const (
 // T0 returns the time the context was created
 func t0(ctx context.Context) time.Time {
 	return ctx.Value(t0CtxKey).(time.Time)
+}
+
+// InjectLogger adds the logger to the context
+func InjectLogger(ctx context.Context, appContext context.Context) context.Context {
+	logger := appContext.Value(LoggerCtxKey).(zerolog.Context)
+	t0 := appContext.Value(t0CtxKey).(time.Time)
+	rv := context.WithValue(ctx, LoggerCtxKey, logger)
+	rv = context.WithValue(rv, t0CtxKey, t0)
+	return rv
 }
 
 // InitLogger creates a Context with a new Logger

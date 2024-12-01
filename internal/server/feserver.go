@@ -39,6 +39,12 @@ func ExtractFEServer(ctx context.Context) *FEServer {
 	return ctx.Value(appModelCtxKey).(*FEServer)
 }
 
+// InjectFEServer adds the FEServer to the context
+func InjectFEServer(ctx context.Context, appContext context.Context) context.Context {
+	feServer := ExtractFEServer(appContext)
+	return context.WithValue(ctx, appModelCtxKey, feServer)
+}
+
 // NewFEServer creates a Context with a new EventBus
 func NewFEServer(
 	ctx context.Context,
@@ -96,6 +102,7 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 			Str("url", feServer.DBOpts.URL)).
 		Dict("otel_opts", zerolog.Dict().
 			Bool("enabled", feServer.OTelOpts.Enabled).
+			Str("service_name", feServer.OTelOpts.ServiceName).
 			Str("url", feServer.OTelOpts.URL)).
 		Msg("Server started")
 

@@ -76,6 +76,8 @@ func onHealth(additionalChecks []app_http.HealthCheckFn) http.HandlerFunc {
 
 		if healthResponse.Status == app_http.Inactive {
 			log.Warn().Interface("health", healthResponse).Msg("health check")
+		} else {
+			log.Trace().Interface("health", healthResponse).Msg("health check")
 		}
 
 		json.NewEncoder(w).Encode(healthResponse)

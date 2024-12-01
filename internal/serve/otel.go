@@ -13,11 +13,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
-const (
-	// OTelAppName is the name of the application
-	OTelAppName = "g-fe-server"
-)
-
 // SetupOTelSDK sets up the OTel SDK
 func SetupOTelSDK(otelOptions *options.OTelOptions) (shutdown func() error, err error) {
 
@@ -41,7 +36,7 @@ func SetupOTelSDK(otelOptions *options.OTelOptions) (shutdown func() error, err 
 	propagator := newPropagator()
 	otel.SetTextMapPropagator(propagator)
 
-	tracerProvider, err := newTraceProvider(otelOptions.Enabled, otelOptions.URL)
+	tracerProvider, err := newTraceProvider(otelOptions.Enabled, otelOptions.ServiceName, otelOptions.URL)
 	if err != nil {
 		handleErr(err)
 		return
@@ -59,7 +54,7 @@ func newPropagator() propagation.TextMapPropagator {
 	)
 }
 
-func newTraceProvider(enabled bool, url string) (*trace.TracerProvider, error) {
+func newTraceProvider(enabled bool, serviceName string, url string) (*trace.TracerProvider, error) {
 	var traceProvider *trace.TracerProvider
 
 	if enabled {
@@ -70,7 +65,7 @@ func newTraceProvider(enabled bool, url string) (*trace.TracerProvider, error) {
 		traceProvider = trace.NewTracerProvider(
 			trace.WithBatcher(traceExporter),
 			trace.WithResource(resource.NewSchemaless(
-				attribute.String("service.name", OTelAppName),
+				attribute.String("service.name", serviceName),
 			)),
 		)
 	} else {
