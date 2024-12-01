@@ -69,7 +69,7 @@ func RequestLogger(next http.Handler) http.Handler {
 		).Msg("HTTP Request")
 
 		if requestLogger.Trace().Enabled() {
-			requestLogger.Trace().Dict("headers", dumpHeaders(recorder.ResponseWriter.Header())).Msg("Request Header")
+			requestLogger.Trace().Dict("headers", dumpHeaders(recorder.ResponseWriter.Header())).Msg("Response Header")
 		}
 	})
 }

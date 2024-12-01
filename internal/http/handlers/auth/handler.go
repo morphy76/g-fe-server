@@ -19,10 +19,11 @@ import (
 func IAMHandlers(authRouter *mux.Router, serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) {
 	ctxRoot := serveOptions.ContextRoot
 
-	authRouter.HandleFunc("/login", onLogin(ctxRoot, relyingParty)).Methods("GET").Name("GET " + ctxRoot + "/auth/login")
+	authRouter.HandleFunc("/login", onLogin(ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
 	authRouter.HandleFunc("/logout", onLogout(serveOptions, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
 	authRouter.HandleFunc("/info", onInfo(ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
+	authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
 }
 
 func onLogin(ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
@@ -132,8 +133,29 @@ func onInfo(ctxRoot string) http.HandlerFunc {
 	}
 }
 
-func marshalUserinfo(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
+func onBackChannelLogout() http.HandlerFunc {
+	// TODO implement back channel logout
+	return func(w http.ResponseWriter, r *http.Request) {
+		log := logger.GetLogger(r.Context(), "auth")
 
+		log.Debug().Msg("Back channel logout")
+
+		var body map[string]interface{}
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			http.Error(w, "Failed to decode request body", http.StatusBadRequest)
+			return
+		}
+		defer r.Body.Close()
+
+		log.Trace().Interface("body", body).Msg("Back channel logout")
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	}
+}
+
+func marshalUserinfo(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
 	session := app_http.ExtractSession(r.Context())
 	logger := logger.GetLogger(r.Context(), "auth")
 

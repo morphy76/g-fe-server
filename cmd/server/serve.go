@@ -20,6 +20,7 @@ import (
 )
 
 func main() {
+	// Gather staryup flags
 
 	trace := flag.Bool("trace", false, "sets log level to trace")
 
@@ -89,15 +90,19 @@ func startServer(
 	dbOptions *options.MongoDBOptions,
 	trace *bool,
 ) {
+	// manage termination criteria and channels
 	srvErr := make(chan error, 1)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
+	// HTTP session store
 	sessionStore := createSessionStore(serveOptions)
 
+	// Server application context which provides the feServer instance and log facilities
 	appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, dbOptions, otelOptions, trace)
 	bootLogger := logger.GetLogger(appContext, "feServer")
 
+	// Server routes
 	rootRouter := mux.NewRouter()
 	server.Handler(appContext, rootRouter)
 	events := zerolog.Arr()
@@ -109,17 +114,22 @@ func startServer(
 	})
 	bootLogger.Info().Array("endpoints", events).Msg("Endpoint registered")
 
+	// Start the HTTP server
 	go func() {
 		srvErr <- server.ExtractFEServer(appContext).ListenAndServe(appContext, rootRouter)
 	}()
 
+	// Wait for termination signal
 	for {
 		select {
+		// Termination OS signals
 		case <-sigChan:
 			cancel()
+		// HTTP server error
 		case err := <-srvErr:
 			bootLogger.Err(err).Msg("Fail to start server")
 			cancel()
+		// Application context termination, triggered by OS signal or HTTP server error
 		case <-appContext.Done():
 			server.ExtractFEServer(appContext).Shutdown(appContext)
 			return
@@ -149,7 +159,38 @@ func createAppContext(
 	otelOptions *options.OTelOptions,
 	trace *bool,
 ) (context.Context, context.CancelFunc) {
+	// as server application, the context is enriched with logger and server instance
+	// the logger is structured, attributes are in the structure when resonable
+	/*
+		{
+			"timing": {
+				"timestamp": "",
+				"since_start_ms": ""
+			},
+			"category": "",
+			"owner": {
+				"tenant_id": "",
+				"subscription_id": "",
+				"group_id": "",
+				"system": false
+			},
+			"correlation": {
+				"span_id": "",
+				"trace_id": ""
+			},
+			"request": {
+				"method": "",
+				"path": "",
+				"duration_ns": 0,
+				"code": 200
+			}
+		}
+	*/
 	appContext := logger.InitLogger(context.Background(), trace)
+	// as server application, the context is enriched with server instance
+	// the server instance is the main entry point for the server application
+	// it is used to start the server, register routes, and shutdown the server
+	// it provides the HTTP server, with HTTP session, the OIDC client, and the database client
 	appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions, dbOptions, otelOptions)
 	return context.WithCancel(appContext)
 }

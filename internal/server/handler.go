@@ -27,10 +27,19 @@ func Handler(
 	feServer := ExtractFEServer(appContext)
 	routerLog := logger.GetLogger(appContext, "router")
 
+	// rootRouter provides OTEL, application context facilities and the request logger; it splits into:
+	// - Non functional router for health checks and metrics
+	// - Context router for
+	//  - Auth router for OIDC authentication, with HTTP session
+	//  - Static router for serving static content, with HTTP session and authenticated based on HTTP session
+	//  - API router for serving APIs, with default JSON response content
+
 	// Parent router
+	// enrich the context for OTEL tracing
 	rootRouter.Use(otelmux.Middleware(feServer.OTelOpts.ServiceName,
 		otelmux.WithPublicEndpoint(),
 	))
+	// enrich the request context with logger and server instance extracting from the application context
 	rootRouter.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			useRequestContext := InjectFEServer(r.Context(), appContext)
@@ -39,6 +48,7 @@ func Handler(
 			next.ServeHTTP(w, useRequest)
 		})
 	})
+	// middleware to trace HTTP requests and responses
 	rootRouter.Use(middleware.RequestLogger)
 
 	// Non functional router
@@ -47,7 +57,7 @@ func Handler(
 		routerLog.Trace().
 			Msg("Non functional router registered")
 	}
-	// Add additional checks to test mongodb
+	// health checks to provide liveness and readiness endpoints
 	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot,
 		CreateHealthCheck(feServer.RelayingParty),
 		db.CreateHealthCheck(feServer.DBOpts),
@@ -62,7 +72,7 @@ func Handler(
 	// 		Msg("Metrics handler registered")
 	// }
 
-	// Context root router with OTel
+	// Context root router
 	contextRouter := rootRouter.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
 	// TODO CORS: in the context router to allow MFE and APIs
 	// contextRouter.Use(mux.CORSMethodMiddleware(apiRouter))
@@ -106,6 +116,7 @@ func Handler(
 	// API router
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
 	apiRouter.Use(middleware.JSONResponse)
+	// test API
 	apiRouter.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 		<-time.After(1 * time.Second)
 		_, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "testSpan")

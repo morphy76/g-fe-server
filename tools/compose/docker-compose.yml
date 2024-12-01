@@ -20,7 +20,7 @@ services:
     image: mongo-express:latest
     restart: unless-stopped
     ports:
-      - 18080:8081
+      - 8081:8081
     depends_on:
       - "go_db"
     environment:
@@ -33,36 +33,34 @@ services:
   kc_db:
     image: docker.io/bitnami/postgresql:latest
     restart: unless-stopped
+    ports:
+      - 5432:5432
     environment:
       ALLOW_EMPTY_PASSWORD: yes
       POSTGRESQL_USERNAME: keycloak
       POSTGRESQL_DATABASE: keycloak
     volumes:
       - postgresql_data:/bitnami/postgresql
-    networks:
-      - fe-private-network
 
   iam:
     image: docker.io/bitnami/keycloak:latest
     restart: unless-stopped
-    ports:
-      - 28080:8080
     depends_on:
       - "kc_db"
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-      KEYCLOAK_DATABASE_HOST: kc_db
+      KEYCLOAK_DATABASE_HOST: localhost
       KEYCLOAK_DATABASE_USER: keycloak
       KEYCLOAK_DATABASE_NAME: keycloak
-    networks:
-      - fe-private-network
+      KEYCLOAK_BIND_ADDRESS: 0.0.0.0
+    network_mode: "host"
 
   zipkin:
     image: openzipkin/zipkin:latest
     restart: unless-stopped
     ports:
-      - 38080:9411
+      - 9411:9411
     networks:
       - fe-private-network
 

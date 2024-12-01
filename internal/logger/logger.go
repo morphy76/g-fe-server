@@ -51,7 +51,7 @@ func GetLogger(ctx context.Context, category string) zerolog.Logger {
 	hook := zerolog.HookFunc(func(e *zerolog.Event, level zerolog.Level, msg string) {
 		e.Dict("timing", zerolog.Dict().
 			Timestamp().
-			Dur("since_start", time.Since(startTime)/1000),
+			Dur("since_start_ms", time.Since(startTime)/1000),
 		)
 	})
 
