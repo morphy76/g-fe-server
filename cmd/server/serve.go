@@ -20,7 +20,7 @@ import (
 )
 
 func main() {
-	// Gather staryup flags
+	// Gather startup flags
 
 	trace := flag.Bool("trace", false, "sets log level to trace")
 

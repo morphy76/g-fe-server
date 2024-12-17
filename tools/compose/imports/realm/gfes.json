@@ -657,14 +657,14 @@
       "clientId": "ps",
       "name": "Presentation Server",
       "description": "",
-      "rootUrl": "http://localhost:8080/",
-      "adminUrl": "http://localhost:8080/",
+      "rootUrl": "http://localhost:3000/",
+      "adminUrl": "http://localhost:3000/",
       "baseUrl": "",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "**********",
+      "secret": "tefnJ7pbekZuTV7vPVpI3VHPNto7LlOy",
       "redirectUris": [
         "",
         "/*"
