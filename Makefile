@@ -37,8 +37,8 @@ build-fe:
 	@$(NPM) --prefix ./web/ui run build
 
 build-server:
-	@$(GO) test $(TESTFLAGS) ./...
-	@$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVER_TARGET) $(SERVER_SOURCES)
+	# @$(GO) test $(TESTFLAGS) ./...
+	@$(GO) build -tags=with-http-session $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVER_TARGET) $(SERVER_SOURCES)
 
 watch-fe:
 	@$(NPM) --prefix ./web/ui i

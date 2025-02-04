@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/cmd/options"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	mongo_opts "go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"

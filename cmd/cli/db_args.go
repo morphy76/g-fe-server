@@ -5,7 +5,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/cmd/options"
 )
 
 // DBOptionsBuidlerFn is a function that builds a DbOptions object from the command line arguments

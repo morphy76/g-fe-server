@@ -1,61 +1,8 @@
 # Go-based presentation server for a react application
 
-## TODO
-
-### Doing
-
-### Backlog
-
-- multitenancy (must)
-  - HTTP header tenant resolver ("done")
-  - JWT tenant resolver
-  -> claims and email domain
-  -> fix logger tenant resolution
-- authentication & authorization (must)
-  -> introspect just checks the token regardless the IDP session
-  -> integrate KC in the helm
-  -> https://openid.net/specs/openid-connect-core-1_0-35.html
-  - JWT authenticated APIs: direct call (http header) vs UI calls (http session?)
-- API versioning
-- circuit braker
-- helm review & service mesh (istio)
-- abstraction of server and service handler
-- split test exec for server and service
-- redis integration (as a client, as a mongo cache, as an http session store) + health
-- kafka integration... mmm SSE/WS + frontend pseudo-chat (?) + health (sarama), anyway more protocols
-- zookeeper playground?
-- otel for system dependencies: mongo, kafka & redis
-- prometheus for system dependencies: mongo, kafka & redis
-- cloud friendly http session
-  - shared store
-  - memstore is not a cloud firendly way to handle the HTTP session, I would like to use mongo to reduce the number of integrated systems but, the mongostore recommended by Gorilla is not a top choice
-  - back-channel logout
-- openapi
-- godoc
-- drill down about tests, e.g. fail when coverage is not achieved
-  - Pact (https://pkg.go.dev/github.com/pact-foundation/pact-go/v2)
-- Logging: create a functional approach to logs, attributes and log propagation
-- what's the vendor directory
-- Accessibility (fun)
-- FE crud
-  - use query cache and optimistic updates (must)
-- selected example in URL instead of react useState (fun)
-  - uri driven component status
-- error boundary (fun)
-- storybook (fun)
-- typedoc (fun)
-- PWA (fun)
-- improve responsiveness for mobiles? (fun)
-- microfrontend serve layout (nice)
-  - mfe out-of-the-box versioning
-- React 19 (fun)
-- more mongo client options
-
 ## What happened
 
-Learning Go while developing a presentation server: a presentation server is a Backend For Front-end component (<https://microservices.io/patterns/apigateway.html>) which exposes, in this case, a react application of a very simple entity CRUD.
-
-In this scenario, the BFF also performs CRUD operations instead of acting as a gateway to downstream microservices.
+A presentation server is a Backend For Front-end component (<https://microservices.io/patterns/apigateway.html>) for react UIs.
 
 ### Go application
 
@@ -67,9 +14,9 @@ It uses the following third party dependencies:
 
 - Gorilla for the HTTP stack, it seems to be the best featured choice;
 - Zerolog for logging, see later;
-- The official MongoDB go driver to bind MongoDb 7 (go.mongodb.org/mongo-driver);
+<!-- - The official MongoDB go driver to bind MongoDb 7 (go.mongodb.org/mongo-driver);
 - The official OpenTelemetry SDK for observability (go.opentelemetry.io/otel);
-- ...no more, so far, but I guess I'll try to play also with Redis.
+- ...no more, so far, but I guess I'll try to play also with Redis. -->
 
 #### flags
 
@@ -77,13 +24,13 @@ Wow, Go has it natively!
 
 I tried to figure out a sort of internal framework to avoid huge files, SRP infrigements, anyway evolving the file structure and the packages while learning Go.
 
-- The `internal/cli` package provides builders per configurable integration, e.g. binding to the database and HTTP serving;
+- The `cmd/cli` package provides builders per configurable integration, e.g. binding to the database and HTTP serving;
 - It tests the environment which has the priority;
 - Perform validation;
-- Return a factory method to convert the flags into option types (package `internal/options`) to use to set up `context.Context` contextes to use downstream;
-- It contains just the overall bindings, not domain specific items like the collection to use, which is in the internal implementation of the repository in the `example` package.
+- Return a factory method to convert the flags into option types (package `cmd/options`) to use to set up `context.Context` contextes to use downstream;
+- It contains just the overall bindings, not domain specific items.
 
-#### Observability
+<!-- #### Observability
 
 The g-fe-server is integrated with the OpenTelemetry official SDK (`go.opentelemetry.io/otel`).
 
@@ -91,7 +38,7 @@ As a fake BFF (it's not acting as a gateway but having CRUD operations on `examp
 
 Additional integrations to observe third party dependencies like MongoDB will enrich the spans.
 
-It exposrts the span, with a close to the default configuration, to Zipking which has been integrated as an Helm dependency.
+It exposrts the span, with a close to the default configuration, to Zipking which has been integrated as an Helm dependency. -->
 
 #### Logging
 
@@ -134,28 +81,7 @@ Routers, the API router in particular, are integrated with Opentracing with a Go
 
 In the same way, such routers are configured to use Prometheus middlewares (`github.com/prometheus/client_golang`) to expose metrics about their usage.
 
-#### Dynamic routes with service announcing
-
-The presentatin server listens for UDP messages to add proxy routes to backend service; the message is an URI for the following schemas:
-
-- `route` add a new reverse proxy
-- `unroute` remove an existing reverse proxy
-
-The `route` schema has the route name and the forward URL, e.g. `route:/example:http://example-service/be/api/example` which means that the presentation server forwards the requests to `http://presentation-server/fe/api/example` to the specified backend URL.
-
-The `unroute` schema ahs just the route name, e.g. `route:/example`.
-
-Multiple route registrations increase a counter, the route is removed when this counter reaches 0.
-
-The module is a single-repo containing:
-
-- presentation server packages,
-- backend service packages,
-- shared packages.
-
-The `Makefile` has tasks for each of them.
-
-#### OIDC
+<!-- #### OIDC
 
 When OIDC integration is enabled (default), the request context is enriched with the _zytadel_ relaying party and resource server so that we can define 3 additional route components:
 
@@ -163,13 +89,9 @@ When OIDC integration is enabled (default), the request context is enriched with
 - A middleware to test if the HTTP session is authenticated within an IAM session, again, not intended for APIs;
 - A middleware to inspect and, in case, renew the OIDC access token.
 
-APIs (TODO service split) leverage a middleware to test the access token from the HTTP request headers.
+APIs (TODO service split) leverage a middleware to test the access token from the HTTP request headers. -->
 
-#### Single repo & service split
-
-TODO
-
-#### MongoDB & domain repository
+<!-- #### MongoDB & domain repository
 
 The database connection client and the domain repository are kept separated so that:
 
@@ -180,9 +102,11 @@ Such entries of the application context are propagated to the request context by
 
 This is shown in the _example_ HTTP handlers where, through the `ContextualizedApi` function, a _repository-enriched_ handler function is bound to the item router.
 
-MongoDB is connected using the official library (`go.mongodb.org/mongo-driver`) and participate (synchronously so far) to the helth probe.
+MongoDB is connected using the official library (`go.mongodb.org/mongo-driver`) and participate (synchronously so far) to the helth probe. -->
 
 ### React application
+
+TODO
 
 #### Webpack
 

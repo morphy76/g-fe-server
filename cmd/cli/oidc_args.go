@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/cmd/options"
 )
 
 // OIDCOptionsBuidlerFn is a function that returns OIDC options

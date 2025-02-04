@@ -1,7 +1,4 @@
-#!/bin/bash
-
-echo "To be fixed for multiple picks"
-exit 1
+#!/bin/sh
 
 # Check if deploy.env file exists
 if [ -f deploy.env ]; then

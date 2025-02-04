@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/cmd/options"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/zipkin"

@@ -87,7 +87,7 @@ func Handler(
 
 	// Auth router
 	authRouter := contextRouter.PathPrefix("/auth").Subrouter()
-	authRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.ServeOpts.SessionName))
+	authRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.SessionsOpts.SessionName))
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Auth router registered")
@@ -100,7 +100,7 @@ func Handler(
 
 	// Static content
 	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()
-	staticRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.ServeOpts.SessionName))
+	staticRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.SessionsOpts.SessionName))
 	staticRouter.Use(middleware.HTTPSessionAuthenticationRequired(feServer.ServeOpts))
 	staticRouter.Use(middleware.HTTPSessionInspectAndRenew(feServer.ResourceServer, feServer.RelayingParty, feServer.ServeOpts))
 	if routerLog.Trace().Enabled() {

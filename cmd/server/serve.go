@@ -14,8 +14,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
+	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/morphy76/g-fe-server/internal/logger"
-	"github.com/morphy76/g-fe-server/internal/options"
 	"github.com/morphy76/g-fe-server/internal/server"
 )
 
@@ -25,9 +25,10 @@ func main() {
 	trace := flag.Bool("trace", false, "sets log level to trace")
 
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
-	OTelOptionsBuilder := cli.OTelOptionsBuilder()
-	oidcOptionsBuilder := cli.OIDCOptionsBuilder()
-	dbOptionsBuilder := cli.DBOptionsBuilder()
+	sessionOptionsBuilder := cli.SessionOptionsBuilder()
+	// OTelOptionsBuilder := cli.OTelOptionsBuilder()
+	// oidcOptionsBuilder := cli.OIDCOptionsBuilder()
+	// dbOptionsBuilder := cli.DBOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -47,44 +48,55 @@ func main() {
 		os.Exit(1)
 	}
 
-	OTelOptions, err := OTelOptionsBuilder()
+	sessionOptions, err := sessionOptionsBuilder()
 	if err != nil {
 		log.Error().
 			Err(err).
-			Msg("Error parsing OTel options")
+			Msg("Error parsing session options")
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	oidcOptions, err := oidcOptionsBuilder()
-	if err != nil {
-		log.Error().
-			Err(err).
-			Msg("Error parsing oidc options")
-		flag.Usage()
-		os.Exit(1)
-	}
+	// OTelOptions, err := OTelOptionsBuilder()
+	// if err != nil {
+	// 	log.Error().
+	// 		Err(err).
+	// 		Msg("Error parsing OTel options")
+	// 	flag.Usage()
+	// 	os.Exit(1)
+	// }
 
-	dbOptions, err := dbOptionsBuilder()
-	if err != nil {
-		log.Error().
-			Err(err).
-			Msg("Error parsing db options")
-		flag.Usage()
-		os.Exit(1)
-	}
+	// oidcOptions, err := oidcOptionsBuilder()
+	// if err != nil {
+	// 	log.Error().
+	// 		Err(err).
+	// 		Msg("Error parsing oidc options")
+	// 	flag.Usage()
+	// 	os.Exit(1)
+	// }
+
+	// dbOptions, err := dbOptionsBuilder()
+	// if err != nil {
+	// 	log.Error().
+	// 		Err(err).
+	// 		Msg("Error parsing db options")
+	// 	flag.Usage()
+	// 	os.Exit(1)
+	// }
 
 	startServer(
 		serveOptions,
-		OTelOptions,
-		oidcOptions,
-		dbOptions,
+		sessionOptions,
+		nil, // OTelOptions,
+		nil, // oidcOptions,
+		nil, // dbOptions,
 		trace,
 	)
 }
 
 func startServer(
 	serveOptions *options.ServeOptions,
+	sessionOptions *options.SessionOptions,
 	otelOptions *options.OTelOptions,
 	oidcOptions *options.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
@@ -96,10 +108,10 @@ func startServer(
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// HTTP session store
-	sessionStore := createSessionStore(serveOptions)
+	sessionStore := createSessionStore(sessionOptions, serveOptions)
 
 	// Server application context which provides the feServer instance and log facilities
-	appContext, cancel := createAppContext(serveOptions, sessionStore, oidcOptions, dbOptions, otelOptions, trace)
+	appContext, cancel := createAppContext(serveOptions, sessionOptions, sessionStore, oidcOptions, dbOptions, otelOptions, trace)
 	bootLogger := logger.GetLogger(appContext, "feServer")
 
 	// Server routes
@@ -137,22 +149,26 @@ func startServer(
 	}
 }
 
-func createSessionStore(serveOptions *options.ServeOptions) sessions.Store {
+func createSessionStore(
+	sessionOptions *options.SessionOptions,
+	serveOptions *options.ServeOptions,
+) sessions.Store {
 	// TODO from memstore to https://github.com/kidstuff/mongostore
-	sessionStore := memstore.NewMemStore([]byte(serveOptions.SessionKey))
+	sessionStore := memstore.NewMemStore([]byte(sessionOptions.SessionKey))
 	sessionStore.Options = &sessions.Options{
 		Path:     serveOptions.ContextRoot,
-		MaxAge:   serveOptions.SessionMaxAge,
-		HttpOnly: serveOptions.SessionHttpOnly,
-		Domain:   serveOptions.SessionDomain,
-		Secure:   serveOptions.SessionSecureCookies,
-		SameSite: serveOptions.SessionSameSite,
+		MaxAge:   sessionOptions.SessionMaxAge,
+		HttpOnly: sessionOptions.SessionHttpOnly,
+		Domain:   sessionOptions.SessionDomain,
+		Secure:   sessionOptions.SessionSecureCookies,
+		SameSite: sessionOptions.SessionSameSite,
 	}
 	return sessionStore
 }
 
 func createAppContext(
 	serveOpts *options.ServeOptions,
+	sessionOptions *options.SessionOptions,
 	sessionStore sessions.Store,
 	oidcOptions *options.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
@@ -191,6 +207,6 @@ func createAppContext(
 	// the server instance is the main entry point for the server application
 	// it is used to start the server, register routes, and shutdown the server
 	// it provides the HTTP server, with HTTP session, the OIDC client, and the database client
-	appContext = server.NewFEServer(appContext, serveOpts, sessionStore, oidcOptions, dbOptions, otelOptions)
+	appContext = server.NewFEServer(appContext, serveOpts, sessionOptions, sessionStore, oidcOptions, dbOptions, otelOptions)
 	return context.WithCancel(appContext)
 }

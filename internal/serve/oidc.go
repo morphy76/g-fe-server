@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	httphelper "github.com/zitadel/oidc/v3/pkg/http"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -15,6 +15,7 @@ import (
 // SetupOIDC sets up the OIDC client
 func SetupOIDC(
 	serveOptions *options.ServeOptions,
+	sessionOptions *options.SessionOptions,
 	oidcOptions *options.OIDCOptions,
 ) (rp.RelyingParty, error) {
 
@@ -27,17 +28,17 @@ func SetupOIDC(
 	)
 
 	cookieHandlerOpts := []httphelper.CookieHandlerOpt{
-		httphelper.WithDomain(serveOptions.SessionDomain),
-		httphelper.WithMaxAge(serveOptions.SessionMaxAge),
-		httphelper.WithSameSite(serveOptions.SessionSameSite),
+		httphelper.WithDomain(sessionOptions.SessionDomain),
+		httphelper.WithMaxAge(sessionOptions.SessionMaxAge),
+		httphelper.WithSameSite(sessionOptions.SessionSameSite),
 	}
-	if !serveOptions.SessionSecureCookies {
+	if !sessionOptions.SessionSecureCookies {
 		cookieHandlerOpts = append(cookieHandlerOpts, httphelper.WithUnsecure())
 	}
 
 	cookieHandler := httphelper.NewCookieHandler(
-		[]byte(serveOptions.SessionKey),
-		[]byte(serveOptions.SessionKey),
+		[]byte(sessionOptions.SessionKey),
+		[]byte(sessionOptions.SessionKey),
 		cookieHandlerOpts...,
 	)
 

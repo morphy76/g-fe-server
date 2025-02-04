@@ -5,7 +5,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/cmd/options"
 )
 
 // OTelOptionsBuidlerFn is a function that returns the OTLP options

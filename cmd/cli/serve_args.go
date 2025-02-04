@@ -3,17 +3,20 @@ package cli
 import (
 	"errors"
 	"flag"
-	"net/http"
 	"os"
-	"strconv"
 	"strings"
 
-	"github.com/gorilla/securecookie"
-	"github.com/morphy76/g-fe-server/internal/options"
+	"github.com/morphy76/g-fe-server/cmd/options"
 )
+
+// PathOptionsBuilderFn is a function that returns PathOptions
+type PathOptionsBuilderFn func() (*options.PathOptions, error)
 
 // ServeOptionsBuilderFn is a function that returns ServeOptions
 type ServeOptionsBuilderFn func() (*options.ServeOptions, error)
+
+// URLOptionsBuilderFn is a function that returns URLOptions
+type URLOptionsBuilderFn func() (*options.URLOptions, error)
 
 // ErrInvalidContextRoot is an invalid context root error
 var ErrInvalidContextRoot = errors.New("invalid context root")
@@ -21,57 +24,19 @@ var ErrInvalidContextRoot = errors.New("invalid context root")
 // ErrInvalidStaticPath is an invalid static path error
 var ErrInvalidStaticPath = errors.New("invalid static path")
 
-// ErrInvalidSessionSameSite is an invalid session same site error
-var ErrInvalidSessionSameSite = errors.New("invalid session same site")
-
-// IsInvalidContextRoot checks if the error is due to an invalid context root
-func IsInvalidContextRoot(err error) bool {
-	return err == ErrInvalidContextRoot
-}
-
-// IsInvalidStaticPath checks if the error is due to an invalid static path
-func IsInvalidStaticPath(err error) bool {
-	return err == ErrInvalidStaticPath
-}
-
-// IsInvalidSessionSameSite checks if the error is due to an invalid session same site
-func IsInvalidSessionSameSite(err error) bool {
-	return err == ErrInvalidSessionSameSite
-}
-
 const (
-	envNonFnRoot       = "NON_FUNCTIONAL_ROOT"
-	envCtxRoot         = "CONTEXT_ROOT"
-	envStaticPath      = "STATIC_PATH"
-	envPort            = "SERVE_PORT"
-	envHost            = "SERVE_HOST"
-	envSessionKey      = "SESSION_KEY"
-	envSessionName     = "SESSION_NAME"
-	envSessionMaxAge   = "SESSION_MAX_AGE"
-	envSessionHTTPOnly = "SESSION_HTTP_ONLY"
-	envSessionDomain   = "SESSION_DOMAIN"
-	envSessionSecure   = "SESSION_SECURE"
-	envSessionSameSite = "SESSION_SAME_SITE"
+	envNonFnRoot  = "NON_FUNCTIONAL_ROOT"
+	envCtxRoot    = "CONTEXT_ROOT"
+	envStaticPath = "STATIC_PATH"
+	envPort       = "SERVE_PORT"
+	envHost       = "SERVE_HOST"
 )
 
-// ServeOptionsBuilder returns a function that builds ServeOptions from the command line arguments and environment variables
-func ServeOptionsBuilder() ServeOptionsBuilderFn {
-
+func PathOptionsBuilder() PathOptionsBuilderFn {
 	nonFnRootArg := flag.String("non-fn", "/g", "presentation server non functional root. Environment: "+envNonFnRoot)
 	ctxRootArg := flag.String("ctx", "", "presentation server context root. Environment: "+envCtxRoot)
-	staticPathArg := flag.String("static", "/static", "static path of the served application. Environment: "+envStaticPath)
-	portArg := flag.String("port", "8080", "binding port of the presentation server. Environment: "+envPort)
-	hostArg := flag.String("host", "0.0.0.0", "binding host of the presentation server. Environment: "+envHost)
-	sessionKeyArg := flag.String("session-key", "", "session key. Environment: "+envSessionKey)
-	sessionNameArg := flag.String("session-name", "gofe.sid", "session name. Environment: "+envSessionName)
-	sessionMaxAgeArg := flag.Int("session-max-age", 0, "session max age. Environment: "+envSessionMaxAge)
-	sessionHTTPOnlyArg := flag.Bool("session-http-only", false, "session http only. Environment: "+envSessionHTTPOnly)
-	sessionDomainArg := flag.String("session-domain", "", "session domain. Environment: "+envSessionDomain)
-	sessionSecureArg := flag.Bool("session-secure", false, "session secure. Environment: "+envSessionSecure)
-	sessionSameSiteArg := flag.String("session-same-site", "Lax", "session same site: Default, Lax, Strict or None. Environment: "+envSessionSameSite)
 
-	rv := func() (*options.ServeOptions, error) {
-
+	return func() (*options.PathOptions, error) {
 		nonFnPath, found := os.LookupEnv(envNonFnRoot)
 		if !found {
 			nonFnPath = *nonFnRootArg
@@ -88,13 +53,19 @@ func ServeOptionsBuilder() ServeOptionsBuilderFn {
 			return nil, ErrInvalidContextRoot
 		}
 
-		staticPath, found := os.LookupEnv(envStaticPath)
-		if !found {
-			staticPath = *staticPathArg
-		}
-		if len(staticPath) == 0 || strings.Contains(staticPath, " ") {
-			return nil, ErrInvalidStaticPath
-		}
+		return &options.PathOptions{
+			NonFunctionalRoot: nonFnPath,
+			ContextRoot:       ctxRoot,
+		}, nil
+	}
+}
+
+// URLOptionsBuilder returns a function that builds URLOptions from the command line arguments and environment variables
+func URLOptionsBuilder() URLOptionsBuilderFn {
+	portArg := flag.String("port", "8080", "binding port of the presentation server. Environment: "+envPort)
+	hostArg := flag.String("host", "0.0.0.0", "binding host of the presentation server. Environment: "+envHost)
+
+	return func() (*options.URLOptions, error) {
 
 		usePort, found := os.LookupEnv(envPort)
 		if !found {
@@ -106,88 +77,43 @@ func ServeOptionsBuilder() ServeOptionsBuilderFn {
 			useHost = *hostArg
 		}
 
-		useSessionKey, found := os.LookupEnv(envSessionKey)
-		if !found {
-			useSessionKey = *sessionKeyArg
-		}
-		if len(useSessionKey) == 0 {
-			useSessionKey = string(securecookie.GenerateRandomKey(32))
+		return &options.URLOptions{
+			Protocol: "http",
+			Port:     usePort,
+			Host:     useHost,
+		}, nil
+	}
+}
+
+// ServeOptionsBuilder returns a function that builds ServeOptions from the command line arguments and environment variables
+func ServeOptionsBuilder() ServeOptionsBuilderFn {
+
+	staticPathArg := flag.String("static", "/static", "static path of the served application. Environment: "+envStaticPath)
+
+	return func() (*options.ServeOptions, error) {
+
+		pathOptions, err := PathOptionsBuilder()()
+		if err != nil {
+			return nil, err
 		}
 
-		useSessionName, found := os.LookupEnv(envSessionName)
+		staticPath, found := os.LookupEnv(envStaticPath)
 		if !found {
-			useSessionName = *sessionNameArg
+			staticPath = *staticPathArg
 		}
-		if len(useSessionName) == 0 {
-			useSessionName = "gofe.sid"
+		if len(staticPath) == 0 || strings.Contains(staticPath, " ") {
+			return nil, ErrInvalidStaticPath
 		}
 
-		var useSessionMaxAge int
-		strSessionMaxAge, found := os.LookupEnv(envSessionMaxAge)
-		if !found {
-			useSessionMaxAge = *sessionMaxAgeArg
-		} else {
-			maxAge, err := strconv.Atoi(strSessionMaxAge)
-			if err != nil {
-				return nil, err
-			}
-			useSessionMaxAge = maxAge
-		}
-
-		var useSessionHTTPOnly bool
-		strSessionHTTPOnly, found := os.LookupEnv(envSessionHTTPOnly)
-		if !found {
-			useSessionHTTPOnly = *sessionHTTPOnlyArg
-		} else {
-			useSessionHTTPOnly = strSessionHTTPOnly == "true"
-		}
-
-		useSessionDomain, found := os.LookupEnv(envSessionDomain)
-		if !found {
-			useSessionDomain = *sessionDomainArg
-		}
-
-		var useSessionSecure bool
-		strSessionSecure, found := os.LookupEnv(envSessionSecure)
-		if !found {
-			useSessionSecure = *sessionSecureArg
-		} else {
-			useSessionSecure = strSessionSecure == "true"
-		}
-
-		var useSessionSameSite http.SameSite
-		strSessionSameSite, found := os.LookupEnv(envSessionSameSite)
-		if !found {
-			strSessionSameSite = *sessionSameSiteArg
-		}
-		if strSessionSameSite == "Lax" {
-			useSessionSameSite = http.SameSiteLaxMode
-		} else if strSessionSameSite == "Strict" {
-			useSessionSameSite = http.SameSiteStrictMode
-		} else if strSessionSameSite == "None" {
-			useSessionSameSite = http.SameSiteNoneMode
-		} else if strSessionSameSite == "Default" {
-			useSessionSameSite = http.SameSiteDefaultMode
-		} else {
-			return nil, ErrInvalidSessionSameSite
+		urlOptions, err := URLOptionsBuilder()()
+		if err != nil {
+			return nil, err
 		}
 
 		return &options.ServeOptions{
-			NonFunctionalRoot:    nonFnPath,
-			ContextRoot:          ctxRoot,
-			StaticPath:           staticPath,
-			Protocol:             "http",
-			Port:                 usePort,
-			Host:                 useHost,
-			SessionKey:           useSessionKey,
-			SessionName:          useSessionName,
-			SessionMaxAge:        useSessionMaxAge,
-			SessionHttpOnly:      useSessionHTTPOnly,
-			SessionDomain:        useSessionDomain,
-			SessionSecureCookies: useSessionSecure,
-			SessionSameSite:      useSessionSameSite,
+			StaticPath:  staticPath,
+			PathOptions: *pathOptions,
+			URLOptions:  *urlOptions,
 		}, nil
 	}
-
-	return rv
 }

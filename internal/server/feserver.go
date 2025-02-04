@@ -6,10 +6,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/morphy76/g-fe-server/internal/common"
 	"github.com/morphy76/g-fe-server/internal/logger"
-	"github.com/morphy76/g-fe-server/internal/options"
-	"github.com/morphy76/g-fe-server/internal/serve"
 	"github.com/rs/zerolog"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
@@ -24,6 +23,7 @@ type FEServer struct {
 	UID string
 
 	ServeOpts    *options.ServeOptions
+	SessionsOpts *options.SessionOptions
 	SessionStore sessions.Store
 	DBOpts       *options.MongoDBOptions
 	OTelOpts     *options.OTelOptions
@@ -49,39 +49,41 @@ func InjectFEServer(ctx context.Context, appContext context.Context) context.Con
 func NewFEServer(
 	ctx context.Context,
 	serveOpts *options.ServeOptions,
+	sessionOptions *options.SessionOptions,
 	sessionStore sessions.Store,
 	oidcOptions *options.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
 ) context.Context {
 
-	otelShutdown, err := serve.SetupOTelSDK(otelOptions)
-	if err != nil {
-		panic(err)
-	}
+	// otelShutdown, err := serve.SetupOTelSDK(otelOptions)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	feServer := &FEServer{
 		UID: uuid.New().String(),
 
 		ServeOpts:    serveOpts,
+		SessionsOpts: sessionOptions,
 		SessionStore: sessionStore,
 		DBOpts:       dbOptions,
 		OTelOpts:     otelOptions,
 
-		OtelShutdownFn: otelShutdown,
+		OtelShutdownFn: nil, //otelShutdown,
 	}
 
-	rp, err := serve.SetupOIDC(serveOpts, oidcOptions)
-	if err != nil {
-		panic(err)
-	}
-	feServer.RelayingParty = rp
+	// rp, err := serve.SetupOIDC(serveOpts, oidcOptions)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// feServer.RelayingParty = rp
 
-	rs, err := rs.NewResourceServerClientCredentials(context.Background(), oidcOptions.Issuer, oidcOptions.ClientID, oidcOptions.ClientSecret)
-	if err != nil {
-		panic(err)
-	}
-	feServer.ResourceServer = rs
+	// rs, err := rs.NewResourceServerClientCredentials(context.Background(), oidcOptions.Issuer, oidcOptions.ClientID, oidcOptions.ClientSecret)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// feServer.ResourceServer = rs
 
 	return context.WithValue(ctx, appModelCtxKey, feServer)
 }
