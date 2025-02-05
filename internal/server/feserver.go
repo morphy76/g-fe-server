@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/morphy76/g-fe-server/internal/common"
+	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/rs/zerolog"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
@@ -23,7 +24,7 @@ type FEServer struct {
 	UID string
 
 	ServeOpts    *options.ServeOptions
-	SessionsOpts *options.SessionOptions
+	SessionsOpts *session.SessionOptions
 	SessionStore sessions.Store
 	DBOpts       *options.MongoDBOptions
 	OTelOpts     *options.OTelOptions
@@ -49,7 +50,7 @@ func InjectFEServer(ctx context.Context, appContext context.Context) context.Con
 func NewFEServer(
 	ctx context.Context,
 	serveOpts *options.ServeOptions,
-	sessionOptions *options.SessionOptions,
+	sessionOptions *session.SessionOptions,
 	sessionStore sessions.Store,
 	oidcOptions *options.OIDCOptions,
 	dbOptions *options.MongoDBOptions,

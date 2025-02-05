@@ -1,6 +1,6 @@
 //go:build with_http_session && !with_mongodb
 
-package initializers
+package session
 
 import (
 	"github.com/gorilla/sessions"
@@ -10,11 +10,11 @@ import (
 
 func CreateSessionStore(
 	sessionOptions *options.SessionOptions,
-	serveOptions *options.ServeOptions,
+	contextRoot string,
 ) (options.SessionStore, error) {
 	sessionStore := memstore.NewMemStore([]byte(sessionOptions.SessionKey))
 	sessionStore.Options = &sessions.Options{
-		Path:     serveOptions.ContextRoot,
+		Path:     contextRoot,
 		MaxAge:   sessionOptions.SessionMaxAge,
 		HttpOnly: sessionOptions.SessionHttpOnly,
 		Domain:   sessionOptions.SessionDomain,

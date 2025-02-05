@@ -12,8 +12,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
-	"github.com/morphy76/g-fe-server/cmd/initializers"
 	"github.com/morphy76/g-fe-server/cmd/options"
+	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
 )
@@ -95,7 +95,7 @@ func main() {
 
 func startServer(
 	serveOptions *options.ServeOptions,
-	sessionOptions *options.SessionOptions,
+	sessionOptions *session.SessionOptions,
 	otelOptions *options.OTelOptions,
 	oidcOptions *options.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
@@ -107,7 +107,7 @@ func startServer(
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// HTTP session store
-	sessionStore, err := initializers.CreateSessionStore(sessionOptions, serveOptions)
+	sessionStore, err := session.CreateSessionStore(sessionOptions, serveOptions.ContextRoot)
 	if err != nil {
 		log.Error().
 			Err(err).
@@ -156,8 +156,8 @@ func startServer(
 
 func createAppContext(
 	serveOpts *options.ServeOptions,
-	sessionOptions *options.SessionOptions,
-	sessionStore options.SessionStore,
+	sessionOptions *session.SessionOptions,
+	sessionStore session.SessionStore,
 	oidcOptions *options.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,

@@ -3,15 +3,15 @@
 package cli
 
 import (
-	"github.com/morphy76/g-fe-server/cmd/options"
+	"github.com/morphy76/g-fe-server/internal/http/session"
 )
 
 // SessionOptionsBuilderFn is a function that returns SessionOptions
-type SessionOptionsBuilderFn func() (*options.SessionOptions, error)
+type SessionOptionsBuilderFn func() (*session.SessionOptions, error)
 
 // SessionOptionsBuilder returns a function that builds SessionOptions from the command line arguments and environment variables
 func SessionOptionsBuilder() SessionOptionsBuilderFn {
-	return func() (*options.SessionOptions, error) {
-		return nil, nil
+	return func() (*session.SessionOptions, error) {
+		return &session.SessionOptions{}, nil
 	}
 }

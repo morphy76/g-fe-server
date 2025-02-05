@@ -1,6 +1,6 @@
 //go:build with_http_session && with_mongodb
 
-package initializers
+package session
 
 import (
 	"github.com/morphy76/g-fe-server/cmd/options"
@@ -8,7 +8,7 @@ import (
 
 func CreateSessionStore(
 	sessionOptions *options.SessionOptions,
-	serveOptions *options.ServeOptions,
+	contextRoot string,
 ) (options.SessionStore, error) {
 	// TODO from memstore to https://github.com/kidstuff/mongostore
 	return nil, nil

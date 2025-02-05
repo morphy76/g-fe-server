@@ -1,6 +1,6 @@
 //go:build !with_http_session
 
-package options
+package session
 
 import "github.com/gorilla/sessions"
 
@@ -8,4 +8,6 @@ type SessionStore interface {
 	sessions.Store
 }
 
-type SessionOptions *interface{}
+type SessionOptions struct {
+	SessionName string
+}

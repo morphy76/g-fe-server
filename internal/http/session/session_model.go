@@ -1,6 +1,6 @@
 //go:build with_http_session
 
-package options
+package session
 
 import (
 	"net/http"
