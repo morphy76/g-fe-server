@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/gorilla/mux"
@@ -18,10 +19,18 @@ import (
 	"github.com/morphy76/g-fe-server/internal/server"
 )
 
+const (
+	envEnableTrace = "ENABLE_TRACE"
+)
+
 func main() {
 	// Gather startup flags
 
-	trace := flag.Bool("trace", false, "sets log level to trace")
+	trace := flag.Bool("trace", false, "sets log level to trace. Environment: "+envEnableTrace)
+	envTrace, found := os.LookupEnv(envEnableTrace)
+	if found {
+		*trace = strings.ToLower(envTrace) == "true"
+	}
 
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
 	sessionOptionsBuilder := cli.SessionOptionsBuilder()

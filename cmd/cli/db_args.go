@@ -14,11 +14,6 @@ type DBOptionsBuidlerFn func() (*options.MongoDBOptions, error)
 // ErrRequiredMongoDbUrl is a required mongo db url error
 var ErrRequiredMongoDbUrl = errors.New("mongo db url is required")
 
-// IsRequiredMongoDbUrl returns true if the error is a required mongo db url error
-func IsRequiredMongoDbUrl(err error) bool {
-	return err == ErrRequiredMongoDbUrl
-}
-
 const (
 	envDBMongoURL      = "DB_MONGO_URL"
 	envDBMongoUser     = "DB_MONGO_USER"

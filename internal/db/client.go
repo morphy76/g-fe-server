@@ -14,11 +14,6 @@ import (
 // ErrMissingDBOptions is returned when the db options are missing
 var ErrMissingDBOptions = errors.New("missing db options")
 
-// IsMissingDBOptions returns true if the error is ErrMissingDBOptions
-func IsMissingDBOptions(err error) bool {
-	return err == ErrMissingDBOptions
-}
-
 // NewClient creates a new db client based on the db options
 func NewClient(dbOptions *options.MongoDBOptions) (*mongo.Client, error) {
 	if dbOptions == nil {

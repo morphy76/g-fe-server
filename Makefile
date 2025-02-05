@@ -38,7 +38,7 @@ build-fe:
 
 build-server:
 	# @$(GO) test $(TESTFLAGS) ./...
-	@$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVER_TARGET) $(SERVER_SOURCES)
+	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVER_TARGET) $(SERVER_SOURCES)
 
 watch-fe:
 	@$(NPM) --prefix ./web/ui i

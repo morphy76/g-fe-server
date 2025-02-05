@@ -21,21 +21,6 @@ var ErrMissingClientID = errors.New("OIDC client id is required")
 // ErrMissingClientSecret is a missing OIDC client secret error
 var ErrMissingClientSecret = errors.New("OIDC client secret is required")
 
-// IsMissingIssuer returns true if the error is due to a missing OIDC issuer
-func IsMissingIssuer(err error) bool {
-	return err == ErrMissingIssuer
-}
-
-// IsMissingClientID returns true if the error is due to a missing OIDC client id
-func IsMissingClientID(err error) bool {
-	return err == ErrMissingClientID
-}
-
-// IsMissingClientSecret returns true if the error is due to a missing OIDC client secret
-func IsMissingClientSecret(err error) bool {
-	return err == ErrMissingClientSecret
-}
-
 const (
 	envOIDCIssuer       = "OIDC_ISSUER"
 	envOIDCClientID     = "OIDC_CLIENT_ID"

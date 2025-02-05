@@ -14,11 +14,6 @@ type OTelOptionsBuidlerFn func() (*options.OTelOptions, error)
 // ErrRequiredOTLPURL is an error that indicates that the OTLP URL is required
 var ErrRequiredOTLPURL = errors.New("OTLP export enabled but no URL has been specified")
 
-// IsRequiredOTLPURL returns true if the error is ErrRequiredOTLPURL
-func IsRequiredOTLPURL(err error) bool {
-	return err == ErrRequiredOTLPURL
-}
-
 const (
 	envEnableOTelExport = "ENABLE_OTEL_EXPORT"
 	envServiceName      = "OTLP_SERVICE_NAME"

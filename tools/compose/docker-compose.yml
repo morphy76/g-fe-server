@@ -1,34 +1,34 @@
 # stack for development purposes
 services:
 
-  go_db:
-    image: mongo:latest
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: go_root
-      MONGO_INITDB_ROOT_PASSWORD: go_password
-      MONGO_INITDB_DATABASE: fe_db
-    ports:
-      - "27017:27017"
-    volumes:
-      - ./imports/init_db.d:/docker-entrypoint-initdb.d
-      - fe_data:/data/db
-    networks:
-      - fe-private-network
+  # go_db:
+  #   image: mongo:latest
+  #   restart: unless-stopped
+  #   environment:
+  #     MONGO_INITDB_ROOT_USERNAME: go_root
+  #     MONGO_INITDB_ROOT_PASSWORD: go_password
+  #     MONGO_INITDB_DATABASE: fe_db
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - ./imports/init_db.d:/docker-entrypoint-initdb.d
+  #     - fe_data:/data/db
+  #   networks:
+  #     - fe-private-network
 
-  mongo-express:
-    image: mongo-express:latest
-    restart: unless-stopped
-    ports:
-      - 8081:8081
-    depends_on:
-      - "go_db"
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: go_root
-      ME_CONFIG_MONGODB_ADMINPASSWORD: go_password
-      ME_CONFIG_MONGODB_SERVER: go_db
-    networks:
-      - fe-private-network
+  # mongo-express:
+  #   image: mongo-express:latest
+  #   restart: unless-stopped
+  #   ports:
+  #     - 8081:8081
+  #   depends_on:
+  #     - "go_db"
+  #   environment:
+  #     ME_CONFIG_MONGODB_ADMINUSERNAME: go_root
+  #     ME_CONFIG_MONGODB_ADMINPASSWORD: go_password
+  #     ME_CONFIG_MONGODB_SERVER: go_db
+  #   networks:
+  #     - fe-private-network
 
   kc_db:
     image: docker.io/bitnami/postgresql:latest
@@ -56,13 +56,13 @@ services:
       KEYCLOAK_BIND_ADDRESS: 0.0.0.0
     network_mode: "host"
 
-  zipkin:
-    image: openzipkin/zipkin:latest
-    restart: unless-stopped
-    ports:
-      - 9411:9411
-    networks:
-      - fe-private-network
+  # zipkin:
+  #   image: openzipkin/zipkin:latest
+  #   restart: unless-stopped
+  #   ports:
+  #     - 9411:9411
+  #   networks:
+  #     - fe-private-network
 
   # prometheus:
   #   image: prom/prometheus:latest
