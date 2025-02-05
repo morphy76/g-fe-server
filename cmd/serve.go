@@ -14,6 +14,7 @@ import (
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
 	"github.com/morphy76/g-fe-server/cmd/options"
+	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
@@ -106,7 +107,7 @@ func startServer(
 	serveOptions *options.ServeOptions,
 	sessionOptions *session.SessionOptions,
 	otelOptions *options.OTelOptions,
-	oidcOptions *options.OIDCOptions,
+	oidcOptions *auth.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	trace *bool,
 ) {
@@ -167,7 +168,7 @@ func createAppContext(
 	serveOpts *options.ServeOptions,
 	sessionOptions *session.SessionOptions,
 	sessionStore session.SessionStore,
-	oidcOptions *options.OIDCOptions,
+	oidcOptions *auth.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
 	trace *bool,

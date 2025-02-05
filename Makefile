@@ -7,7 +7,7 @@ NPM := npm
 NODEMON := nodemon
 
 ## Set the flags
-# GOFLAGS := -tags with_http_session #-mod=vendor
+GOFLAGS := -tags with_http_session,with_oidc #-mod=vendor
 LDFLAGS := -ldflags="-s -w"
 GCFLAGS := -gcflags="-m -l"
 TESTFLAGS := -v

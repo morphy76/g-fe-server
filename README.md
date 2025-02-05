@@ -165,7 +165,8 @@ TODO
 
 To change the build tags edit the `Makefile` and set the `GOFLAGS` variable.
 
-- `with_http_session` includes the HTTP session management using the memstore; if combined with `with_mongodb` it will use mongostore.
+- `with_http_session` includes the HTTP session management using the memstore; if combined with `with_mongodb` it will use mongostore;
+- `with_oidc` includes the OIDC integration;
 
 ### Docker
 

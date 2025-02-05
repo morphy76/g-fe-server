@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/cmd/options"
+	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/common"
 	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
@@ -52,7 +53,7 @@ func NewFEServer(
 	serveOpts *options.ServeOptions,
 	sessionOptions *session.SessionOptions,
 	sessionStore sessions.Store,
-	oidcOptions *options.OIDCOptions,
+	oidcOptions *auth.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
 ) context.Context {

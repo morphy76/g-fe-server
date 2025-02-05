@@ -1,3 +1,5 @@
+//go:build with_oidc
+
 package cli
 
 import (
@@ -6,11 +8,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/morphy76/g-fe-server/cmd/options"
+	"github.com/morphy76/g-fe-server/internal/auth"
 )
 
 // OIDCOptionsBuidlerFn is a function that returns OIDC options
-type OIDCOptionsBuidlerFn func() (*options.OIDCOptions, error)
+type OIDCOptionsBuidlerFn func() (*auth.OIDCOptions, error)
 
 // ErrMissingIssuer is a missing OIDC issuer error
 var ErrMissingIssuer = errors.New("OIDC issuer is required")
@@ -36,7 +38,7 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 	oidcClientSecretArg := flag.String("oidc-client-secret", " ", "OIDC client secret. Environment: "+envOIDCClientSecret)
 	oidcScopesArg := flag.String("oidc-scopes", " ", "OIDC scopes. Environment: "+envOIDCScopes)
 
-	rv := func() (*options.OIDCOptions, error) {
+	rv := func() (*auth.OIDCOptions, error) {
 
 		oidcIssuer, found := os.LookupEnv(envOIDCIssuer)
 		if !found {
@@ -67,7 +69,7 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 			oidcScopes = *oidcScopesArg
 		}
 
-		return &options.OIDCOptions{
+		return &auth.OIDCOptions{
 			Issuer:       oidcIssuer,
 			ClientID:     oidcClientID,
 			ClientSecret: oidcClientSecret,

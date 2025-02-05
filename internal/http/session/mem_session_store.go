@@ -4,14 +4,13 @@ package session
 
 import (
 	"github.com/gorilla/sessions"
-	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/quasoft/memstore"
 )
 
 func CreateSessionStore(
-	sessionOptions *options.SessionOptions,
+	sessionOptions *SessionOptions,
 	contextRoot string,
-) (options.SessionStore, error) {
+) (SessionStore, error) {
 	sessionStore := memstore.NewMemStore([]byte(sessionOptions.SessionKey))
 	sessionStore.Options = &sessions.Options{
 		Path:     contextRoot,

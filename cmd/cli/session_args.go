@@ -10,11 +10,11 @@ import (
 	"strconv"
 
 	"github.com/gorilla/securecookie"
-	"github.com/morphy76/g-fe-server/cmd/options"
+	"github.com/morphy76/g-fe-server/internal/http/session"
 )
 
 // SessionOptionsBuilderFn is a function that returns SessionOptions
-type SessionOptionsBuilderFn func() (*options.SessionOptions, error)
+type SessionOptionsBuilderFn func() (*session.SessionOptions, error)
 
 // ErrInvalidSessionSameSite is an invalid session same site error
 var ErrInvalidSessionSameSite = errors.New("invalid session same site")
@@ -40,7 +40,7 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 	sessionSecureArg := flag.Bool("session-secure", false, "session secure. Environment: "+envSessionSecure)
 	sessionSameSiteArg := flag.String("session-same-site", "Lax", "session same site: Default, Lax, Strict or None. Environment: "+envSessionSameSite)
 
-	return func() (*options.SessionOptions, error) {
+	return func() (*session.SessionOptions, error) {
 		useSessionKey, found := os.LookupEnv(envSessionKey)
 		if !found {
 			useSessionKey = *sessionKeyArg
@@ -107,7 +107,7 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 			return nil, ErrInvalidSessionSameSite
 		}
 
-		return &options.SessionOptions{
+		return &session.SessionOptions{
 			SessionKey:           useSessionKey,
 			SessionName:          useSessionName,
 			SessionMaxAge:        useSessionMaxAge,
