@@ -75,17 +75,17 @@ func NewFEServer(
 		OtelShutdownFn: nil, //otelShutdown,
 	}
 
-	// rp, err := serve.SetupOIDC(serveOpts, oidcOptions)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// feServer.RelayingParty = rp
+	rp, err := auth.SetupOIDC(serveOpts, oidcOptions)
+	if err != nil {
+		panic(err)
+	}
+	feServer.RelayingParty = rp
 
-	// rs, err := rs.NewResourceServerClientCredentials(context.Background(), oidcOptions.Issuer, oidcOptions.ClientID, oidcOptions.ClientSecret)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// feServer.ResourceServer = rs
+	rs, err := rs.NewResourceServerClientCredentials(context.Background(), oidcOptions.Issuer, oidcOptions.ClientID, oidcOptions.ClientSecret)
+	if err != nil {
+		panic(err)
+	}
+	feServer.ResourceServer = rs
 
 	return context.WithValue(ctx, appModelCtxKey, feServer)
 }
