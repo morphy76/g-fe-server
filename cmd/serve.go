@@ -35,8 +35,8 @@ func main() {
 
 	serveOptionsBuilder := cli.ServeOptionsBuilder()
 	sessionOptionsBuilder := cli.SessionOptionsBuilder()
+	oidcOptionsBuilder := cli.OIDCOptionsBuilder()
 	// OTelOptionsBuilder := cli.OTelOptionsBuilder()
-	// oidcOptionsBuilder := cli.OIDCOptionsBuilder()
 	// dbOptionsBuilder := cli.DBOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
@@ -75,14 +75,14 @@ func main() {
 	// 	os.Exit(1)
 	// }
 
-	// oidcOptions, err := oidcOptionsBuilder()
-	// if err != nil {
-	// 	log.Error().
-	// 		Err(err).
-	// 		Msg("Error parsing oidc options")
-	// 	flag.Usage()
-	// 	os.Exit(1)
-	// }
+	oidcOptions, err := oidcOptionsBuilder()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing oidc options")
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	// dbOptions, err := dbOptionsBuilder()
 	// if err != nil {
@@ -97,7 +97,7 @@ func main() {
 		serveOptions,
 		sessionOptions,
 		nil, // OTelOptions,
-		nil, // oidcOptions,
+		oidcOptions,
 		nil, // dbOptions,
 		trace,
 	)

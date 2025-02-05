@@ -31,29 +31,35 @@ services:
   #     - fe-private-network
 
   kc_db:
-    image: docker.io/bitnami/postgresql:latest
+    image: postgres:15
     restart: unless-stopped
     ports:
       - 5432:5432
     environment:
-      ALLOW_EMPTY_PASSWORD: yes
-      POSTGRESQL_USERNAME: keycloak
-      POSTGRESQL_DATABASE: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+      POSTGRES_DBPOSTGRES_USER: keycloak
     volumes:
-      - postgresql_data:/bitnami/postgresql
+      - postgresql_data:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - 18080:8080
 
   iam:
-    image: docker.io/bitnami/keycloak:latest
+    image: quay.io/keycloak/keycloak:26.1
     restart: unless-stopped
     depends_on:
       - "kc_db"
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      KEYCLOAK_DATABASE_HOST: localhost
-      KEYCLOAK_DATABASE_USER: keycloak
-      KEYCLOAK_DATABASE_NAME: keycloak
-      KEYCLOAK_BIND_ADDRESS: 0.0.0.0
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB_URL: jdbc:postgresql://localhost:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME: "localhost"
     network_mode: "host"
 
   # zipkin:
