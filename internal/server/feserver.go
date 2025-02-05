@@ -98,14 +98,14 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 			Str("port", feServer.ServeOpts.Port).
 			Str("ctx", feServer.ServeOpts.ContextRoot).
 			Str("serving", feServer.ServeOpts.StaticPath)).
-		Dict(("oidc_opts"), zerolog.Dict().
-			Str("issuer", feServer.RelayingParty.Issuer())).
-		Dict("db_opts", zerolog.Dict().
-			Str("url", feServer.DBOpts.URL)).
-		Dict("otel_opts", zerolog.Dict().
-			Bool("enabled", feServer.OTelOpts.Enabled).
-			Str("service_name", feServer.OTelOpts.ServiceName).
-			Str("url", feServer.OTelOpts.URL)).
+		// Dict(("oidc_opts"), zerolog.Dict().
+		// 	Str("issuer", feServer.RelayingParty.Issuer())).
+		// Dict("db_opts", zerolog.Dict().
+		// 	Str("url", feServer.DBOpts.URL)).
+		// Dict("otel_opts", zerolog.Dict().
+		// 	Bool("enabled", feServer.OTelOpts.Enabled).
+		// 	Str("service_name", feServer.OTelOpts.ServiceName).
+		// 	Str("url", feServer.OTelOpts.URL)).
 		Msg("Server started")
 
 	return http.ListenAndServe(feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port, rootRouter)
@@ -114,10 +114,10 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 // Shutdown stops the server
 func (feServer *FEServer) Shutdown(ctx context.Context) {
 	feLogger := logger.GetLogger(ctx, "feServer")
-	if feServer.OtelShutdownFn != nil {
-		if err := feServer.OtelShutdownFn(); err != nil {
-			feLogger.Error().Err(err).Msg("Error shutting down opentelemetry")
-		}
-	}
+	// if feServer.OtelShutdownFn != nil {
+	// 	if err := feServer.OtelShutdownFn(); err != nil {
+	// 		feLogger.Error().Err(err).Msg("Error shutting down opentelemetry")
+	// 	}
+	// }
 	feLogger.Info().Msg("Server stopped")
 }

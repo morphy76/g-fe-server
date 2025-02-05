@@ -6,7 +6,6 @@ import (
 
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/rs/zerolog"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type statusRecorder struct {
@@ -43,13 +42,13 @@ func RequestLogger(next http.Handler) http.Handler {
 		// }
 
 		hook := zerolog.HookFunc(func(e *zerolog.Event, level zerolog.Level, msg string) {
-			activeSpan := trace.SpanFromContext(r.Context())
-			if activeSpan.SpanContext().TraceID().IsValid() {
-				e.Dict("correlation", zerolog.Dict().
-					Str("span_id", activeSpan.SpanContext().SpanID().String()).
-					Str("trace_id", activeSpan.SpanContext().TraceID().String()),
-				)
-			}
+			// activeSpan := trace.SpanFromContext(r.Context())
+			// if activeSpan.SpanContext().TraceID().IsValid() {
+			// 	e.Dict("correlation", zerolog.Dict().
+			// 		Str("span_id", activeSpan.SpanContext().SpanID().String()).
+			// 		Str("trace_id", activeSpan.SpanContext().TraceID().String()),
+			// 	)
+			// }
 		})
 		requestLogger := logger.GetLogger(r.Context(), "http").Hook(hook)
 
@@ -80,5 +79,4 @@ func dumpHeaders(headers http.Header) *zerolog.Event {
 		events.Strs(k, v)
 	}
 	return events
-
 }

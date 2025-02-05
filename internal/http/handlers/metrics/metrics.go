@@ -1,11 +1,6 @@
 package metrics
 
-import (
-	"github.com/gorilla/mux"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-)
+// func PrometheusHandlers(nonFunctionalRouter *mux.Router, ctxRoot string) {
 
-func PrometheusHandlers(nonFunctionalRouter *mux.Router, ctxRoot string) {
-
-	nonFunctionalRouter.Handle("/metrics", promhttp.Handler()).Name("GET " + ctxRoot + "/metrics")
-}
+// 	nonFunctionalRouter.Handle("/metrics", promhttp.Handler()).Name("GET " + ctxRoot + "/metrics")
+// }

@@ -7,7 +7,7 @@ NPM := npm
 NODEMON := nodemon
 
 ## Set the flags
-#GOFLAGS := -mod=vendor
+# GOFLAGS := -tags with_http_session #-mod=vendor
 LDFLAGS := -ldflags="-s -w"
 GCFLAGS := -gcflags="-m -l"
 TESTFLAGS := -v
@@ -15,7 +15,7 @@ TESTFLAGS := -v
 NPMFLAGS := --no-audit --no-fund
 
 ## Define the source files
-SERVER_SOURCES := ./cmd/server/serve.go
+SERVER_SOURCES := ./cmd/serve.go
 
 ## Define the target binary name
 SERVER_TARGET := g-fe-server
@@ -38,7 +38,7 @@ build-fe:
 
 build-server:
 	# @$(GO) test $(TESTFLAGS) ./...
-	@$(GO) build -tags=with-http-session $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVER_TARGET) $(SERVER_SOURCES)
+	@$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVER_TARGET) $(SERVER_SOURCES)
 
 watch-fe:
 	@$(NPM) --prefix ./web/ui i

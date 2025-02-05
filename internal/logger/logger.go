@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/morphy76/g-fe-server/internal/common"
-	"github.com/morphy76/g-fe-server/internal/multitenancy"
 
 	"github.com/rs/zerolog"
 )
@@ -62,15 +61,15 @@ func GetLogger(ctx context.Context, category string) zerolog.Logger {
 }
 
 func addOwnerInfo(ctx context.Context, builder zerolog.Context) zerolog.Context {
-	tenant, found := multitenancy.ExtractTenant(ctx)
-	if found {
-		return builder.Dict("owner", zerolog.Dict().
-			Str("tenant_id", tenant.TenantID).
-			Str("subscription_id", tenant.SubscriptionID).
-			Str("group_id", tenant.GroupID).
-			Bool("system", false),
-		)
-	}
+	// tenant, found := multitenancy.ExtractTenant(ctx)
+	// if found {
+	// 	return builder.Dict("owner", zerolog.Dict().
+	// 		Str("tenant_id", tenant.TenantID).
+	// 		Str("subscription_id", tenant.SubscriptionID).
+	// 		Str("group_id", tenant.GroupID).
+	// 		Bool("system", false),
+	// 	)
+	// }
 	return builder.Dict("owner", zerolog.Dict().
 		Bool("system", true),
 	)

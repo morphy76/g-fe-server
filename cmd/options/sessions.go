@@ -1,8 +1,16 @@
-// go:build with-http-session
+//go:build with_http_session
 
 package options
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/gorilla/sessions"
+)
+
+type SessionStore interface {
+	sessions.Store
+}
 
 type SessionOptions struct {
 	SessionKey           string

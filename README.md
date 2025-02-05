@@ -8,7 +8,7 @@ A presentation server is a Backend For Front-end component (<https://microservic
 
 So much freedom while structuring the project needs to be somehow tamed: <https://github.com/golang-standards/project-layout>.
 
-The entry point of the presentation server is `cmd/server/serve.go`.
+The entry point of the presentation server is `cmd/serve.go`.
 
 It uses the following third party dependencies:
 
@@ -55,7 +55,7 @@ Logging is enriched by contextual information:
 
 #### Routing
 
-Routing is hierarchical, `cmd/server/serve.go` prepares the server context and moves on to `internal/http/handlers/handler.go` to build the hierarchy.
+Routing is hierarchical, `cmd/serve.go` prepares the server context and moves on to `internal/http/handlers/handler.go` to build the hierarchy.
 
 First of all, the parent router which receives 3 middlewares:
 

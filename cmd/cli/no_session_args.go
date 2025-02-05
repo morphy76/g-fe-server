@@ -1,4 +1,4 @@
-// go:build !with-http-session
+//go:build !with_http_session
 
 package cli
 
@@ -11,7 +11,7 @@ type SessionOptionsBuilderFn func() (*options.SessionOptions, error)
 
 // SessionOptionsBuilder returns a function that builds SessionOptions from the command line arguments and environment variables
 func SessionOptionsBuilder() SessionOptionsBuilderFn {
-	return func() (interface{}, error) {
+	return func() (*options.SessionOptions, error) {
 		return nil, nil
 	}
 }

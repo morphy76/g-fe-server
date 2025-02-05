@@ -2,17 +2,10 @@ package server
 
 import (
 	"context"
-	"errors"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 
-	"github.com/morphy76/g-fe-server/internal/db"
-	"github.com/morphy76/g-fe-server/internal/http/handlers/auth"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
@@ -36,9 +29,9 @@ func Handler(
 
 	// Parent router
 	// enrich the context for OTEL tracing
-	rootRouter.Use(otelmux.Middleware(feServer.OTelOpts.ServiceName,
-		otelmux.WithPublicEndpoint(),
-	))
+	// rootRouter.Use(otelmux.Middleware(feServer.OTelOpts.ServiceName,
+	// 	otelmux.WithPublicEndpoint(),
+	// ))
 	// enrich the request context with logger and server instance extracting from the application context
 	rootRouter.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,10 +51,9 @@ func Handler(
 			Msg("Non functional router registered")
 	}
 	// health checks to provide liveness and readiness endpoints
-	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot,
-		CreateHealthCheck(feServer.RelayingParty),
-		db.CreateHealthCheck(feServer.DBOpts),
-	)
+	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot) // CreateHealthCheck(feServer.RelayingParty),
+	// db.CreateHealthCheck(feServer.DBOpts),
+
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Health handler registered")
@@ -86,23 +78,23 @@ func Handler(
 	}
 
 	// Auth router
-	authRouter := contextRouter.PathPrefix("/auth").Subrouter()
-	authRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.SessionsOpts.SessionName))
-	if routerLog.Trace().Enabled() {
-		routerLog.Trace().
-			Msg("Auth router registered")
-	}
-	auth.IAMHandlers(authRouter, feServer.ServeOpts, feServer.RelayingParty)
-	if routerLog.Trace().Enabled() {
-		routerLog.Trace().
-			Msg("Auth handler registered")
-	}
+	// authRouter := contextRouter.PathPrefix("/auth").Subrouter()
+	// authRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.SessionsOpts.SessionName))
+	// if routerLog.Trace().Enabled() {
+	// 	routerLog.Trace().
+	// 		Msg("Auth router registered")
+	// }
+	// auth.IAMHandlers(authRouter, feServer.ServeOpts, feServer.RelayingParty)
+	// if routerLog.Trace().Enabled() {
+	// 	routerLog.Trace().
+	// 		Msg("Auth handler registered")
+	// }
 
 	// Static content
 	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()
-	staticRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.SessionsOpts.SessionName))
-	staticRouter.Use(middleware.HTTPSessionAuthenticationRequired(feServer.ServeOpts))
-	staticRouter.Use(middleware.HTTPSessionInspectAndRenew(feServer.ResourceServer, feServer.RelayingParty, feServer.ServeOpts))
+	// staticRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.SessionsOpts.SessionName))
+	// staticRouter.Use(middleware.HTTPSessionAuthenticationRequired(feServer.ServeOpts))
+	// staticRouter.Use(middleware.HTTPSessionInspectAndRenew(feServer.ResourceServer, feServer.RelayingParty, feServer.ServeOpts))
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Static router registered")
@@ -118,14 +110,14 @@ func Handler(
 	apiRouter.Use(middleware.JSONResponse)
 	// test API
 	apiRouter.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
-		<-time.After(1 * time.Second)
-		_, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "testSpan")
-		defer span.End()
-		span.AddEvent("testEvent")
+		// <-time.After(1 * time.Second)
+		// _, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "testSpan")
+		// defer span.End()
+		// span.AddEvent("testEvent")
 		w.Write([]byte("{\"message\": \"Hello, World!\"}"))
-		<-time.After(1 * time.Second)
-		span.RecordError(errors.New("testError"))
-		span.SetStatus(codes.Error, "testError")
+		// <-time.After(1 * time.Second)
+		// span.RecordError(errors.New("testError"))
+		// span.SetStatus(codes.Error, "testError")
 	})
 	// apiRouter.Use(middleware.PrometheusMiddleware)
 	// TODO: gw oriented auth, inspect and renew

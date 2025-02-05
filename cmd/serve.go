@@ -8,12 +8,11 @@ import (
 	"syscall"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
-	"github.com/quasoft/memstore"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/morphy76/g-fe-server/cmd/cli"
+	"github.com/morphy76/g-fe-server/cmd/initializers"
 	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
@@ -108,7 +107,13 @@ func startServer(
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// HTTP session store
-	sessionStore := createSessionStore(sessionOptions, serveOptions)
+	sessionStore, err := initializers.CreateSessionStore(sessionOptions, serveOptions)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error creating session store")
+		return
+	}
 
 	// Server application context which provides the feServer instance and log facilities
 	appContext, cancel := createAppContext(serveOptions, sessionOptions, sessionStore, oidcOptions, dbOptions, otelOptions, trace)
@@ -149,27 +154,10 @@ func startServer(
 	}
 }
 
-func createSessionStore(
-	sessionOptions *options.SessionOptions,
-	serveOptions *options.ServeOptions,
-) sessions.Store {
-	// TODO from memstore to https://github.com/kidstuff/mongostore
-	sessionStore := memstore.NewMemStore([]byte(sessionOptions.SessionKey))
-	sessionStore.Options = &sessions.Options{
-		Path:     serveOptions.ContextRoot,
-		MaxAge:   sessionOptions.SessionMaxAge,
-		HttpOnly: sessionOptions.SessionHttpOnly,
-		Domain:   sessionOptions.SessionDomain,
-		Secure:   sessionOptions.SessionSecureCookies,
-		SameSite: sessionOptions.SessionSameSite,
-	}
-	return sessionStore
-}
-
 func createAppContext(
 	serveOpts *options.ServeOptions,
 	sessionOptions *options.SessionOptions,
-	sessionStore sessions.Store,
+	sessionStore options.SessionStore,
 	oidcOptions *options.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,

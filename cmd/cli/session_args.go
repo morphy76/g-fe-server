@@ -1,4 +1,4 @@
-// go:build with-http-session
+//go:build with_http_session
 
 package cli
 
