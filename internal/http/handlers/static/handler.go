@@ -15,16 +15,18 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 
 	fileServer := func(w http.ResponseWriter, r *http.Request) {
 
+		defer func() {
+			if recover := recover(); recover != nil {
+				http.NotFound(w, r)
+			}
+		}()
+
 		requestedFile := filepath.Join(staticPath, strings.TrimPrefix(r.URL.Path, ctxRoot+"/ui"))
 
 		requestedFileStats, err := os.Stat(requestedFile)
 		if os.IsNotExist(err) {
 			requestedFile = defaultFile
 			requestedFileStats, _ = os.Stat(requestedFile)
-		}
-
-		if !strings.HasSuffix(requestedFile, ".js") {
-			w.Header().Set("Cache-Control", "no-cache")
 		}
 
 		if requestedFileStats.IsDir() {

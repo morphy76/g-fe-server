@@ -89,10 +89,12 @@ func URLOptionsBuilder() URLOptionsBuilderFn {
 func ServeOptionsBuilder() ServeOptionsBuilderFn {
 
 	staticPathArg := flag.String("static", "/static", "static path of the served application. Environment: "+envStaticPath)
+	pathOptionsBuilder := PathOptionsBuilder()
+	urlOptionsBuilder := URLOptionsBuilder()
 
 	return func() (*options.ServeOptions, error) {
 
-		pathOptions, err := PathOptionsBuilder()()
+		pathOptions, err := pathOptionsBuilder()
 		if err != nil {
 			return nil, err
 		}
@@ -105,7 +107,7 @@ func ServeOptionsBuilder() ServeOptionsBuilderFn {
 			return nil, ErrInvalidStaticPath
 		}
 
-		urlOptions, err := URLOptionsBuilder()()
+		urlOptions, err := urlOptionsBuilder()
 		if err != nil {
 			return nil, err
 		}
