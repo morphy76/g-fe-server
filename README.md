@@ -158,12 +158,18 @@ TODO
 
 ### Development
 
-- make watch
+- make watch-server
 - make watch-fe
+
+### Build tags
+
+To change the build tags edit the `Makefile` and set the `GOFLAGS` variable.
+
+- `with_http_session` includes the HTTP session management using the memstore; if combined with `with_mongodb` it will use mongostore.
 
 ### Docker
 
-TODO
+- make deploy
 
 ### Helm and minikube
 

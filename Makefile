@@ -58,6 +58,7 @@ clean:
 deploy: clean
 	@$(DOCKER) run -d --network host --rm -v /var/run/docker.sock:/var/run/docker.sock --name socat alpine/socat tcp-listen:12345,fork,reuseaddr,ignoreeof unix-connect:/var/run/docker.sock
 	-$(DOCKER) build --network host \
+    --platform linux/amd64 --output type=docker \
     --build-arg TAG_NAME=$(SERVER_TAG) \
     --build-arg TAG_VERSION=$(SERVER_VERSION) \
     -t $(SERVER_DEPLOY_TAG) -f $(SERVER_DOCKERFILE) $(DOCKERBUILDFLAGS) .
