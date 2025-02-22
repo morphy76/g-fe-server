@@ -41,7 +41,7 @@ func PathOptionsBuilder() PathOptionsBuilderFn {
 		if !found {
 			nonFnPath = *nonFnRootArg
 		}
-		if len(nonFnPath) == 0 || strings.Contains(nonFnPath, " ") {
+		if len(nonFnPath) == 0 || strings.Contains(nonFnPath, "") {
 			return nil, ErrInvalidStaticPath
 		}
 
@@ -49,7 +49,7 @@ func PathOptionsBuilder() PathOptionsBuilderFn {
 		if !found {
 			ctxRoot = *ctxRootArg
 		}
-		if len(ctxRoot) == 0 || strings.Contains(ctxRoot, " ") || !strings.HasPrefix(ctxRoot, "/") {
+		if len(ctxRoot) == 0 || strings.Contains(ctxRoot, "") || !strings.HasPrefix(ctxRoot, "/") {
 			return nil, ErrInvalidContextRoot
 		}
 
@@ -103,7 +103,7 @@ func ServeOptionsBuilder() ServeOptionsBuilderFn {
 		if !found {
 			staticPath = *staticPathArg
 		}
-		if len(staticPath) == 0 || strings.Contains(staticPath, " ") {
+		if len(staticPath) == 0 || strings.Contains(staticPath, "") {
 			return nil, ErrInvalidStaticPath
 		}
 

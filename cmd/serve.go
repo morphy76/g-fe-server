@@ -116,17 +116,8 @@ func startServer(
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// HTTP session store
-	sessionStore, err := session.CreateSessionStore(sessionOptions, serveOptions.ContextRoot)
-	if err != nil {
-		log.Error().
-			Err(err).
-			Msg("Error creating session store")
-		return
-	}
-
 	// Server application context which provides the feServer instance and log facilities
-	appContext, cancel := createAppContext(serveOptions, sessionOptions, sessionStore, oidcOptions, dbOptions, otelOptions, trace)
+	appContext, cancel := createAppContext(serveOptions, sessionOptions, oidcOptions, dbOptions, otelOptions, trace)
 	bootLogger := logger.GetLogger(appContext, "feServer")
 
 	// Server routes
@@ -167,7 +158,6 @@ func startServer(
 func createAppContext(
 	serveOpts *options.ServeOptions,
 	sessionOptions *session.SessionOptions,
-	sessionStore session.SessionStore,
 	oidcOptions *auth.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
@@ -205,6 +195,7 @@ func createAppContext(
 	// the server instance is the main entry point for the server application
 	// it is used to start the server, register routes, and shutdown the server
 	// it provides the HTTP server, with HTTP session, the OIDC client, and the database client
-	appContext = server.NewFEServer(appContext, serveOpts, sessionOptions, sessionStore, oidcOptions, dbOptions, otelOptions)
+	appContext = server.NewFEServer(appContext, serveOpts, sessionOptions, oidcOptions, dbOptions, otelOptions)
+
 	return context.WithCancel(appContext)
 }

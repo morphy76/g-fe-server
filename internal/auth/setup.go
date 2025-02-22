@@ -3,10 +3,12 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // SetupOIDC sets up the OIDC client
@@ -23,28 +25,12 @@ func SetupOIDC(
 		serveOptions.ContextRoot,
 	)
 
-	cookieHandlerOpts := []httphelper.CookieHandlerOpt{
-		httphelper.WithDomain(sessionOptions.SessionDomain),
-		httphelper.WithMaxAge(sessionOptions.SessionMaxAge),
-		httphelper.WithSameSite(sessionOptions.SessionSameSite),
-	}
-	if !sessionOptions.SessionSecureCookies {
-		cookieHandlerOpts = append(cookieHandlerOpts, httphelper.WithUnsecure())
-	}
-
-	cookieHandler := httphelper.NewCookieHandler(
-		[]byte(sessionOptions.SessionKey),
-		[]byte(sessionOptions.SessionKey),
-		cookieHandlerOpts...,
-	)
-
 	oidcOpts := []rp.Option{
-		rp.WithCookieHandler(cookieHandler),
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
-		// rp.WithHTTPClient(instrumentNewHTTPClient()),
+		rp.WithHTTPClient(instrumentNewHTTPClient()),
 	}
 
-	oidcClient, err := rp.NewRelyingPartyOIDC(
+	relyingParty, err := rp.NewRelyingPartyOIDC(
 		context.Background(),
 		oidcOptions.Issuer,
 		oidcOptions.ClientID,
@@ -57,13 +43,13 @@ func SetupOIDC(
 		return nil, err
 	}
 
-	return oidcClient, err
+	return relyingParty, err
 }
 
-// func instrumentNewHTTPClient() *http.Client {
-// 	transport := otelhttp.NewTransport(http.DefaultTransport)
-// 	client := &http.Client{
-// 		Transport: transport,
-// 	}
-// 	return client
-// }
+func instrumentNewHTTPClient() *http.Client {
+	transport := otelhttp.NewTransport(http.DefaultTransport)
+	client := &http.Client{
+		Transport: transport,
+	}
+	return client
+}

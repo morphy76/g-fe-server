@@ -32,11 +32,11 @@ const (
 // OIDCOptionsBuilder returns a function that can be used to build OIDC options
 func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 
-	oidcIssuerArg := flag.String("oidc-issuer", " ", "OIDC issuer. Environment: "+envOIDCIssuer)
-	oidcClientIDArg := flag.String("oidc-client-id", " ", "OIDC client id. Environment: "+envOIDCClientID)
-	oidcClientSecretArg := flag.String("oidc-client-secret", " ", "OIDC client secret. Environment: "+envOIDCClientSecret)
-	oidcScopesArg := flag.String("oidc-scopes", " ", "OIDC scopes. Environment: "+envOIDCScopes)
-	oidcExtraAuthArgsArg := flag.String("oidc-extra-auth-args", " ", "OIDC extra auth args. Environment: "+envExtraAuthArgs)
+	oidcIssuerArg := flag.String("oidc-issuer", "", "OIDC issuer. Environment: "+envOIDCIssuer)
+	oidcClientIDArg := flag.String("oidc-client-id", "", "OIDC client id. Environment: "+envOIDCClientID)
+	oidcClientSecretArg := flag.String("oidc-client-secret", "", "OIDC client secret. Environment: "+envOIDCClientSecret)
+	oidcScopesArg := flag.String("oidc-scopes", "", "OIDC scopes. Environment: "+envOIDCScopes)
+	oidcExtraAuthArgsArg := flag.String("oidc-extra-auth-args", "", "OIDC extra auth args. Environment: "+envExtraAuthArgs)
 
 	rv := func() (*auth.OIDCOptions, error) {
 
@@ -88,8 +88,8 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 			Scopes:       strings.Split(oidcScopes, ","),
 		}
 
+		rvOpts.ExtraAuthArgs = make(map[string]string, 0)
 		if len(extraAuthArgsMap) > 0 {
-			rvOpts.ExtraAuthArgs = make(map[string]string, len(extraAuthArgsMap))
 			for k, v := range extraAuthArgsMap {
 				rvOpts.ExtraAuthArgs[k] = v
 			}

@@ -5,6 +5,7 @@ import (
 	"github.com/quasoft/memstore"
 )
 
+// TODO from memstore to https://github.com/kidstuff/mongostore
 func CreateSessionStore(
 	sessionOptions *SessionOptions,
 	contextRoot string,

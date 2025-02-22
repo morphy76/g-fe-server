@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 
 	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
 	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
@@ -23,10 +24,9 @@ func Handler(
 	feServer := ExtractFEServer(appContext)
 
 	// Parent router
-	// enrich the context for OTEL tracing
-	// rootRouter.Use(otelmux.Middleware(feServer.OTelOpts.ServiceName,
-	// 	otelmux.WithPublicEndpoint(),
-	// ))
+	rootRouter.Use(otelmux.Middleware(feServer.ServiceName,
+		otelmux.WithPublicEndpoint(),
+	))
 
 	enrichRequestContext(rootRouter, appContext)
 	initializeTheNonFunctionalRouter(appContext, rootRouter, feServer, routerLog)
@@ -39,7 +39,7 @@ func initializeTheFunctionalRouter(rootRouter *mux.Router, feServer *FEServer, r
 	// - API endpoints at /api
 
 	contextRouter := rootRouter.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
-	contextRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionsOpts.SessionName))
+	contextRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
 	// TODO CORS: in the context router to allow MFE and APIs
 	// contextRouter.Use(mux.CORSMethodMiddleware(apiRouter))
 	// contextRouter.Use(middleware.TenantResolver)
@@ -125,18 +125,12 @@ func initializeTheNonFunctionalRouter(appContext context.Context, rootRouter *mu
 			Msg("Non functional router registered")
 	}
 	// health checks to provide liveness and readiness endpoints
-	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot) // CreateHealthCheck(feServer.RelayingParty),
-	// db.CreateHealthCheck(feServer.DBOpts),
+	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot, feServer.HealthChecksFn)
 
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Health handler registered")
 	}
-	// metrics.PrometheusHandlers(nonFunctionalRouter, serveOptions.ContextRoot)
-	// if log.Trace().Enabled() {
-	// 	log.Trace().
-	// 		Msg("Metrics handler registered")
-	// }
 }
 
 func enrichRequestContext(rootRouter *mux.Router, appContext context.Context) {

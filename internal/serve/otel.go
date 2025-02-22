@@ -1,63 +1,76 @@
 package serve
 
-// // SetupOTelSDK sets up the OTel SDK
-// func SetupOTelSDK(otelOptions *options.OTelOptions) (shutdown func() error, err error) {
+import (
+	"context"
+	"errors"
 
-// 	ctx := context.Background()
-// 	var shutdownFuncs []func(context.Context) error
+	"github.com/morphy76/g-fe-server/cmd/options"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/zipkin"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/sdk/trace"
+)
 
-// 	shutdown = func() error {
-// 		var err error
-// 		for _, fn := range shutdownFuncs {
-// 			useCtx := ctx
-// 			err = errors.Join(err, fn(useCtx))
-// 		}
-// 		shutdownFuncs = nil
-// 		return err
-// 	}
+// SetupOTelSDK sets up the OTel SDK
+func SetupOTelSDK(otelOptions *options.OTelOptions) (shutdown func() error, err error) {
 
-// 	handleErr := func(inErr error) {
-// 		err = errors.Join(inErr, shutdown())
-// 	}
+	ctx := context.Background()
+	var shutdownFuncs []func(context.Context) error
 
-// 	propagator := newPropagator()
-// 	otel.SetTextMapPropagator(propagator)
+	shutdown = func() error {
+		var err error
+		for _, fn := range shutdownFuncs {
+			useCtx := ctx
+			err = errors.Join(err, fn(useCtx))
+		}
+		shutdownFuncs = nil
+		return err
+	}
 
-// 	tracerProvider, err := newTraceProvider(otelOptions.Enabled, otelOptions.ServiceName, otelOptions.URL)
-// 	if err != nil {
-// 		handleErr(err)
-// 		return
-// 	}
-// 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
-// 	otel.SetTracerProvider(tracerProvider)
+	handleErr := func(inErr error) {
+		err = errors.Join(inErr, shutdown())
+	}
 
-// 	return shutdown, err
-// }
+	propagator := newPropagator()
+	otel.SetTextMapPropagator(propagator)
 
-// func newPropagator() propagation.TextMapPropagator {
-// 	return propagation.NewCompositeTextMapPropagator(
-// 		propagation.TraceContext{},
-// 		propagation.Baggage{},
-// 	)
-// }
+	tracerProvider, err := newTraceProvider(otelOptions.Enabled, otelOptions.ServiceName, otelOptions.URL)
+	if err != nil {
+		handleErr(err)
+		return
+	}
+	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
+	otel.SetTracerProvider(tracerProvider)
 
-// func newTraceProvider(enabled bool, serviceName string, url string) (*trace.TracerProvider, error) {
-// 	var traceProvider *trace.TracerProvider
+	return shutdown, err
+}
 
-// 	if enabled {
-// 		traceExporter, err := zipkin.New(url)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		traceProvider = trace.NewTracerProvider(
-// 			trace.WithBatcher(traceExporter),
-// 			trace.WithResource(resource.NewSchemaless(
-// 				attribute.String("service.name", serviceName),
-// 			)),
-// 		)
-// 	} else {
-// 		traceProvider = trace.NewTracerProvider()
-// 	}
+func newPropagator() propagation.TextMapPropagator {
+	return propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	)
+}
 
-// 	return traceProvider, nil
-// }
+func newTraceProvider(enabled bool, serviceName string, url string) (*trace.TracerProvider, error) {
+	var traceProvider *trace.TracerProvider
+
+	if enabled {
+		traceExporter, err := zipkin.New(url)
+		if err != nil {
+			return nil, err
+		}
+		traceProvider = trace.NewTracerProvider(
+			trace.WithBatcher(traceExporter),
+			trace.WithResource(resource.NewSchemaless(
+				attribute.String("service.name", serviceName),
+			)),
+		)
+	} else {
+		traceProvider = trace.NewTracerProvider()
+	}
+
+	return traceProvider, nil
+}

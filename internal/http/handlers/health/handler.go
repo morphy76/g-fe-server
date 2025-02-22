@@ -18,7 +18,7 @@ func Handlers(
 	appContext context.Context,
 	parent *mux.Router,
 	ctxRoot string,
-	additionalChecks ...health.AdditionalCheckFn,
+	additionalChecks []health.AdditionalCheckFn,
 ) {
 	healthRouter := parent.PathPrefix("/health").Subrouter()
 	healthRouter.Use(middleware.JSONResponse)

@@ -1,42 +1,41 @@
 package db
 
-// // CreateHealthCheck creates a health check function for the db
-// func CreateHealthCheck(dbOptions *options.MongoDBOptions) app_http.AdditionalCheckFn {
-// 	client, err := NewClient(dbOptions)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	return testDbStatus(client)
-// }
+import (
+	"context"
+	"time"
 
-// func testDbStatus(client *mongo.Client) app_http.AdditionalCheckFn {
-// 	return func(requestContext context.Context) (app_http.HealthCheckFn, app_http.Probe) {
-// 		return func(requestContext context.Context) (string, app_http.Status) {
+	"github.com/morphy76/g-fe-server/internal/common/health"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+)
 
-// 			dbStatus := app_http.Inactive
-// 			label := "MongoDB"
+func CreateHealthCheck(client *mongo.Client) health.AdditionalCheckFn {
+	return func(requestContext context.Context) (health.HealthCheckFn, health.Probe) {
+		return func(requestContext context.Context) (string, health.Status) {
 
-// 			timeoutContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-// 			defer cancel()
+			dbStatus := health.Inactive
+			label := "MongoDB"
 
-// 			errChan := make(chan error, 1)
+			timeoutContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-// 			go func() {
-// 				errChan <- client.Ping(timeoutContext, nil)
-// 			}()
+			errChan := make(chan error, 1)
 
-// 			select {
-// 			case <-timeoutContext.Done():
-// 				dbStatus = app_http.Inactive
-// 			case err := <-errChan:
-// 				if err != nil {
-// 					dbStatus = app_http.Inactive
-// 				} else {
-// 					dbStatus = app_http.Active
-// 				}
-// 			}
+			go func() {
+				errChan <- client.Ping(timeoutContext, nil)
+			}()
 
-// 			return label, dbStatus
-// 		}, app_http.Live | app_http.Ready
-// 	}
-// }
+			select {
+			case <-timeoutContext.Done():
+				dbStatus = health.Inactive
+			case err := <-errChan:
+				if err != nil {
+					dbStatus = health.Inactive
+				} else {
+					dbStatus = health.Active
+				}
+			}
+
+			return label, dbStatus
+		}, health.Live | health.Ready
+	}
+}
