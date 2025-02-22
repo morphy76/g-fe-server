@@ -37,7 +37,7 @@ func main() {
 	sessionOptionsBuilder := cli.SessionOptionsBuilder()
 	oidcOptionsBuilder := cli.OIDCOptionsBuilder()
 	dbOptionsBuilder := cli.DBOptionsBuilder()
-	// OTelOptionsBuilder := cli.OTelOptionsBuilder()
+	OTelOptionsBuilder := cli.OTelOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -84,21 +84,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	// OTelOptions, err := OTelOptionsBuilder()
-	// if err != nil {
-	// 	log.Error().
-	// 		Err(err).
-	// 		Msg("Error parsing OTel options")
-	// 	flag.Usage()
-	// 	os.Exit(1)
-	// }
+	OTelOptions, err := OTelOptionsBuilder()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing OTel options")
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	startServer(
 		serveOptions,
 		sessionOptions,
 		oidcOptions,
 		dbOptions,
-		nil, // OTelOptions,
+		OTelOptions,
 		trace,
 	)
 }

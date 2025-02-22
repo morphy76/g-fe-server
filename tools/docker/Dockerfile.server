@@ -33,7 +33,7 @@ FROM --platform=linux/amd64 gcr.io/distroless/base-nossl-debian12:nonroot
 COPY --from=ps-builder /app/g-fe-server /g-fe-server
 COPY --from=fe-builder /app/web/build /static
 ENV STATIC_PATH=/static
-CMD [ "/g-fe-server", "-oidc-disabled=true" ]
+CMD [ "/g-fe-server" ]
 LABEL Name=$TAG_NAME \
       Version=$TAG_VERSION \
       Maintainer="Riccardo Pasquini <riccardo.pasquini@gmail.com>" \
