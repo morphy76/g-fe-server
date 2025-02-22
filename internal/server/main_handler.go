@@ -8,8 +8,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 
-	"github.com/morphy76/g-fe-server/internal/http/handlers/health"
-	"github.com/morphy76/g-fe-server/internal/http/handlers/static"
+	"github.com/morphy76/g-fe-server/internal/http/handlers"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
@@ -88,7 +87,6 @@ func addUIHandlers(contextRouter *mux.Router, feServer *FEServer, routerLog zero
 
 	// Auth router
 	// authRouter := contextRouter.PathPrefix("/auth").Subrouter()
-	// authRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.SessionsOpts.SessionName))
 	// if routerLog.Trace().Enabled() {
 	// 	routerLog.Trace().
 	// 		Msg("Auth router registered")
@@ -108,7 +106,7 @@ func addUIHandlers(contextRouter *mux.Router, feServer *FEServer, routerLog zero
 		routerLog.Trace().
 			Msg("Static router registered")
 	}
-	static.HandleStatic(staticRouter, feServer.ServeOpts.ContextRoot, feServer.ServeOpts.StaticPath)
+	handlers.HandleStatic(staticRouter, feServer.ServeOpts.ContextRoot, feServer.ServeOpts.StaticPath)
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Static handler registered")
@@ -125,7 +123,7 @@ func initializeTheNonFunctionalRouter(appContext context.Context, rootRouter *mu
 			Msg("Non functional router registered")
 	}
 	// health checks to provide liveness and readiness endpoints
-	health.Handlers(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot, feServer.HealthChecksFn)
+	handlers.HandleHealth(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot, feServer.HealthChecksFn)
 
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().

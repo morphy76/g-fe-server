@@ -1,4 +1,4 @@
-package health
+package handlers
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 )
 
 // Handlers registers the health check handlers
-func Handlers(
+func HandleHealth(
 	appContext context.Context,
 	parent *mux.Router,
 	ctxRoot string,

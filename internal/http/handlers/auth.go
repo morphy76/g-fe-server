@@ -1,4 +1,4 @@
-package auth
+package handlers
 
 // // IAMHandlers registers the IAM authentication handlers
 // func IAMHandlers(authRouter *mux.Router, serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) {
