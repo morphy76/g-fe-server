@@ -1,5 +1,3 @@
-//go:build with_http_session && !with_mongodb
-
 package session
 
 import (

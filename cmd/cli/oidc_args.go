@@ -1,5 +1,3 @@
-//go:build with_oidc
-
 package cli
 
 import (
@@ -28,6 +26,7 @@ const (
 	envOIDCClientID     = "OIDC_CLIENT_ID"
 	envOIDCClientSecret = "OIDC_CLIENT_SECRET"
 	envOIDCScopes       = "OIDC_SCOPES"
+	envExtraAuthArgs    = "OIDC_EXTRA_AUTH_ARGS"
 )
 
 // OIDCOptionsBuilder returns a function that can be used to build OIDC options
@@ -37,6 +36,7 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 	oidcClientIDArg := flag.String("oidc-client-id", " ", "OIDC client id. Environment: "+envOIDCClientID)
 	oidcClientSecretArg := flag.String("oidc-client-secret", " ", "OIDC client secret. Environment: "+envOIDCClientSecret)
 	oidcScopesArg := flag.String("oidc-scopes", " ", "OIDC scopes. Environment: "+envOIDCScopes)
+	oidcExtraAuthArgsArg := flag.String("oidc-extra-auth-args", " ", "OIDC extra auth args. Environment: "+envExtraAuthArgs)
 
 	rv := func() (*auth.OIDCOptions, error) {
 
@@ -69,12 +69,33 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 			oidcScopes = *oidcScopesArg
 		}
 
-		return &auth.OIDCOptions{
+		oidcExtraAuthArgs, found := os.LookupEnv(envExtraAuthArgs)
+		if !found {
+			oidcExtraAuthArgs = *oidcExtraAuthArgsArg
+		}
+		extraAuthArgsMap := make(map[string]string)
+		for _, arg := range strings.Split(oidcExtraAuthArgs, "&") {
+			kv := strings.SplitN(arg, "=", 2)
+			if len(kv) == 2 {
+				extraAuthArgsMap[kv[0]] = kv[1]
+			}
+		}
+
+		rvOpts := &auth.OIDCOptions{
 			Issuer:       oidcIssuer,
 			ClientID:     oidcClientID,
 			ClientSecret: oidcClientSecret,
 			Scopes:       strings.Split(oidcScopes, ","),
-		}, nil
+		}
+
+		if len(extraAuthArgsMap) > 0 {
+			rvOpts.ExtraAuthArgs = make(map[string]string, len(extraAuthArgsMap))
+			for k, v := range extraAuthArgsMap {
+				rvOpts.ExtraAuthArgs[k] = v
+			}
+		}
+
+		return rvOpts, nil
 	}
 
 	return rv

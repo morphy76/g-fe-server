@@ -1,5 +1,5 @@
 # Builder image: BFF
-FROM golang:1.22.3 AS ps-builder
+FROM --platform=linux/amd64 golang:1.24 AS ps-builder
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update \
@@ -13,6 +13,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 ARG DOCKER_HOST=tcp://127.0.0.1:12345
 WORKDIR /app
 COPY . .
+ENV GOOS=linux
 RUN --mount=type=cache,target=/go/pkg/mod \
     make build-server
 
@@ -28,7 +29,7 @@ RUN --mount=type=cache,target=/root/.npm \
     make build-fe
 
 # Final image
-FROM gcr.io/distroless/base-nossl-debian12:nonroot
+FROM --platform=linux/amd64 gcr.io/distroless/base-nossl-debian12:nonroot
 COPY --from=ps-builder /app/g-fe-server /g-fe-server
 COPY --from=fe-builder /app/web/build /static
 ENV STATIC_PATH=/static

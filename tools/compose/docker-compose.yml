@@ -30,36 +30,16 @@ services:
   #   networks:
   #     - fe-private-network
 
-  kc_db:
-    image: postgres:15
-    restart: unless-stopped
-    ports:
-      - 5432:5432
-    environment:
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: keycloak
-      POSTGRES_DBPOSTGRES_USER: keycloak
-    volumes:
-      - postgresql_data:/var/lib/postgresql/data
-
-  adminer:
-    image: adminer
-    restart: unless-stopped
-    ports:
-      - 18080:8080
-
   iam:
     image: quay.io/keycloak/keycloak:26.1
     restart: unless-stopped
+    command:
+      - start-dev
     depends_on:
       - "kc_db"
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-      KC_DB_URL: jdbc:postgresql://localhost:5432/keycloak
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: keycloak
-      KC_HOSTNAME: "localhost"
     network_mode: "host"
 
   # zipkin:

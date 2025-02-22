@@ -1,5 +1,14 @@
 package auth
 
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/morphy76/g-fe-server/cmd/options"
+	"github.com/zitadel/oidc/v3/pkg/client/rp"
+)
+
 // SetupOIDC sets up the OIDC client
 func SetupOIDC(
 	serveOptions *options.ServeOptions,
