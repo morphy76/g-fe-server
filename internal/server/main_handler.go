@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -28,20 +29,32 @@ func Handler(
 		otelmux.WithPublicEndpoint(),
 	))
 
-	enrichRequestContext(rootRouter, appContext)
 	initializeTheNonFunctionalRouter(appContext, rootRouter, feServer, routerLog)
-	initializeTheFunctionalRouter(rootRouter, feServer, routerLog)
+	initializeTheFunctionalRouter(appContext, rootRouter, feServer, routerLog)
 }
 
-func initializeTheFunctionalRouter(rootRouter *mux.Router, feServer *FEServer, routerLog zerolog.Logger) {
+func initializeTheFunctionalRouter(appContext context.Context, rootRouter *mux.Router, feServer *FEServer, routerLog zerolog.Logger) {
 	// Add functional endpoints
 	// - static content (the UI) at /ui
 	// - API endpoints at /api
 
 	contextRouter := rootRouter.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
-	contextRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
+	enrichFunctionalRequestContext(contextRouter, feServer, appContext)
+	if routerLog.Trace().Enabled() {
+		routerLog.Trace().
+			Msg("Context router registered")
+	}
 
-	// Auth router
+	// TODO CORS: in the context router to allow MFE and APIs
+	// contextRouter.Use(mux.CORSMethodMiddleware(apiRouter))
+	// contextRouter.Use(middleware.TenantResolver)
+
+	addAuthHandlers(contextRouter, routerLog, feServer)
+	addUIHandlers(contextRouter, feServer, routerLog)
+	addAPIHandlers(contextRouter, routerLog)
+}
+
+func addAuthHandlers(contextRouter *mux.Router, routerLog zerolog.Logger, feServer *FEServer) {
 	authRouter := contextRouter.PathPrefix("/auth").Subrouter()
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
@@ -52,12 +65,6 @@ func initializeTheFunctionalRouter(rootRouter *mux.Router, feServer *FEServer, r
 		routerLog.Trace().
 			Msg("Auth handler registered")
 	}
-
-	// TODO CORS: in the context router to allow MFE and APIs
-	// contextRouter.Use(mux.CORSMethodMiddleware(apiRouter))
-	// contextRouter.Use(middleware.TenantResolver)
-	addUIHandlers(contextRouter, feServer, routerLog)
-	addAPIHandlers(contextRouter, routerLog)
 }
 
 func addAPIHandlers(contextRouter *mux.Router, routerLog zerolog.Logger) {
@@ -89,27 +96,20 @@ func addAPIHandlers(contextRouter *mux.Router, routerLog zerolog.Logger) {
 }
 
 func addUIHandlers(contextRouter *mux.Router, feServer *FEServer, routerLog zerolog.Logger) {
-	// serve static content
-	contextRouter.Path("/ui").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, feServer.ServeOpts.ContextRoot+"/ui/", http.StatusTemporaryRedirect)
-	})
-	if routerLog.Trace().Enabled() {
-		routerLog.Trace().
-			Msg("Context router registered")
-	}
-
 	// Static content
-	staticRouter := contextRouter.PathPrefix("/ui/").Subrouter()
+	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
+
 	staticRouter.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Println("----------------> ", r.URL.String())
 			if r.URL.Fragment == "" {
-				r.URL.Fragment = uuid.New().String()
-				http.Redirect(w, r, r.URL.String(), http.StatusTemporaryRedirect)
+				http.Redirect(w, r, r.URL.String()+"#"+uuid.NewString(), http.StatusTemporaryRedirect)
 			} else {
 				next.ServeHTTP(w, r)
 			}
 		})
 	})
+
 	// staticRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.SessionsOpts.SessionName))
 	// staticRouter.Use(middleware.HTTPSessionAuthenticationRequired(feServer.ServeOpts))
 	// staticRouter.Use(middleware.HTTPSessionInspectAndRenew(feServer.ResourceServer, feServer.RelayingParty, feServer.ServeOpts))
@@ -129,6 +129,7 @@ func initializeTheNonFunctionalRouter(appContext context.Context, rootRouter *mu
 	// - health checks
 
 	nonFunctionalRouter := rootRouter.PathPrefix(feServer.ServeOpts.NonFunctionalRoot).Subrouter()
+	enrichNonFunctionalRequestContext(nonFunctionalRouter, appContext)
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Non functional router registered")
@@ -142,10 +143,11 @@ func initializeTheNonFunctionalRouter(appContext context.Context, rootRouter *mu
 	}
 }
 
-func enrichRequestContext(rootRouter *mux.Router, appContext context.Context) {
-	// add the feServer and a logger to the request context
+func enrichFunctionalRequestContext(router *mux.Router, feServer *FEServer, appContext context.Context) {
 
-	rootRouter.Use(func(next http.Handler) http.Handler {
+	router.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
+
+	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			useRequestContext := InjectFEServer(r.Context(), appContext)
 			useRequestContext = logger.InjectLogger(useRequestContext, appContext)
@@ -153,6 +155,18 @@ func enrichRequestContext(rootRouter *mux.Router, appContext context.Context) {
 			next.ServeHTTP(w, useRequest)
 		})
 	})
-	// middleware to trace HTTP requests and responses
-	rootRouter.Use(logger.RequestLogger)
+
+	router.Use(logger.RequestLogger)
+}
+
+func enrichNonFunctionalRequestContext(router *mux.Router, appContext context.Context) {
+
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			useRequestContext := InjectFEServer(r.Context(), appContext)
+			useRequestContext = logger.InjectLogger(useRequestContext, appContext)
+			useRequest := r.WithContext(useRequestContext)
+			next.ServeHTTP(w, useRequest)
+		})
+	})
 }
