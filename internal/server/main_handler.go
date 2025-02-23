@@ -2,10 +2,8 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
@@ -98,17 +96,6 @@ func addAPIHandlers(contextRouter *mux.Router, routerLog zerolog.Logger) {
 func addUIHandlers(contextRouter *mux.Router, feServer *FEServer, routerLog zerolog.Logger) {
 	// Static content
 	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
-
-	staticRouter.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Println("----------------> ", r.URL.String())
-			if r.URL.Fragment == "" {
-				http.Redirect(w, r, r.URL.String()+"#"+uuid.NewString(), http.StatusTemporaryRedirect)
-			} else {
-				next.ServeHTTP(w, r)
-			}
-		})
-	})
 
 	// staticRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.SessionsOpts.SessionName))
 	// staticRouter.Use(middleware.HTTPSessionAuthenticationRequired(feServer.ServeOpts))
