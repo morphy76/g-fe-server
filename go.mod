@@ -10,7 +10,6 @@ require (
 	github.com/quasoft/memstore v0.0.0-20191010062613-2bce066d2b0b
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.10.0
-	github.com/zitadel/oidc v1.13.5
 	github.com/zitadel/oidc/v3 v3.34.2
 	go.mongodb.org/mongo-driver/v2 v2.0.1
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.59.0
@@ -49,7 +48,6 @@ require (
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

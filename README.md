@@ -14,9 +14,9 @@ It uses the following third party dependencies:
 
 - Gorilla for the HTTP stack, it seems to be the best featured choice;
 - Zerolog for logging, see later;
-<!-- - The official MongoDB go driver to bind MongoDb 7 (go.mongodb.org/mongo-driver);
+- The official MongoDB go driver to bind MongoDb 7 (go.mongodb.org/mongo-driver/v2);
 - The official OpenTelemetry SDK for observability (go.opentelemetry.io/otel);
-- ...no more, so far, but I guess I'll try to play also with Redis. -->
+- Zitadel OIDC to bind the IAM (github.com/zitadel/oidc/v3).
 
 #### flags
 
@@ -26,19 +26,19 @@ I tried to figure out a sort of internal framework to avoid huge files, SRP infr
 
 - The `cmd/cli` package provides builders per configurable integration, e.g. binding to the database and HTTP serving;
 - It tests the environment which has the priority;
-- Perform validation;
-- Return a factory method to convert the flags into option types (package `cmd/options`) to use to set up `context.Context` contextes to use downstream;
+- Performs validation;
+- Returns a factory method to convert the flags into option types (package `cmd/options`) to use to set up `context.Context` contextes to use downstream;
 - It contains just the overall bindings, not domain specific items.
 
-<!-- #### Observability
+#### Observability
 
-The g-fe-server is integrated with the OpenTelemetry official SDK (`go.opentelemetry.io/otel`).
+The simplified-fe-server is integrated with the OpenTelemetry official SDK (`go.opentelemetry.io/otel`).
 
-As a fake BFF (it's not acting as a gateway but having CRUD operations on `examples` directly on board), the spans are _local_.
+Additional integrations to observe third party dependencies like MongoDB enriches the spans providing instrumented HTTP clients to the OIDC RelyingParty and to the MongDB Client.
 
-Additional integrations to observe third party dependencies like MongoDB will enrich the spans.
+The server also provides an enriched HTTP Client to propagate to the downstream (backend) services the trace context.
 
-It exposrts the span, with a close to the default configuration, to Zipking which has been integrated as an Helm dependency. -->
+It exposrts the span, with a close to the default configuration, to Zipking which has been integrated as an Helm dependency.
 
 #### Logging
 
@@ -55,58 +55,41 @@ Logging is enriched by contextual information:
 
 #### Routing
 
-Routing is hierarchical, `cmd/serve.go` prepares the server context and moves on to `internal/http/handlers/handler.go` to build the hierarchy.
+Routing is hierarchical, `cmd/serve.go` prepares the server context and moves on to `internal/server/main_handler.go` to build the hierarchy Known/non-functional handlers are in the `internal/http/handlers` package:
 
-First of all, the parent router which receives 3 middlewares:
+- `auth` for authentication routes: login, login callback, front-channel logout and back-channel logout;
+- `health` for health probes;
+- `static` to serve the static content of the front end application.
 
-- The one which sets the request context using values picked from the server context like, in particular to reuse pooled resources across concurrent requests:
-  - The connected db client,
-  - The session store;
-- A tenant resolver, more on this later on...;
-- A semi-pre-configured logger.
+#### Infrastructural dependencies, functional modules and dependency injection
 
-Then follows the context router, namely the router which responds to the application context path as configured by run arguments.
+The FEServer struct provides:
 
-The next routers are task-focused:
+- the OIDC RelyingParty to authenticate the users;
+- the MongoDB Client to access the database;
+- the HTTP Client to propagate the trace context to the backend services.
 
-- The static router to deliver static content, within an HTTP session, with some focus on routing single page applications;
-- The API router to expose the BFF endpoints, but in this case they are the actual CRUD operations on the available resources;
-- A non-functional router, in this case it provides the health probe for k8s environments.
+A functional module will be added under the `internal` package to provide business logic, It can inject dependencies extracting the FEServer from the request context, hence it should be structured in the following way:
 
-Finally, waiting to learn how to plug stuff into a Go runtime, an hardcoded router to handle the _example_ resource.
+```shell
+internal/
+└── business/
+    ├── module1/
+    │   ├── mod1_service.go
+    │   ├── mod1_model.go
+    │   ├── mod1_handlers.go
+    │   └── mod1_*.go
+    └── module2/
+        └── ...
+```
 
-Generally speaking, handle functions are provided by the router provided by each module, e.g. `internal/http/health/handler.go` has the health handle functions and `internal/example/http/handlers.go` has those related to the _example_ resource.
+Hence this module can provide request or application scoped entities building from the related context which provides the FEServer.
 
-Routers, the API router in particular, are integrated with Opentracing with a Gorilla extension: `go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux`.
-
-In the same way, such routers are configured to use Prometheus middlewares (`github.com/prometheus/client_golang`) to expose metrics about their usage.
-
-<!-- #### OIDC
-
-When OIDC integration is enabled (default), the request context is enriched with the _zytadel_ relaying party and resource server so that we can define 3 additional route components:
-
-- New routes to perform authentication under the `/auth` path, used by the presentation server to bind the IAM session with the HTTP session, these routes are not intended for APIs;
-- A middleware to test if the HTTP session is authenticated within an IAM session, again, not intended for APIs;
-- A middleware to inspect and, in case, renew the OIDC access token.
-
-APIs (TODO service split) leverage a middleware to test the access token from the HTTP request headers. -->
-
-<!-- #### MongoDB & domain repository
-
-The database connection client and the domain repository are kept separated so that:
-
-- The client can be connected at application level, in the application context;
-- The repository can be in the request context.
-
-Such entries of the application context are propagated to the request context by the parent router middleware, it is then up to the domain model use them to create domain artifacts.
-
-This is shown in the _example_ HTTP handlers where, through the `ContextualizedApi` function, a _repository-enriched_ handler function is bound to the item router.
-
-MongoDB is connected using the official library (`go.mongodb.org/mongo-driver`) and participate (synchronously so far) to the helth probe. -->
+As a best practice, it should be created as a request scoped module, see the example module (TODO).
 
 ### React application
 
-TODO
+TODO + MFE
 
 #### Webpack
 
