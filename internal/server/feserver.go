@@ -13,7 +13,6 @@ import (
 	"github.com/morphy76/g-fe-server/internal/db"
 	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
-	"github.com/morphy76/g-fe-server/internal/serve"
 	"github.com/rs/zerolog"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
@@ -68,7 +67,7 @@ func NewFEServer(
 	otelOptions *options.OTelOptions,
 ) context.Context {
 
-	otelShutdown, err := serve.SetupOTelSDK(otelOptions)
+	otelShutdown, err := SetupOTelSDK(otelOptions)
 	if err != nil {
 		panic(err)
 	}

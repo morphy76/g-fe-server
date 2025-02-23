@@ -1,4 +1,4 @@
-package serve
+package multitenancy
 
 type Ownership struct {
 	Tenant       string

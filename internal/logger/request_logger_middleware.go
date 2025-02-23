@@ -1,10 +1,9 @@
-package middleware
+package logger
 
 import (
 	"net/http"
 	"time"
 
-	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/rs/zerolog"
 )
 
@@ -50,7 +49,7 @@ func RequestLogger(next http.Handler) http.Handler {
 			// 	)
 			// }
 		})
-		requestLogger := logger.GetLogger(r.Context(), "http").Hook(hook)
+		requestLogger := GetLogger(r.Context(), "http").Hook(hook)
 
 		before := time.Now()
 		next.ServeHTTP(recorder, r)

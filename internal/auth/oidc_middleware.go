@@ -1,4 +1,4 @@
-package middleware
+package auth
 
 const authLogout = "/auth/logout"
 
