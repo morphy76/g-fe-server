@@ -11,17 +11,17 @@ func BindHTTPSessionToRequests(sessionStore sessions.Store, sessionName string) 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			if sessionStore == nil {
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			session, _ := sessionStore.Get(r, sessionName)
+			wrapper := NewSessionWrapper(session)
 
-			sessionContext := InjectSession(r.Context(), session)
+			sessionContext := InjectSession(r.Context(), wrapper)
 			useRequest := r.WithContext(sessionContext)
 
 			next.ServeHTTP(w, useRequest)
+
+			if wrapper.IsDirty() {
+				session.Save(r, w)
+			}
 		})
 	}
 }

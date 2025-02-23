@@ -58,7 +58,7 @@ func onLogout(serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) 
 			serveOptions.ContextRoot,
 		)
 
-		idToken := session.Values["id_token"]
+		idToken := session.Get("id_token")
 		if idToken == nil {
 			authURL := fmt.Sprintf(
 				"%s://%s:%s/%s/auth/login",
@@ -73,18 +73,18 @@ func onLogout(serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) 
 			return
 		}
 
-		session.Options.MaxAge = -1
-		delete(session.Values, "id_token")
-		session.Save(r, w)
-		sessionState, found := session.Values["session_state"]
+		// session.Options.MaxAge = -1
+		// delete(session.Values, "id_token")
+		// session.Save(r, w)
+		// sessionState, found := session.Values["session_state"]
 
 		var url *url.URL
 		var err error
-		if found {
-			url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, sessionState.(string))
-		} else {
-			url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, "")
-		}
+		// if found {
+		// 	url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, sessionState.(string))
+		// } else {
+		url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, "")
+		// }
 		if err != nil {
 			logger.Error().Err(err).Msg("End session failed")
 			http.Error(w, "End session failed", http.StatusInternalServerError)
@@ -106,18 +106,18 @@ func onInfo(ctxRoot string) http.HandlerFunc {
 
 		logger.Trace().Msg("Info requested")
 
-		idToken := session.Values["id_token"]
+		idToken := session.Get("id_token")
 		if idToken == nil {
 			http.Error(w, "Auth session not found", http.StatusUnauthorized)
 			return
 		}
 
 		rv := &map[string]string{
-			"email":              session.Values["email"].(string),
-			"family_name":        session.Values["family_name"].(string),
-			"given_name":         session.Values["given_name"].(string),
-			"name":               session.Values["name"].(string),
-			"preferred_username": session.Values["preferred_username"].(string),
+			"email":              session.Get("email").(string),
+			"family_name":        session.Get("family_name").(string),
+			"given_name":         session.Get("given_name").(string),
+			"name":               session.Get("name").(string),
+			"preferred_username": session.Get("preferred_username").(string),
 			"logout_url":         ctxRoot + "/auth/logout",
 		}
 		responseBody, err := json.Marshal(rv)
@@ -159,16 +159,15 @@ func marshalUserinfo(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens
 	session := session.ExtractSession(r.Context())
 	logger := logger.GetLogger(r.Context(), "auth")
 
-	session.Values["access_token"] = tokens.AccessToken
-	session.Values["refresh_token"] = tokens.RefreshToken
-	session.Values["id_token"] = tokens.IDToken
-	session.Values["email"] = info.Email
-	session.Values["family_name"] = info.FamilyName
-	session.Values["given_name"] = info.GivenName
-	session.Values["name"] = info.Name
-	session.Values["preferred_username"] = info.PreferredUsername
+	session.Put("access_token", tokens.AccessToken)
+	session.Put("refresh_token", tokens.RefreshToken)
+	session.Put("id_token", tokens.IDToken)
+	session.Put("email", info.Email)
+	session.Put("family_name", info.FamilyName)
+	session.Put("given_name", info.GivenName)
+	session.Put("name", info.Name)
+	session.Put("preferred_username", info.PreferredUsername)
 
-	session.Save(r, w)
 	logger.Trace().Msg("Auth session saved")
 
 	http.Redirect(w, r, state, http.StatusFound)

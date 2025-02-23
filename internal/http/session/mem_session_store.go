@@ -9,7 +9,7 @@ import (
 func CreateSessionStore(
 	sessionOptions *SessionOptions,
 	contextRoot string,
-) (SessionStore, error) {
+) (sessions.Store, error) {
 	sessionStore := memstore.NewMemStore([]byte(sessionOptions.SessionKey))
 	sessionStore.Options = &sessions.Options{
 		Path:     contextRoot,
