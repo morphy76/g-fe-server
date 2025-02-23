@@ -40,8 +40,8 @@ type FEServer struct {
 	RelayingParty  rp.RelyingParty
 	ResourceServer rs.ResourceServer
 
-	ServiceName    string
-	OtelShutdownFn func() error
+	ServiceName string
+	ShutdownFn  []func() error
 
 	HealthChecksFn []health.AdditionalCheckFn
 }
@@ -67,18 +67,19 @@ func NewFEServer(
 	otelOptions *options.OTelOptions,
 ) context.Context {
 
-	otelShutdown, err := SetupOTelSDK(otelOptions)
-	if err != nil {
-		panic(err)
-	}
-
 	feServer := &FEServer{
 		UID:               uuid.New().String(),
 		ServeOpts:         serveOpts,
 		BackendHTTPClient: instrumentNewHTTPClient(),
 		ServiceName:       otelOptions.ServiceName,
-		OtelShutdownFn:    otelShutdown,
+		ShutdownFn:        make([]func() error, 0),
 	}
+
+	otelShutdown, err := SetupOTelSDK(otelOptions)
+	if err != nil {
+		panic(err)
+	}
+	feServer.ShutdownFn = append(feServer.ShutdownFn, otelShutdown)
 
 	err = bindInfrastructuralDependencies(
 		feServer,
@@ -121,9 +122,9 @@ func (feServer *FEServer) Shutdown(ctx context.Context) {
 	if err != nil {
 		feLogger.Error().Err(err).Msg("Error disconnecting from MongoDB")
 	}
-	if feServer.OtelShutdownFn != nil {
-		if err := feServer.OtelShutdownFn(); err != nil {
-			feLogger.Error().Err(err).Msg("Error shutting down opentelemetry")
+	for _, fn := range feServer.ShutdownFn {
+		if err := fn(); err != nil {
+			feLogger.Error().Err(err).Msg("Error shutting down")
 		}
 	}
 	feLogger.Info().Msg("Server stopped")
@@ -141,7 +142,7 @@ func bindInfrastructuralDependencies(
 		return err
 	}
 
-	err = bindSessionStore(feServer, serveOpts, sessionOptions)
+	err = bindSessionStore(feServer, serveOpts, sessionOptions, dbOptions)
 	if err != nil {
 		return err
 	}
@@ -172,13 +173,17 @@ func bindSessionStore(
 	feServer *FEServer,
 	serveOpts *options.ServeOptions,
 	sessionOptions *session.SessionOptions,
+	dbOptions *options.MongoDBOptions,
 ) error {
-	sessionStore, err := session.CreateSessionStore(sessionOptions, serveOpts.ContextRoot)
+	sessionStore, shutdownFn, err := session.CreateSessionStore(sessionOptions, dbOptions, serveOpts.ContextRoot)
 	if err != nil {
 		return err
 	}
 	feServer.SessionName = sessionOptions.SessionName
 	feServer.SessionStore = sessionStore
+	if shutdownFn != nil {
+		feServer.ShutdownFn = append(feServer.ShutdownFn, shutdownFn)
+	}
 
 	return nil
 }
