@@ -29,7 +29,7 @@ SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=3000
 OTEL_ARGS := -otel-enabled=false #-otel-enabled=true --otlp-url=http://localhost:9411/api/v2/spans
 OIDC_ARGS := -oidc-issuer=http://localhost:8080/realms/gfes -oidc-client-id=ps -oidc-client-secret=tefnJ7pbekZuTV7vPVpI3VHPNto7LlOy -oidc-scopes=openid,profile,email
-MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-url=mongodb://localhost:27017/fe_db -db-mongo-database=fe_db
+MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-url=mongodb://localhost:27017/fe_db
 
 build-fe:
 	@$(NPM) $(NPMFLAGS) --prefix ./web/ui i

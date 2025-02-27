@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -75,13 +76,15 @@ func NewFEServer(
 		ShutdownFn:        make([]func() error, 0),
 	}
 
-	otelShutdown, err := SetupOTelSDK(otelOptions)
-	if err != nil {
-		panic(err)
+	if otelOptions.Enabled {
+		otelShutdown, err := SetupOTelSDK(otelOptions)
+		if err != nil {
+			panic(err)
+		}
+		feServer.ShutdownFn = append(feServer.ShutdownFn, otelShutdown)
 	}
-	feServer.ShutdownFn = append(feServer.ShutdownFn, otelShutdown)
 
-	err = bindInfrastructuralDependencies(
+	err := bindInfrastructuralDependencies(
 		feServer,
 		serveOpts,
 		oidcOptions,
@@ -118,10 +121,6 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 // Shutdown stops the server
 func (feServer *FEServer) Shutdown(ctx context.Context) {
 	feLogger := logger.GetLogger(ctx, "feServer")
-	err := feServer.MongoClient.Disconnect(context.Background())
-	if err != nil {
-		feLogger.Error().Err(err).Msg("Error disconnecting from MongoDB")
-	}
 	for _, fn := range feServer.ShutdownFn {
 		if err := fn(); err != nil {
 			feLogger.Error().Err(err).Msg("Error shutting down")
@@ -139,17 +138,17 @@ func bindInfrastructuralDependencies(
 ) error {
 	err := bindOIDC(feServer, serveOpts, oidcOptions)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to bind OIDC: %w", err)
 	}
 
 	err = bindSessionStore(feServer, serveOpts, sessionOptions, dbOptions)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to bind session store: %w", err)
 	}
 
-	feServer.MongoClient, err = db.NewClient(dbOptions)
+	err = bindMongoDB(feServer, err, dbOptions)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to bind MongoDB: %w", err)
 	}
 
 	return nil
@@ -165,6 +164,20 @@ func addHealthChecks(feServer *FEServer, dbOptions *options.MongoDBOptions) erro
 
 	feServer.HealthChecksFn = append(feServer.HealthChecksFn, db.CreateHealthCheck(healthClient))
 	feServer.HealthChecksFn = append(feServer.HealthChecksFn, auth.CreateHealthCheck(feServer.RelayingParty))
+
+	return nil
+}
+
+func bindMongoDB(feServer *FEServer, err error, dbOptions *options.MongoDBOptions) error {
+	client, err := db.NewClient(dbOptions)
+	if err != nil {
+		return err
+	}
+	feServer.MongoClient = client
+	shutdownFn := func() error {
+		return client.Disconnect(context.Background())
+	}
+	feServer.ShutdownFn = append(feServer.ShutdownFn, shutdownFn)
 
 	return nil
 }

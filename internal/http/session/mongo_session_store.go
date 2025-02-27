@@ -1,12 +1,13 @@
 package session
 
 import (
+	"context"
 	"net/url"
 
-	"github.com/globalsign/mgo"
 	"github.com/gorilla/sessions"
-	"github.com/kidstuff/mongostore"
 	"github.com/morphy76/g-fe-server/cmd/options"
+	"github.com/morphy76/g-fe-server/internal/db"
+	"github.com/morphy76/g-fe-server/internal/http/session/mongostore"
 )
 
 func CreateSessionStore(
@@ -24,14 +25,13 @@ func CreateSessionStore(
 		useCredentials := url.UserPassword(dbOptions.User, dbOptions.Password)
 		useURL.User = useCredentials
 	}
-
-	dbSession, err := mgo.Dial(useURL.String())
+	client, err := db.NewClient(dbOptions)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	store := mongostore.NewMongoStore(
-		dbSession.DB(dbOptions.Database).C(sessionOptions.SessionName),
+		client.Database(useURL.Path).Collection(sessionOptions.SessionName),
 		sessionOptions.SessionMaxAge,
 		true,
 		[]byte(sessionOptions.SessionKey),
@@ -47,8 +47,7 @@ func CreateSessionStore(
 	}
 
 	shutdownFunc := func() error {
-		dbSession.Close()
-		return nil
+		return client.Disconnect(context.Background())
 	}
 
 	return store, shutdownFunc, nil
