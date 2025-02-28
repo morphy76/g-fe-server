@@ -17,6 +17,8 @@ func SetupOIDC(
 	oidcOptions *OIDCOptions,
 ) (rp.RelyingParty, error) {
 
+	ctx := context.Background()
+
 	redirectURI := fmt.Sprintf(
 		"%s://%s:%s/%s/auth/callback",
 		serveOptions.Protocol,
@@ -27,11 +29,11 @@ func SetupOIDC(
 
 	oidcOpts := []rp.Option{
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
-		rp.WithHTTPClient(instrumentNewHTTPClient()),
+		rp.WithHTTPClient(instrumentNewHTTPClient(ctx)),
 	}
 
 	relyingParty, err := rp.NewRelyingPartyOIDC(
-		context.Background(),
+		ctx,
 		oidcOptions.Issuer,
 		oidcOptions.ClientID,
 		oidcOptions.ClientSecret,
@@ -46,7 +48,7 @@ func SetupOIDC(
 	return relyingParty, err
 }
 
-func instrumentNewHTTPClient() *http.Client {
+func instrumentNewHTTPClient(_ context.Context) *http.Client {
 	transport := otelhttp.NewTransport(http.DefaultTransport)
 	client := &http.Client{
 		Transport: transport,

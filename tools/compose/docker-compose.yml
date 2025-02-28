@@ -38,19 +38,34 @@ services:
     restart: unless-stopped
     command:
       - start-dev
+      - --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       JAVA_OPTS_APPEND: "-XX:UseSVE=0"
+    volumes:
+      - ./imports/realm:/opt/keycloak/data/import
     network_mode: "host"
 
-  # zipkin:
-  #   image: openzipkin/zipkin:latest
-  #   restart: unless-stopped
-  #   ports:
-  #     - 9411:9411
-  #   networks:
-  #     - fe-private-network
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    platform: linux/arm64
+    volumes:
+      - ./imports/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - 4317:4317 # OTLP gRPC receiver
+      - 8889:8889 # Prometheus metrics
+    networks:
+      - fe-private-network
+
+  zipkin:
+    image: openzipkin/zipkin-slim:3
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "9411:9411"
+    networks:
+      - fe-private-network
 
 networks:
   fe-private-network:

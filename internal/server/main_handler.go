@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
@@ -77,6 +78,8 @@ func addAPIHandlers(contextRouter *mux.Router, routerLog zerolog.Logger) {
 		// _, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "testSpan")
 		// defer span.End()
 		// span.AddEvent("testEvent")
+		session := session.ExtractSession(r.Context())
+		session.Put("test", uuid.New().String())
 		w.Write([]byte("{\"message\": \"Hello, World!\"}"))
 		// <-time.After(1 * time.Second)
 		// span.RecordError(errors.New("testError"))
