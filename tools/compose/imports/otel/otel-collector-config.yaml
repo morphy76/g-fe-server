@@ -8,7 +8,6 @@ exporters:
     endpoint: http://zipkin:9411/api/v2/spans
   prometheus:
     endpoint: 0.0.0.0:8889
-    namespace: default
 service:
   pipelines:
     traces:

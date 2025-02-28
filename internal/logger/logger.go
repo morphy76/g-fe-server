@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/morphy76/g-fe-server/internal/common"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/rs/zerolog"
 )
@@ -52,6 +53,13 @@ func GetLogger(ctx context.Context, category string) zerolog.Logger {
 			Timestamp().
 			Dur("since_start_ms", time.Since(startTime)/1000),
 		)
+		activeSpan := trace.SpanFromContext(ctx)
+		if activeSpan.SpanContext().TraceID().IsValid() {
+			e.Dict("correlation", zerolog.Dict().
+				Str("span_id", activeSpan.SpanContext().SpanID().String()).
+				Str("trace_id", activeSpan.SpanContext().TraceID().String()),
+			)
+		}
 	})
 
 	useLoggerBuilder := ctx.Value(LoggerCtxKey).(zerolog.Context).Logger().With().Str("category", category)

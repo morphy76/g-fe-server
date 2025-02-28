@@ -2,12 +2,21 @@ package server
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/morphy76/g-fe-server/internal/http/handlers"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
@@ -26,6 +35,9 @@ func Handler(
 	// Parent router
 	rootRouter.Use(otelmux.Middleware(feServer.ServiceName,
 		otelmux.WithPublicEndpoint(),
+		otelmux.WithPropagators(
+			newPropagator(),
+		),
 	))
 
 	initializeTheNonFunctionalRouter(appContext, rootRouter, feServer, routerLog)
@@ -73,17 +85,61 @@ func addAPIHandlers(contextRouter *mux.Router, routerLog zerolog.Logger) {
 	apiRouter.Use(middleware.JSONResponse)
 
 	// test API
-	apiRouter.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
-		// <-time.After(1 * time.Second)
-		// _, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "testSpan")
-		// defer span.End()
-		// span.AddEvent("testEvent")
-		session := session.ExtractSession(r.Context())
-		session.Put("test", uuid.New().String())
-		w.Write([]byte("{\"message\": \"Hello, World!\"}"))
-		// <-time.After(1 * time.Second)
-		// span.RecordError(errors.New("testError"))
-		// span.SetStatus(codes.Error, "testError")
+	apiRouter.HandleFunc("/up", func(w http.ResponseWriter, r *http.Request) {
+		_, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "upBiz")
+		useLogger := logger.GetLogger(r.Context(), "test")
+		useLogger.Debug().Msg("start up")
+		<-time.After(1 * time.Second)
+		span.AddEvent("testEventUp")
+		// session := session.ExtractSession(r.Context())
+		// session.Put("test", uuid.New().String())
+		<-time.After(1 * time.Second)
+		useLogger.Info().Msg("end up")
+		span.End()
+
+		_, span = trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "downBiz")
+		newUrl := fmt.Sprintf("http://%s%s",
+			r.Host,
+			strings.Replace(r.URL.Path, "up", "down", 1),
+		)
+
+		newReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, newUrl, nil)
+		otel.GetTextMapPropagator().Inject(r.Context(), propagation.HeaderCarrier(newReq.Header))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		newRes, err := instrumentNewHTTPClient().Do(newReq)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer newRes.Body.Close()
+		defer span.End()
+
+		w.WriteHeader(newRes.StatusCode)
+		body, err := io.ReadAll(newRes.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(body)
+	})
+	apiRouter.HandleFunc("/down", func(w http.ResponseWriter, r *http.Request) {
+		useLogger := logger.GetLogger(r.Context(), "test")
+		useLogger.Debug().Msg("start down")
+		<-time.After(1 * time.Second)
+		_, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "testSpan")
+		defer span.End()
+		span.AddEvent("testEventDown")
+		// session := session.ExtractSession(r.Context())
+		// test := session.Get("test").(string)
+		test := uuid.NewString()
+		w.Write([]byte("{\"message\": \"Hello, World, " + test + "!\"}"))
+		<-time.After(1 * time.Second)
+		span.RecordError(errors.New("testError"))
+		span.SetStatus(codes.Error, "testError")
+		useLogger.Info().Msg("end down")
 	})
 	// apiRouter.Use(middleware.PrometheusMiddleware)
 	// TODO: gw oriented auth, inspect and renew
