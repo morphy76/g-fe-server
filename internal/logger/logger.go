@@ -3,10 +3,13 @@ package logger
 import (
 	"context"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/morphy76/g-fe-server/internal/common"
 	"go.opentelemetry.io/otel/trace"
+
+	"bytes"
 
 	"github.com/rs/zerolog"
 )
@@ -45,6 +48,13 @@ func InitLogger(ctx context.Context, trace *bool) context.Context {
 	return rv
 }
 
+// getGoroutineID returns the current goroutine ID
+func getGoroutineID() []byte {
+	var buf [64]byte
+	n := runtime.Stack(buf[:], false)
+	return bytes.Fields(buf[:n])[1]
+}
+
 // GetLogger creates a new contextual logger
 func GetLogger(ctx context.Context, category string) zerolog.Logger {
 	startTime := t0(ctx)
@@ -60,6 +70,7 @@ func GetLogger(ctx context.Context, category string) zerolog.Logger {
 				Str("trace_id", activeSpan.SpanContext().TraceID().String()),
 			)
 		}
+		e.Bytes("routine_id", getGoroutineID())
 	})
 
 	useLoggerBuilder := ctx.Value(LoggerCtxKey).(zerolog.Context).Logger().With().Str("category", category)
