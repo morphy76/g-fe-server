@@ -1,5 +1,11 @@
 # Go-based presentation server for a react application
 
+## Known TODOa
+
+- Test and fix HTTP session management
+- Test and fix OIDC integration, e.g. backchannel logout
+- Fix mongo monitoring
+
 ## What happened
 
 A presentation server is a Backend For Front-end component (<https://microservices.io/patterns/apigateway.html>) for react UIs.
