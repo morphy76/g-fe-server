@@ -70,7 +70,10 @@ func GetLogger(ctx context.Context, category string) zerolog.Logger {
 				Str("trace_id", activeSpan.SpanContext().TraceID().String()),
 			)
 		}
-		e.Bytes("routine_id", getGoroutineID())
+		e.Dict("routine", zerolog.Dict().
+			Bytes("id", getGoroutineID()).
+			Int("of", runtime.NumGoroutine()),
+		)
 	})
 
 	useLoggerBuilder := ctx.Value(LoggerCtxKey).(zerolog.Context).Logger().With().Str("category", category)

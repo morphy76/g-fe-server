@@ -37,6 +37,7 @@ func NewClient(dbOptions *options.MongoDBOptions, withMonitor bool) (*mongo.Clie
 			SetHTTPClient(instrumentNewHTTPClient())
 		if withMonitor {
 			clientOpts = clientOpts.SetMonitor(NewMonitor())
+			clientOpts.SetPoolMonitor(NewPoolMonitor())
 		}
 
 		mongoClient, err := mongo.Connect(clientOpts)

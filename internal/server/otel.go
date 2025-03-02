@@ -3,12 +3,15 @@ package server
 import (
 	"context"
 	"errors"
+	"runtime"
+	"time"
 
 	"github.com/morphy76/g-fe-server/cmd/options"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	metrics "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -113,8 +116,93 @@ func newMeterProvider(ctx context.Context, useResource *resource.Resource, url s
 		return nil, err
 	}
 
-	return metric.NewMeterProvider(
-		metric.WithReader(metric.NewPeriodicReader(expMetrics)),
+	meterProvider := metric.NewMeterProvider(
+		metric.WithReader(metric.NewPeriodicReader(expMetrics, metric.WithInterval(10*time.Second))),
 		metric.WithResource(useResource),
-	), nil
+	)
+
+	shouldReturn, result, err := addRuntimeGauges(meterProvider)
+	if shouldReturn {
+		return result, err
+	}
+
+	return meterProvider, nil
+}
+
+func addRuntimeGauges(meterProvider *metric.MeterProvider) (bool, *metric.MeterProvider, error) {
+	meter := meterProvider.Meter("go.runtime")
+	goRoutineCount, err := meter.Int64ObservableGauge(
+		"runtime.go.goroutines",
+	)
+	if err != nil {
+		return true, nil, err
+	}
+
+	currentMemory, err := meter.Int64ObservableGauge(
+		"runtime.memory.current",
+	)
+	if err != nil {
+		return true, nil, err
+	}
+
+	totalAlloc, err := meter.Int64ObservableGauge(
+		"runtime.memory.total_alloc",
+	)
+	if err != nil {
+		return true, nil, err
+	}
+
+	sysMemory, err := meter.Int64ObservableGauge(
+		"runtime.memory.sys",
+	)
+	if err != nil {
+		return true, nil, err
+	}
+
+	heapAlloc, err := meter.Int64ObservableGauge(
+		"runtime.memory.heap_alloc",
+	)
+	if err != nil {
+		return true, nil, err
+	}
+
+	gcCount, err := meter.Int64ObservableGauge(
+		"runtime.gc.count",
+	)
+	if err != nil {
+		return true, nil, err
+	}
+
+	gcPauseTotal, err := meter.Int64ObservableGauge(
+		"runtime.gc.pause_total",
+	)
+	if err != nil {
+		return true, nil, err
+	}
+
+	_, err = meter.RegisterCallback(
+		func(ctx context.Context, observer metrics.Observer) error {
+			var mem runtime.MemStats
+			runtime.ReadMemStats(&mem)
+			observer.ObserveInt64(currentMemory, int64(mem.Alloc/1024))
+			observer.ObserveInt64(totalAlloc, int64(mem.TotalAlloc/1024))
+			observer.ObserveInt64(sysMemory, int64(mem.Sys/1024))
+			observer.ObserveInt64(heapAlloc, int64(mem.HeapAlloc/1024))
+			observer.ObserveInt64(goRoutineCount, int64(runtime.NumGoroutine()))
+			observer.ObserveInt64(gcCount, int64(mem.NumGC))
+			observer.ObserveInt64(gcPauseTotal, int64(mem.PauseTotalNs))
+			return nil
+		},
+		currentMemory,
+		totalAlloc,
+		sysMemory,
+		heapAlloc,
+		goRoutineCount,
+		gcCount,
+		gcPauseTotal,
+	)
+	if err != nil {
+		return true, nil, err
+	}
+	return false, nil, nil
 }

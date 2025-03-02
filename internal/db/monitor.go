@@ -30,6 +30,32 @@ func NewMonitor() *v2_event.CommandMonitor {
 	}
 }
 
+func NewPoolMonitor() *v2_event.PoolMonitor {
+	return &v2_event.PoolMonitor{
+		Event: func(event *v2_event.PoolEvent) {
+			meter := otel.GetMeterProvider().Meter("mongo")
+			useContext := context.Background()
+
+			histogram, err := meter.Float64Histogram("mongo_pool_event_duration")
+			if err == nil {
+				histogram.Record(useContext, float64(event.Duration.Milliseconds()))
+			}
+
+			waitHistogram, err := meter.Float64Histogram("mongo_pool_event_wait_duration")
+			if err == nil && event.PoolOptions != nil {
+				waitHistogram.Record(useContext, float64(event.PoolOptions.WaitQueueTimeoutMS))
+			}
+
+			if event.Error != nil {
+				errorHistogram, err := meter.Float64Histogram("mongo_pool_event_errors")
+				if err == nil {
+					errorHistogram.Record(useContext, 1)
+				}
+			}
+		},
+	}
+}
+
 func newCommandStartedEvent(old oldStartedSignarture) newStartedSignarture {
 	return func(ctx context.Context, newEvent *v2_event.CommandStartedEvent) {
 		oldCmdStartedEvent := new(old_event.CommandStartedEvent)
