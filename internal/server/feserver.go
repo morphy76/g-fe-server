@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/cmd/options"
+	"github.com/morphy76/g-fe-server/internal/aiw"
 	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/common"
 	"github.com/morphy76/g-fe-server/internal/common/health"
@@ -76,20 +77,21 @@ func NewFEServer(
 		ShutdownFn:        make([]func() error, 0),
 	}
 
-	if otelOptions.Enabled {
-		otelShutdown, err := SetupOTelSDK(otelOptions)
-		if err != nil {
-			panic(err)
-		}
+	otelShutdown, err := SetupOTelSDK(otelOptions)
+	if err != nil {
+		panic(err)
+	}
+	if otelShutdown != nil {
 		feServer.ShutdownFn = append(feServer.ShutdownFn, otelShutdown)
 	}
 
-	err := bindInfrastructuralDependencies(
+	err = bindInfrastructuralDependencies(
 		feServer,
 		serveOpts,
 		oidcOptions,
 		sessionOptions,
 		dbOptions,
+		otelOptions,
 	)
 	if err != nil {
 		panic(err)
@@ -129,12 +131,19 @@ func (feServer *FEServer) Shutdown(ctx context.Context) {
 	feLogger.Info().Msg("Server stopped")
 }
 
+func (feServer *FEServer) GetAIWFacade() *aiw.AIWFacade {
+	return &aiw.AIWFacade{
+		HttpClient: feServer.BackendHTTPClient,
+	}
+}
+
 func bindInfrastructuralDependencies(
 	feServer *FEServer,
 	serveOpts *options.ServeOptions,
 	oidcOptions *auth.OIDCOptions,
 	sessionOptions *session.SessionOptions,
 	dbOptions *options.MongoDBOptions,
+	otelOptions *options.OTelOptions,
 ) error {
 	err := bindOIDC(feServer, serveOpts, oidcOptions)
 	if err != nil {
@@ -146,7 +155,7 @@ func bindInfrastructuralDependencies(
 		return fmt.Errorf("failed to bind session store: %w", err)
 	}
 
-	err = bindMongoDB(feServer, err, dbOptions)
+	err = bindMongoDB(feServer, err, dbOptions, otelOptions.Enabled)
 	if err != nil {
 		return fmt.Errorf("failed to bind MongoDB: %w", err)
 	}
@@ -157,7 +166,7 @@ func bindInfrastructuralDependencies(
 func addHealthChecks(feServer *FEServer, dbOptions *options.MongoDBOptions) error {
 	feServer.HealthChecksFn = make([]health.AdditionalCheckFn, 0)
 
-	healthClient, err := db.NewClient(dbOptions)
+	healthClient, err := db.NewClient(dbOptions, false)
 	if err != nil {
 		return err
 	}
@@ -168,8 +177,8 @@ func addHealthChecks(feServer *FEServer, dbOptions *options.MongoDBOptions) erro
 	return nil
 }
 
-func bindMongoDB(feServer *FEServer, err error, dbOptions *options.MongoDBOptions) error {
-	client, err := db.NewClient(dbOptions)
+func bindMongoDB(feServer *FEServer, err error, dbOptions *options.MongoDBOptions, withMonitor bool) error {
+	client, err := db.NewClient(dbOptions, withMonitor)
 	if err != nil {
 		return err
 	}

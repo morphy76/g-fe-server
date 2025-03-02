@@ -15,7 +15,7 @@ import (
 var ErrMissingDBOptions = errors.New("missing db options")
 
 // NewClient creates a new db client based on the db options
-func NewClient(dbOptions *options.MongoDBOptions) (*mongo.Client, error) {
+func NewClient(dbOptions *options.MongoDBOptions, withMonitor bool) (*mongo.Client, error) {
 	if dbOptions == nil {
 		return nil, ErrMissingDBOptions
 	} else {
@@ -35,6 +35,9 @@ func NewClient(dbOptions *options.MongoDBOptions) (*mongo.Client, error) {
 			ApplyURI(useURL.String()).
 			SetServerAPIOptions(serverAPI).
 			SetHTTPClient(instrumentNewHTTPClient())
+		if withMonitor {
+			clientOpts = clientOpts.SetMonitor(NewMonitor())
+		}
 
 		mongoClient, err := mongo.Connect(clientOpts)
 		if err != nil {

@@ -13,9 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/morphy76/g-fe-server/internal/http/handlers"
@@ -33,12 +31,7 @@ func Handler(
 	feServer := ExtractFEServer(appContext)
 
 	// Parent router
-	rootRouter.Use(otelmux.Middleware(feServer.ServiceName,
-		otelmux.WithPublicEndpoint(),
-		otelmux.WithPropagators(
-			newPropagator(),
-		),
-	))
+	rootRouter.Use(otelmux.Middleware(feServer.ServiceName))
 
 	initializeTheNonFunctionalRouter(appContext, rootRouter, feServer, routerLog)
 	initializeTheFunctionalRouter(appContext, rootRouter, feServer, routerLog)
@@ -84,62 +77,73 @@ func addAPIHandlers(contextRouter *mux.Router, routerLog zerolog.Logger) {
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
 	apiRouter.Use(middleware.JSONResponse)
 
-	// test API
+	// test APIs & functions
 	apiRouter.HandleFunc("/up", func(w http.ResponseWriter, r *http.Request) {
-		_, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "upBiz")
+		// this API has its own span started by the OTEL SDK integration with the mux router
 		useLogger := logger.GetLogger(r.Context(), "test")
-		useLogger.Debug().Msg("start up")
+
+		feServer := ExtractFEServer(r.Context())
+
+		// this is an inner span, started by the application, representing upstream logic
+		_, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "upBiz")
+		useLogger.Debug().Msg("start up biz")
 		<-time.After(1 * time.Second)
 		span.AddEvent("testEventUp")
 		// session := session.ExtractSession(r.Context())
 		// session.Put("test", uuid.New().String())
-		<-time.After(1 * time.Second)
-		useLogger.Info().Msg("end up")
+		useLogger.Info().Msg("end up biz")
 		span.End()
 
+		// this other span represents remote downstream logic
 		_, span = trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "downBiz")
+		useLogger.Debug().Msg("start down biz")
+		<-time.After(1 * time.Second)
+
+		// a generic request to the same server, but to a different endpoint
 		newUrl := fmt.Sprintf("http://%s%s",
 			r.Host,
 			strings.Replace(r.URL.Path, "up", "down", 1),
 		)
-
 		newReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, newUrl, nil)
-		otel.GetTextMapPropagator().Inject(r.Context(), propagation.HeaderCarrier(newReq.Header))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		newRes, err := instrumentNewHTTPClient().Do(newReq)
+		// mediated by the AIW facade to inject the OTEL context
+		newRes, err := feServer.GetAIWFacade().Call(r.Context(), newReq)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer newRes.Body.Close()
+		// the request span, the HTTP call namely, is closed when closing the response body
+		transferBodyTest(w, newRes)
+		// the downstream span can be closed at the end
 		defer span.End()
-
-		w.WriteHeader(newRes.StatusCode)
-		body, err := io.ReadAll(newRes.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Write(body)
+		<-time.After(1 * time.Second)
+		span.AddEvent("testEventDown")
+		useLogger.Info().Msg("end down biz")
 	})
 	apiRouter.HandleFunc("/down", func(w http.ResponseWriter, r *http.Request) {
+		// this API has its own span started by the OTEL SDK integration with the mux router
+		// but it seems not to be bound to the client parent span (TODO)
 		useLogger := logger.GetLogger(r.Context(), "test")
-		useLogger.Debug().Msg("start down")
-		<-time.After(1 * time.Second)
-		_, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "testSpan")
-		defer span.End()
-		span.AddEvent("testEventDown")
+
+		feServer := ExtractFEServer(r.Context())
+
+		span := trace.SpanFromContext(r.Context())
+
+		useLogger.Debug().Msg("start downer biz")
 		// session := session.ExtractSession(r.Context())
 		// test := session.Get("test").(string)
 		test := uuid.NewString()
+		// TODO mongo client should be bound to the OTEL context WIP
+		feServer.MongoClient.Database("fe_db").Collection("test_collection").InsertOne(r.Context(), map[string]string{"test": test})
+		span.AddEvent("testEventDowner")
 		w.Write([]byte("{\"message\": \"Hello, World, " + test + "!\"}"))
 		<-time.After(1 * time.Second)
 		span.RecordError(errors.New("testError"))
 		span.SetStatus(codes.Error, "testError")
-		useLogger.Info().Msg("end down")
+		useLogger.Info().Msg("end downer biz")
 	})
 	// apiRouter.Use(middleware.PrometheusMiddleware)
 	// TODO: gw oriented auth, inspect and renew
@@ -150,6 +154,20 @@ func addAPIHandlers(contextRouter *mux.Router, routerLog zerolog.Logger) {
 		routerLog.Trace().
 			Msg("API router registered")
 	}
+}
+
+// this method grants to close the http request span accordingly to the completion of managing the response body
+// not really interested in handling error so far
+func transferBodyTest(w http.ResponseWriter, newRes *http.Response) bool {
+	w.WriteHeader(newRes.StatusCode)
+	body, err := io.ReadAll(newRes.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return true
+	}
+	w.Write(body)
+	defer newRes.Body.Close()
+	return false
 }
 
 func addUIHandlers(contextRouter *mux.Router, feServer *FEServer, routerLog zerolog.Logger) {

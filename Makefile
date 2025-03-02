@@ -45,7 +45,7 @@ watch-fe:
 	@$(NPM) --prefix ./web/ui run watch
 
 watch-server:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) -trace $(OTEL_ARGS) $(NO_OIDC_ARGS) $(OIDC_ARGS) $(MONGO_ARGS)
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(NO_OIDC_ARGS) $(OIDC_ARGS) $(MONGO_ARGS)
 
 run-server: build-fe
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS)

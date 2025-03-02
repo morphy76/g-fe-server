@@ -17,6 +17,9 @@ import (
 
 // SetupOTelSDK sets up the OTel SDK
 func SetupOTelSDK(otelOptions *options.OTelOptions) (shutdown func() error, err error) {
+	if otelOptions.Enabled == false {
+		return nil, nil
+	}
 
 	ctx := context.Background()
 	var shutdownFuncs []func(context.Context) error
@@ -38,7 +41,13 @@ func SetupOTelSDK(otelOptions *options.OTelOptions) (shutdown func() error, err 
 	propagator := newPropagator()
 	otel.SetTextMapPropagator(propagator)
 
-	tracerProvider, err := newTraceProvider(ctx, otelOptions.Enabled, otelOptions.ServiceName, otelOptions.URL)
+	useResource, err := newResource(otelOptions.ServiceName)
+	if err != nil {
+		handleErr(err)
+		return
+	}
+
+	tracerProvider, err := newTraceProvider(ctx, useResource, otelOptions.URL)
 	if err != nil {
 		handleErr(err)
 		return
@@ -46,7 +55,7 @@ func SetupOTelSDK(otelOptions *options.OTelOptions) (shutdown func() error, err 
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 	otel.SetTracerProvider(tracerProvider)
 
-	meterProvider, err := newMeterProvider(ctx, otelOptions.Enabled, otelOptions.ServiceName, otelOptions.URL)
+	meterProvider, err := newMeterProvider(ctx, useResource, otelOptions.URL)
 	if err != nil {
 		handleErr(err)
 		return
@@ -57,6 +66,20 @@ func SetupOTelSDK(otelOptions *options.OTelOptions) (shutdown func() error, err 
 	return shutdown, err
 }
 
+func newResource(serviceName string) (*resource.Resource, error) {
+	return resource.New(
+		context.Background(),
+		resource.WithOS(),
+		resource.WithProcess(),
+		resource.WithContainer(),
+		resource.WithTelemetrySDK(),
+		resource.WithHost(),
+		resource.WithAttributes(
+			attribute.String("service.name", serviceName),
+		),
+	)
+}
+
 func newPropagator() propagation.TextMapPropagator {
 	return propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
@@ -64,46 +87,34 @@ func newPropagator() propagation.TextMapPropagator {
 	)
 }
 
-func newTraceProvider(ctx context.Context, enabled bool, serviceName string, url string) (*trace.TracerProvider, error) {
-	if enabled {
-		expTraces, err := otlptracegrpc.New(
-			ctx,
-			otlptracegrpc.WithInsecure(),
-			otlptracegrpc.WithEndpointURL(url),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		return trace.NewTracerProvider(
-			trace.WithBatcher(expTraces),
-			trace.WithResource(resource.NewSchemaless(
-				attribute.String("service.name", serviceName),
-			)),
-		), nil
+func newTraceProvider(ctx context.Context, useResource *resource.Resource, url string) (*trace.TracerProvider, error) {
+	expTraces, err := otlptracegrpc.New(
+		ctx,
+		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpointURL(url),
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, nil
+	return trace.NewTracerProvider(
+		trace.WithBatcher(expTraces),
+		trace.WithResource(useResource),
+	), nil
 }
 
-func newMeterProvider(ctx context.Context, enabled bool, serviceName string, url string) (*metric.MeterProvider, error) {
-	if enabled {
-		expMetrics, err := otlpmetricgrpc.New(
-			ctx,
-			otlpmetricgrpc.WithInsecure(),
-			otlpmetricgrpc.WithEndpointURL(url),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		return metric.NewMeterProvider(
-			metric.WithReader(metric.NewPeriodicReader(expMetrics)),
-			metric.WithResource(resource.NewSchemaless(
-				attribute.String("service.name", serviceName),
-			)),
-		), nil
+func newMeterProvider(ctx context.Context, useResource *resource.Resource, url string) (*metric.MeterProvider, error) {
+	expMetrics, err := otlpmetricgrpc.New(
+		ctx,
+		otlpmetricgrpc.WithInsecure(),
+		otlpmetricgrpc.WithEndpointURL(url),
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, nil
+	return metric.NewMeterProvider(
+		metric.WithReader(metric.NewPeriodicReader(expMetrics)),
+		metric.WithResource(useResource),
+	), nil
 }

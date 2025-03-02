@@ -25,7 +25,7 @@ func CreateSessionStore(
 		useCredentials := url.UserPassword(dbOptions.User, dbOptions.Password)
 		useURL.User = useCredentials
 	}
-	client, err := db.NewClient(dbOptions)
+	client, err := db.NewClient(dbOptions, false)
 	if err != nil {
 		return nil, nil, err
 	}
