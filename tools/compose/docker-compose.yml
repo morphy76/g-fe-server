@@ -54,7 +54,6 @@ services:
       - ./imports/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
     ports:
       - 4317:4317 # OTLP gRPC receiver
-      - 8889:8889 # Prometheus metrics
     networks:
       - fe-private-network
 
@@ -67,8 +66,21 @@ services:
     networks:
       - fe-private-network
 
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    platform: linux/amd64
+    restart: unless-stopped
+    volumes:
+      - ./imports/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - fe-private-network
+
 networks:
   fe-private-network:
 
 volumes:
   fe_data:
+  prometheus-data:

@@ -16,6 +16,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
+
+	"github.com/shirou/gopsutil/v3/cpu"
 )
 
 // SetupOTelSDK sets up the OTel SDK
@@ -133,6 +135,7 @@ func addRuntimeGauges(meterProvider *metric.MeterProvider) (bool, *metric.MeterP
 	meter := meterProvider.Meter("go.runtime")
 	goRoutineCount, err := meter.Int64ObservableGauge(
 		"runtime.go.goroutines",
+		metrics.WithDescription("The number of goroutines that currently exist."),
 	)
 	if err != nil {
 		return true, nil, err
@@ -140,6 +143,7 @@ func addRuntimeGauges(meterProvider *metric.MeterProvider) (bool, *metric.MeterP
 
 	currentMemory, err := meter.Int64ObservableGauge(
 		"runtime.memory.current",
+		metrics.WithDescription("The current memory usage in KiB."),
 	)
 	if err != nil {
 		return true, nil, err
@@ -147,6 +151,7 @@ func addRuntimeGauges(meterProvider *metric.MeterProvider) (bool, *metric.MeterP
 
 	totalAlloc, err := meter.Int64ObservableGauge(
 		"runtime.memory.total_alloc",
+		metrics.WithDescription("The total memory allocated in KiB."),
 	)
 	if err != nil {
 		return true, nil, err
@@ -154,6 +159,7 @@ func addRuntimeGauges(meterProvider *metric.MeterProvider) (bool, *metric.MeterP
 
 	sysMemory, err := meter.Int64ObservableGauge(
 		"runtime.memory.sys",
+		metrics.WithDescription("The total memory obtained from the OS in KiB."),
 	)
 	if err != nil {
 		return true, nil, err
@@ -161,6 +167,7 @@ func addRuntimeGauges(meterProvider *metric.MeterProvider) (bool, *metric.MeterP
 
 	heapAlloc, err := meter.Int64ObservableGauge(
 		"runtime.memory.heap_alloc",
+		metrics.WithDescription("The total memory allocated by the runtime in KiB."),
 	)
 	if err != nil {
 		return true, nil, err
@@ -168,6 +175,7 @@ func addRuntimeGauges(meterProvider *metric.MeterProvider) (bool, *metric.MeterP
 
 	gcCount, err := meter.Int64ObservableGauge(
 		"runtime.gc.count",
+		metrics.WithDescription("The number of garbage collections."),
 	)
 	if err != nil {
 		return true, nil, err
@@ -175,6 +183,15 @@ func addRuntimeGauges(meterProvider *metric.MeterProvider) (bool, *metric.MeterP
 
 	gcPauseTotal, err := meter.Int64ObservableGauge(
 		"runtime.gc.pause_total",
+		metrics.WithDescription("The total pause time in nanoseconds."),
+	)
+	if err != nil {
+		return true, nil, err
+	}
+
+	cpuLoad, err := meter.Float64ObservableGauge(
+		"runtime.cpu.load",
+		metrics.WithDescription("The current CPU load."),
 	)
 	if err != nil {
 		return true, nil, err
@@ -182,15 +199,24 @@ func addRuntimeGauges(meterProvider *metric.MeterProvider) (bool, *metric.MeterP
 
 	_, err = meter.RegisterCallback(
 		func(ctx context.Context, observer metrics.Observer) error {
+
 			var mem runtime.MemStats
 			runtime.ReadMemStats(&mem)
+
+			cpuStat, _ := cpu.Percent(0, false)
+
 			observer.ObserveInt64(currentMemory, int64(mem.Alloc/1024))
 			observer.ObserveInt64(totalAlloc, int64(mem.TotalAlloc/1024))
 			observer.ObserveInt64(sysMemory, int64(mem.Sys/1024))
 			observer.ObserveInt64(heapAlloc, int64(mem.HeapAlloc/1024))
+
 			observer.ObserveInt64(goRoutineCount, int64(runtime.NumGoroutine()))
+
 			observer.ObserveInt64(gcCount, int64(mem.NumGC))
 			observer.ObserveInt64(gcPauseTotal, int64(mem.PauseTotalNs))
+
+			observer.ObserveFloat64(cpuLoad, cpuStat[0])
+
 			return nil
 		},
 		currentMemory,
@@ -200,6 +226,7 @@ func addRuntimeGauges(meterProvider *metric.MeterProvider) (bool, *metric.MeterP
 		goRoutineCount,
 		gcCount,
 		gcPauseTotal,
+		cpuLoad,
 	)
 	if err != nil {
 		return true, nil, err

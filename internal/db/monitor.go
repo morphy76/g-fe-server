@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	v2_bson "go.mongodb.org/mongo-driver/v2/bson"
 
@@ -10,6 +11,7 @@ import (
 	v2_event "go.mongodb.org/mongo-driver/v2/event"
 	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 )
 
 type oldStartedSignarture func(ctx context.Context, oldEvent *old_event.CommandStartedEvent)
@@ -36,18 +38,27 @@ func NewPoolMonitor() *v2_event.PoolMonitor {
 			meter := otel.GetMeterProvider().Meter("mongo")
 			useContext := context.Background()
 
-			histogram, err := meter.Float64Histogram("mongo_pool_event_duration")
+			histogram, err := meter.Float64Histogram(
+				"mongo_pool_event_duration",
+				metric.WithDescription("Mongo event duration"),
+			)
 			if err == nil {
 				histogram.Record(useContext, float64(event.Duration.Milliseconds()))
 			}
 
-			waitHistogram, err := meter.Float64Histogram("mongo_pool_event_wait_duration")
+			waitHistogram, err := meter.Float64Histogram(
+				"mongo_pool_event_wait_duration",
+				metric.WithDescription("Mongo event wait duration"),
+			)
 			if err == nil && event.PoolOptions != nil {
 				waitHistogram.Record(useContext, float64(event.PoolOptions.WaitQueueTimeoutMS))
 			}
 
 			if event.Error != nil {
-				errorHistogram, err := meter.Float64Histogram("mongo_pool_event_errors")
+				errorHistogram, err := meter.Float64Histogram(
+					"mongo_pool_event_errors",
+					metric.WithDescription("Mongo error events"),
+				)
 				if err == nil {
 					errorHistogram.Record(useContext, 1)
 				}
@@ -70,6 +81,8 @@ func newCommandStartedEvent(old oldStartedSignarture) newStartedSignarture {
 			useServiceID, _ := v2_bson.ObjectIDFromHex(oldCmdStartedEvent.ServiceID.Hex())
 			newEvent.ServiceID = &useServiceID
 		}
+
+		fmt.Printf("sssssssssssstaaaaaart Event: %+v\n", newEvent)
 	}
 }
 
@@ -98,6 +111,8 @@ func newCommandSucceededEvent(old oldSucceededSignarture) newSucceededSignarture
 			finishedServiceID, _ := v2_bson.ObjectIDFromHex(oldCmdSucceededEvent.CommandFinishedEvent.ServiceID.Hex())
 			newEvent.CommandFinishedEvent.ServiceID = &finishedServiceID
 		}
+
+		fmt.Printf("sssssssuuuuucccccceeeeeesssss Event: %+v\n", newEvent)
 	}
 }
 
@@ -126,5 +141,7 @@ func newCommandFailedEvent(old oldFailedSignarture) newFailedSignarture {
 		}
 		newEvent.Failure = errors.New(oldCmdFailedEvent.Failure)
 		newEvent.Duration = oldCmdFailedEvent.Duration
+
+		fmt.Printf("ssssssfaaaaaiiiillllll Event: %+v\n", newEvent)
 	}
 }

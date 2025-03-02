@@ -13,7 +13,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/morphy76/g-fe-server/internal/http/handlers"
@@ -161,6 +164,8 @@ func addAPIHandlers(contextRouter *mux.Router, routerLog zerolog.Logger) {
 func transferBodyTest(w http.ResponseWriter, newRes *http.Response) bool {
 	w.WriteHeader(newRes.StatusCode)
 	body, err := io.ReadAll(newRes.Body)
+	// example of business metrics
+	addBusinessMetrics(len(body))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return true
@@ -168,6 +173,35 @@ func transferBodyTest(w http.ResponseWriter, newRes *http.Response) bool {
 	w.Write(body)
 	defer newRes.Body.Close()
 	return false
+}
+
+func addBusinessMetrics(tokens int) {
+	meter := otel.GetMeterProvider().Meter("fe_server.metrics")
+
+	var totalTokens int64
+	tokensCounter, err := meter.Int64ObservableCounter(
+		"fe_server.tokens",
+		metric.WithDescription("The number of tokens processed"),
+		metric.WithUnit("10"),
+	)
+	if err == nil {
+		meter.RegisterCallback(
+			func(ctx context.Context, observer metric.Observer) error {
+				totalTokens += int64(tokens)
+				observer.ObserveInt64(
+					tokensCounter,
+					totalTokens,
+					metric.WithAttributes(
+						attribute.Bool("billable", true),
+						attribute.String("tenant", "todo"),
+						attribute.String("subscription", "todo"),
+					),
+				)
+				return nil
+			},
+			tokensCounter,
+		)
+	}
 }
 
 func addUIHandlers(contextRouter *mux.Router, feServer *FEServer, routerLog zerolog.Logger) {
