@@ -17,21 +17,21 @@ ENV GOOS=linux
 RUN --mount=type=cache,target=/go/pkg/mod \
     make build-server
 
-# Builder image: FE
-FROM node:lts AS fe-builder
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update \
-    && apt-get install -y make
-WORKDIR /app
-COPY . .
-RUN --mount=type=cache,target=/root/.npm \
-    make build-fe
+# # Builder image: FE
+# FROM node:lts AS fe-builder
+# RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+#     --mount=type=cache,target=/var/lib/apt,sharing=locked \
+#     apt-get update \
+#     && apt-get install -y make
+# WORKDIR /app
+# COPY . .
+# RUN --mount=type=cache,target=/root/.npm \
+#     make build-fe
 
 # Final image
 FROM --platform=linux/amd64 gcr.io/distroless/base-nossl-debian12:nonroot
 COPY --from=ps-builder /app/g-fe-server /g-fe-server
-COPY --from=fe-builder /app/web/build /static
+# COPY --from=fe-builder /app/web/build /static
 ENV STATIC_PATH=/static
 CMD [ "/g-fe-server" ]
 LABEL Name=$TAG_NAME \

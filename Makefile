@@ -47,10 +47,10 @@ watch-fe:
 watch-server:
 	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(NO_OIDC_ARGS) $(OIDC_ARGS) $(MONGO_ARGS)
 
-run-server: build-fe
+# run-server: build-fe
+run-server:
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS)
 
-# Define the clean target
 clean:
 	-@rm -f $(SERVER_TARGET)
 	-@rm -rf $(SERVER_TARGET_FE)
@@ -63,3 +63,11 @@ deploy: clean
     --build-arg TAG_VERSION=$(SERVER_VERSION) \
     -t $(SERVER_DEPLOY_TAG) -f $(SERVER_DOCKERFILE) $(DOCKERBUILDFLAGS) .
 	@$(DOCKER) stop socat
+
+run-docker:
+	$(DOCKER) run --rm --network host --platform linux/amd64 --name gfe \
+    -e CONTEXT_ROOT=/fe -e STATIC_PATH=$(SERVER_TARGET_FE) -e SERVE_HOST=localhost -e SERVE_PORT=3000 \
+    -e OTEL_ENABLED=true -e OTLP_URL=http://localhost:4317 \
+    -e OIDC_ISSUER=http://localhost:8080/realms/gfes -e OIDC_CLIENT_ID=ps -e OIDC_CLIENT_SECRET=tefnJ7pbekZuTV7vPVpI3VHPNto7LlOy -e OIDC_SCOPES=openid,profile,email \
+    -e DB_MONGO_PASSWORD=fe_password -e DB_MONGO_USER=fe_user -e DB_MONGO_URL=mongodb://localhost:27017/fe_db \
+    $(SERVER_DEPLOY_TAG)
