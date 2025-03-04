@@ -86,6 +86,7 @@ func addAPIHandlers(contextRouter *mux.Router, routerLog zerolog.Logger) {
 		useLogger := logger.GetLogger(r.Context(), "test")
 
 		feServer := ExtractFEServer(r.Context())
+		isTestFeatOn := feServer.IsFeatureEnabled("test")
 
 		// this is an inner span, started by the application, representing upstream logic
 		_, span := trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "upBiz")
@@ -97,34 +98,38 @@ func addAPIHandlers(contextRouter *mux.Router, routerLog zerolog.Logger) {
 		useLogger.Info().Msg("end up biz")
 		span.End()
 
-		// this other span represents remote downstream logic
-		_, span = trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "downBiz")
-		useLogger.Debug().Msg("start down biz")
-		<-time.After(1 * time.Second)
+		if isTestFeatOn {
+			// this other span represents remote downstream logic
+			_, span = trace.SpanFromContext(r.Context()).TracerProvider().Tracer("mboh").Start(r.Context(), "downBiz")
+			useLogger.Debug().Msg("start down biz")
+			<-time.After(1 * time.Second)
 
-		// a generic request to the same server, but to a different endpoint
-		newUrl := fmt.Sprintf("http://%s%s",
-			r.Host,
-			strings.Replace(r.URL.Path, "up", "down", 1),
-		)
-		newReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, newUrl, nil)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			// a generic request to the same server, but to a different endpoint
+			newUrl := fmt.Sprintf("http://%s%s",
+				r.Host,
+				strings.Replace(r.URL.Path, "up", "down", 1),
+			)
+			newReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, newUrl, nil)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			// mediated by the AIW facade to inject the OTEL context
+			newRes, err := feServer.GetAIWFacade().Call(r.Context(), newReq)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			// the request span, the HTTP call namely, is closed when closing the response body
+			transferBodyTest(w, newRes)
+			// the downstream span can be closed at the end
+			defer span.End()
+			<-time.After(1 * time.Second)
+			span.AddEvent("testEventDown")
+			useLogger.Info().Msg("end down biz")
+		} else {
+			w.Write([]byte("{\"message\": \"Hello, World!\"}"))
 		}
-		// mediated by the AIW facade to inject the OTEL context
-		newRes, err := feServer.GetAIWFacade().Call(r.Context(), newReq)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		// the request span, the HTTP call namely, is closed when closing the response body
-		transferBodyTest(w, newRes)
-		// the downstream span can be closed at the end
-		defer span.End()
-		<-time.After(1 * time.Second)
-		span.AddEvent("testEventDown")
-		useLogger.Info().Msg("end down biz")
 	})
 	apiRouter.HandleFunc("/down", func(w http.ResponseWriter, r *http.Request) {
 		// this API has its own span started by the OTEL SDK integration with the mux router

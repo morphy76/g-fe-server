@@ -38,6 +38,7 @@ func main() {
 	oidcOptionsBuilder := cli.OIDCOptionsBuilder()
 	dbOptionsBuilder := cli.DBOptionsBuilder()
 	OTelOptionsBuilder := cli.OTelOptionsBuilder()
+	unleashOptionsBuilder := cli.UnleashOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -93,12 +94,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	unleashOptions, err := unleashOptionsBuilder()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing unleash options")
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	startServer(
 		serveOptions,
 		sessionOptions,
 		oidcOptions,
 		dbOptions,
 		OTelOptions,
+		unleashOptions,
 		trace,
 	)
 }
@@ -109,6 +120,7 @@ func startServer(
 	oidcOptions *auth.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
+	unleashOptions *options.UnleashOptions,
 	trace *bool,
 ) {
 	// manage termination criteria and channels
@@ -117,7 +129,15 @@ func startServer(
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Server application context which provides the feServer instance and log facilities
-	appContext, cancel := createAppContext(serveOptions, sessionOptions, oidcOptions, dbOptions, otelOptions, trace)
+	appContext, cancel := createAppContext(
+		serveOptions,
+		sessionOptions,
+		oidcOptions,
+		dbOptions,
+		otelOptions,
+		unleashOptions,
+		trace,
+	)
 	bootLogger := logger.GetLogger(appContext, "feServer")
 
 	// Server routes
@@ -161,6 +181,7 @@ func createAppContext(
 	oidcOptions *auth.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
+	unleashOptions *options.UnleashOptions,
 	trace *bool,
 ) (context.Context, context.CancelFunc) {
 	// as server application, the context is enriched with logger and server instance
@@ -195,7 +216,15 @@ func createAppContext(
 	// the server instance is the main entry point for the server application
 	// it is used to start the server, register routes, and shutdown the server
 	// it provides the HTTP server, with HTTP session, the OIDC client, and the database client
-	appContext = server.NewFEServer(appContext, serveOpts, sessionOptions, oidcOptions, dbOptions, otelOptions)
+	appContext = server.NewFEServer(
+		appContext,
+		serveOpts,
+		sessionOptions,
+		oidcOptions,
+		dbOptions,
+		otelOptions,
+		unleashOptions,
+	)
 
 	return context.WithCancel(appContext)
 }

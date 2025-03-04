@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Unleash/unleash-client-go/v4"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/cmd/options"
@@ -46,6 +47,8 @@ type FEServer struct {
 	ShutdownFn  []func() error
 
 	HealthChecksFn []health.AdditionalCheckFn
+
+	featureEnabled bool
 }
 
 // ExtractFEServer returns the FEServer from the context
@@ -67,14 +70,16 @@ func NewFEServer(
 	oidcOptions *auth.OIDCOptions,
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
+	unleashOptions *options.UnleashOptions,
 ) context.Context {
-
 	feServer := &FEServer{
 		UID:               uuid.New().String(),
 		ServeOpts:         serveOpts,
 		BackendHTTPClient: instrumentNewHTTPClient(),
 		ServiceName:       otelOptions.ServiceName,
 		ShutdownFn:        make([]func() error, 0),
+
+		featureEnabled: unleashOptions.Enabled,
 	}
 
 	otelShutdown, err := SetupOTelSDK(otelOptions)
@@ -92,6 +97,7 @@ func NewFEServer(
 		sessionOptions,
 		dbOptions,
 		otelOptions,
+		unleashOptions,
 	)
 	if err != nil {
 		panic(err)
@@ -137,6 +143,13 @@ func (feServer *FEServer) GetAIWFacade() *aiw.AIWFacade {
 	}
 }
 
+func (feServer *FEServer) IsFeatureEnabled(feature string, opts ...unleash.FeatureOption) bool {
+	if !feServer.featureEnabled {
+		return true
+	}
+	return unleash.IsEnabled(feature, opts...)
+}
+
 func bindInfrastructuralDependencies(
 	feServer *FEServer,
 	serveOpts *options.ServeOptions,
@@ -144,6 +157,7 @@ func bindInfrastructuralDependencies(
 	sessionOptions *session.SessionOptions,
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
+	unleashOptions *options.UnleashOptions,
 ) error {
 	err := bindOIDC(feServer, serveOpts, oidcOptions)
 	if err != nil {
@@ -158,6 +172,30 @@ func bindInfrastructuralDependencies(
 	err = bindMongoDB(feServer, err, dbOptions, otelOptions.Enabled)
 	if err != nil {
 		return fmt.Errorf("failed to bind MongoDB: %w", err)
+	}
+
+	err = bindUnleash(unleashOptions)
+	if err != nil {
+		return fmt.Errorf("failed to bind Unleash: %w", err)
+	}
+
+	return nil
+}
+
+func bindUnleash(unleashOptions *options.UnleashOptions) error {
+	if !unleashOptions.Enabled {
+		return nil
+	}
+
+	err := unleash.Initialize(
+		unleash.WithHttpClient(instrumentUnleashHTTPClient()),
+		// unleash.WithListener(unleash.DebugListener{}),
+		unleash.WithAppName(unleashOptions.AppName),
+		unleash.WithUrl(unleashOptions.URL),
+		unleash.WithCustomHeaders(http.Header{"Authorization": {unleashOptions.Token}}),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to initialize Unleash: %w", err)
 	}
 
 	return nil
@@ -231,6 +269,14 @@ func bindOIDC(
 }
 
 func instrumentNewHTTPClient() *http.Client {
+	transport := otelhttp.NewTransport(http.DefaultTransport)
+	client := &http.Client{
+		Transport: transport,
+	}
+	return client
+}
+
+func instrumentUnleashHTTPClient() *http.Client {
 	transport := otelhttp.NewTransport(http.DefaultTransport)
 	client := &http.Client{
 		Transport: transport,

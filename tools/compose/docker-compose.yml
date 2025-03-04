@@ -63,6 +63,8 @@ services:
     restart: unless-stopped
     ports:
       - "9411:9411"
+    depends_on:
+      - "otel-collector"
     networks:
       - fe-private-network
 
@@ -75,8 +77,58 @@ services:
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
+    depends_on:
+      - "otel-collector"
     networks:
       - fe-private-network
+
+  unleash:
+    image: unleashorg/unleash-server:6.7
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "4242:4242"
+    depends_on:
+      - "feature-db"
+    environment:
+      DATABASE_HOST: feature-db
+      DATABASE_NAME: feat_db
+      DATABASE_USERNAME: feat_user
+      DATABASE_PASSWORD: feat_password
+      DATABASE_SSL: false
+    networks:
+      - fe-private-network
+
+  unleash-edge:
+    image: unleashorg/unleash-edge:v19.7
+    platform: linux/amd64
+    command: ["edge"]
+    restart: unless-stopped
+    ports:
+      - "3063:3063"
+    depends_on:
+      - "unleash"
+    environment:
+      UPSTREAM_URL: http://unleash:4242/
+      TOKENS: "default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617"
+      STRICT: true
+    networks:
+      - fe-private-network
+
+  feature-db:
+    image: postgres:17.4
+    platform: linux/amd64
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: feat_user
+      POSTGRES_PASSWORD: feat_password
+      POSTGRES_DB: feat_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    networks:
+      - fe-private-network
+    volumes:
+      - unleash_data:/var/lib/postgresql/data
+
 
 networks:
   fe-private-network:
@@ -84,3 +136,4 @@ networks:
 volumes:
   fe_data:
   prometheus-data:
+  unleash_data:
