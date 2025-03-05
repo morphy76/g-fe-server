@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/Unleash/unleash-client-go/v4"
 	"github.com/gorilla/mux"
@@ -51,6 +52,9 @@ type FEServer struct {
 	HealthChecksFn []health.AdditionalCheckFn
 
 	featureEnabled bool
+
+	aiwFacadeLock sync.Mutex
+	aiwFacade     *aiw.AIWFacade
 }
 
 // ExtractFEServer returns the FEServer from the context
@@ -82,6 +86,8 @@ func NewFEServer(
 		ShutdownFn:        make([]func() error, 0),
 
 		featureEnabled: unleashOptions.Enabled,
+
+		aiwFacadeLock: sync.Mutex{},
 	}
 
 	otelShutdown, err := otel.SetupOTelSDK(otelOptions)
@@ -123,6 +129,8 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 			Str("port", feServer.ServeOpts.Port).
 			Str("ctx", feServer.ServeOpts.ContextRoot).
 			Str("serving", feServer.ServeOpts.StaticPath)).
+		Dict("aiw", zerolog.Dict().
+			Str("fqdn", feServer.ServeOpts.FQDN)).
 		Msg("Server started")
 
 	return http.ListenAndServe(feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port, rootRouter)
@@ -140,7 +148,16 @@ func (feServer *FEServer) Shutdown(ctx context.Context) {
 }
 
 func (feServer *FEServer) GetAIWFacade() *aiw.AIWFacade {
+
+	feServer.aiwFacadeLock.Lock()
+	defer feServer.aiwFacadeLock.Unlock()
+
+	if feServer.aiwFacade != nil {
+		return feServer.aiwFacade
+	}
+
 	return &aiw.AIWFacade{
+		AIWOptions: feServer.ServeOpts.AIWOptions,
 		HttpClient: feServer.BackendHTTPClient,
 	}
 }

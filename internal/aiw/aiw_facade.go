@@ -2,17 +2,48 @@ package aiw
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
 
+	"github.com/morphy76/g-fe-server/cmd/options"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type AIWFacade struct {
+	AIWOptions options.AIWOptions
 	HttpClient *http.Client
 }
 
-func (aiw *AIWFacade) Call(ctx context.Context, req *http.Request) (*http.Response, error) {
-	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
-	return aiw.HttpClient.Do(req)
+// Fake method, it actually calls the presentation server again
+func (aiw *AIWFacade) CallDown(ctx context.Context) (string, error) {
+
+	_, span := trace.SpanFromContext(ctx).TracerProvider().Tracer("AIW").Start(ctx, "CallDown")
+	defer span.End()
+
+	aiwOptions := aiw.AIWOptions
+
+	newUrl := fmt.Sprintf("http://%s/api/example/down",
+		aiwOptions.FQDN,
+	)
+
+	newReq, err := http.NewRequestWithContext(ctx, http.MethodGet, newUrl, nil)
+	if err != nil {
+		return "", err
+	}
+
+	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(newReq.Header))
+	newRes, err := aiw.HttpClient.Do(newReq)
+	if err != nil {
+		return "", err
+	}
+	defer newRes.Body.Close()
+	rv, err := io.ReadAll(newRes.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(rv), nil
 }

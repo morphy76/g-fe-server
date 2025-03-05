@@ -18,11 +18,16 @@ type ServeOptionsBuilderFn func() (*options.ServeOptions, error)
 // URLOptionsBuilderFn is a function that returns URLOptions
 type URLOptionsBuilderFn func() (*options.URLOptions, error)
 
+type AIWOptionsBuilderFn func() (*options.AIWOptions, error)
+
 // ErrInvalidContextRoot is an invalid context root error
 var ErrInvalidContextRoot = errors.New("invalid context root")
 
 // ErrInvalidStaticPath is an invalid static path error
 var ErrInvalidStaticPath = errors.New("invalid static path")
+
+// ErrInvalidFQDN is an invalid FQDN error
+var ErrInvalidFQDN = errors.New("invalid AIW FQDN")
 
 const (
 	envNonFnRoot  = "NON_FUNCTIONAL_ROOT"
@@ -30,6 +35,7 @@ const (
 	envStaticPath = "STATIC_PATH"
 	envPort       = "SERVE_PORT"
 	envHost       = "SERVE_HOST"
+	envFQDN       = "AIW_FQDN"
 )
 
 func PathOptionsBuilder() PathOptionsBuilderFn {
@@ -85,12 +91,31 @@ func URLOptionsBuilder() URLOptionsBuilderFn {
 	}
 }
 
+func AIWOptionsBuilder() AIWOptionsBuilderFn {
+	fqdnArg := flag.String("aiw-fqdn", "", "fully qualified domain name of the application. Environment: "+envFQDN)
+
+	return func() (*options.AIWOptions, error) {
+		fqdn, found := os.LookupEnv(envFQDN)
+		if !found {
+			fqdn = *fqdnArg
+		}
+		if len(fqdn) == 0 {
+			return nil, ErrInvalidFQDN
+		}
+
+		return &options.AIWOptions{
+			FQDN: fqdn,
+		}, nil
+	}
+}
+
 // ServeOptionsBuilder returns a function that builds ServeOptions from the command line arguments and environment variables
 func ServeOptionsBuilder() ServeOptionsBuilderFn {
 
 	staticPathArg := flag.String("static", "/static", "static path of the served application. Environment: "+envStaticPath)
 	pathOptionsBuilder := PathOptionsBuilder()
 	urlOptionsBuilder := URLOptionsBuilder()
+	aiwOptionsBuilder := AIWOptionsBuilder()
 
 	return func() (*options.ServeOptions, error) {
 
@@ -112,10 +137,16 @@ func ServeOptionsBuilder() ServeOptionsBuilderFn {
 			return nil, err
 		}
 
+		aiwOptions, err := aiwOptionsBuilder()
+		if err != nil {
+			return nil, err
+		}
+
 		return &options.ServeOptions{
 			StaticPath:  staticPath,
 			PathOptions: *pathOptions,
 			URLOptions:  *urlOptions,
+			AIWOptions:  *aiwOptions,
 		}, nil
 	}
 }

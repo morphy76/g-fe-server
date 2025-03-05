@@ -26,7 +26,7 @@ SERVER_TAG = $(word 1,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 
 ## Define the runtime args
-SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=3000
+SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=3000 -aiw-fqdn=http://localhost:3000/fe
 OTEL_ARGS := -otel-enabled=true --otlp-url=http://localhost:4317
 OIDC_ARGS := -oidc-issuer=http://localhost:8080/realms/gfes -oidc-client-id=ps -oidc-client-secret=tefnJ7pbekZuTV7vPVpI3VHPNto7LlOy -oidc-scopes=openid,profile,email
 MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-url=mongodb://localhost:27017/fe_db
@@ -67,7 +67,7 @@ deploy: clean
 
 run-docker:
 	$(DOCKER) run --rm --network host --platform linux/amd64 --name gfe \
-    -e CONTEXT_ROOT=/fe -e STATIC_PATH=$(SERVER_TARGET_FE) -e SERVE_HOST=localhost -e SERVE_PORT=3000 \
+    -e CONTEXT_ROOT=/fe -e STATIC_PATH=$(SERVER_TARGET_FE) -e SERVE_HOST=localhost -e SERVE_PORT=3000 -e AIW_FQDN=http://localhost:3000/fe \
     -e OTEL_ENABLED=true -e OTLP_URL=http://localhost:4317 \
     -e OIDC_ISSUER=http://localhost:8080/realms/gfes -e OIDC_CLIENT_ID=ps -e OIDC_CLIENT_SECRET=tefnJ7pbekZuTV7vPVpI3VHPNto7LlOy -e OIDC_SCOPES=openid,profile,email \
     -e DB_MONGO_PASSWORD=fe_password -e DB_MONGO_USER=fe_user -e DB_MONGO_URL=mongodb://localhost:27017/fe_db \
