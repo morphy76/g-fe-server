@@ -23,6 +23,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/google/uuid"
+
+	"github.com/morphy76/g-fe-server/internal/otel"
 )
 
 const appModelCtxKey common.CtxKey = "App"
@@ -82,7 +84,7 @@ func NewFEServer(
 		featureEnabled: unleashOptions.Enabled,
 	}
 
-	otelShutdown, err := SetupOTelSDK(otelOptions)
+	otelShutdown, err := otel.SetupOTelSDK(otelOptions)
 	if err != nil {
 		panic(err)
 	}

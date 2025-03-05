@@ -15,6 +15,7 @@ import (
 	"github.com/morphy76/g-fe-server/cmd/cli"
 	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/morphy76/g-fe-server/internal/auth"
+	"github.com/morphy76/g-fe-server/internal/http/handlers"
 	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
@@ -142,7 +143,7 @@ func startServer(
 
 	// Server routes
 	rootRouter := mux.NewRouter()
-	server.Handler(appContext, rootRouter)
+	handlers.Handler(appContext, rootRouter)
 	events := zerolog.Arr()
 	rootRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 		if len(route.GetName()) > 0 {
