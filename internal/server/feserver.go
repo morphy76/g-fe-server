@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/Unleash/unleash-client-go/v4"
@@ -13,18 +12,14 @@ import (
 	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/common"
 	"github.com/morphy76/g-fe-server/internal/common/health"
-	"github.com/morphy76/g-fe-server/internal/db"
 	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/rs/zerolog"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/google/uuid"
-
-	"github.com/morphy76/g-fe-server/internal/otel"
 )
 
 const appModelCtxKey common.CtxKey = "App"
@@ -75,10 +70,6 @@ func NewFEServer(
 	unleashOptions *options.UnleashOptions,
 	aiwOptions *options.AIWOptions,
 ) context.Context {
-	aiwFacade := &aiw.AIWFacade{
-		AIWOptions: aiwOptions,
-		HttpClient: instrumentNewHTTPClient(),
-	}
 
 	feServer := &FEServer{
 		UID:         uuid.New().String(),
@@ -87,18 +78,9 @@ func NewFEServer(
 		ShutdownFn:  make([]func() error, 0),
 
 		featureEnabled: unleashOptions.Enabled,
-		AIWfacade:      aiwFacade,
 	}
 
-	otelShutdown, err := otel.SetupOTelSDK(otelOptions)
-	if err != nil {
-		panic(err)
-	}
-	if otelShutdown != nil {
-		feServer.ShutdownFn = append(feServer.ShutdownFn, otelShutdown)
-	}
-
-	err = bindInfrastructuralDependencies(
+	err := bindInfrastructuralDependencies(
 		feServer,
 		serveOpts,
 		oidcOptions,
@@ -153,139 +135,4 @@ func (feServer *FEServer) IsFeatureEnabled(feature string, opts ...unleash.Featu
 		return true
 	}
 	return unleash.IsEnabled(feature, opts...)
-}
-
-func bindInfrastructuralDependencies(
-	feServer *FEServer,
-	serveOpts *options.ServeOptions,
-	oidcOptions *auth.OIDCOptions,
-	sessionOptions *session.SessionOptions,
-	dbOptions *options.MongoDBOptions,
-	otelOptions *options.OTelOptions,
-	unleashOptions *options.UnleashOptions,
-	aiwOptions *options.AIWOptions,
-) error {
-	err := bindOIDC(feServer, serveOpts, oidcOptions)
-	if err != nil {
-		return fmt.Errorf("failed to bind OIDC: %w", err)
-	}
-
-	err = bindSessionStore(feServer, serveOpts, sessionOptions, dbOptions)
-	if err != nil {
-		return fmt.Errorf("failed to bind session store: %w", err)
-	}
-
-	err = bindMongoDB(feServer, err, dbOptions, otelOptions.Enabled)
-	if err != nil {
-		return fmt.Errorf("failed to bind MongoDB: %w", err)
-	}
-
-	err = bindUnleash(unleashOptions)
-	if err != nil {
-		return fmt.Errorf("failed to bind Unleash: %w", err)
-	}
-
-	return nil
-}
-
-func bindUnleash(unleashOptions *options.UnleashOptions) error {
-	if !unleashOptions.Enabled {
-		return nil
-	}
-
-	err := unleash.Initialize(
-		unleash.WithHttpClient(instrumentUnleashHTTPClient()),
-		// unleash.WithListener(unleash.DebugListener{}),
-		unleash.WithAppName(unleashOptions.AppName),
-		unleash.WithUrl(unleashOptions.URL),
-		unleash.WithCustomHeaders(http.Header{"Authorization": {unleashOptions.Token}}),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to initialize Unleash: %w", err)
-	}
-
-	return nil
-}
-
-func addHealthChecks(feServer *FEServer, dbOptions *options.MongoDBOptions) error {
-	feServer.HealthChecksFn = make([]health.AdditionalCheckFn, 0)
-
-	healthClient, err := db.NewClient(dbOptions, false)
-	if err != nil {
-		return err
-	}
-
-	feServer.HealthChecksFn = append(feServer.HealthChecksFn, db.CreateHealthCheck(healthClient))
-	feServer.HealthChecksFn = append(feServer.HealthChecksFn, auth.CreateHealthCheck(feServer.RelayingParty))
-
-	return nil
-}
-
-func bindMongoDB(feServer *FEServer, err error, dbOptions *options.MongoDBOptions, withMonitor bool) error {
-	client, err := db.NewClient(dbOptions, withMonitor)
-	if err != nil {
-		return err
-	}
-	feServer.MongoClient = client
-	shutdownFn := func() error {
-		return client.Disconnect(context.Background())
-	}
-	feServer.ShutdownFn = append(feServer.ShutdownFn, shutdownFn)
-
-	return nil
-}
-
-func bindSessionStore(
-	feServer *FEServer,
-	serveOpts *options.ServeOptions,
-	sessionOptions *session.SessionOptions,
-	dbOptions *options.MongoDBOptions,
-) error {
-	sessionStore, shutdownFn, err := session.CreateSessionStore(sessionOptions, dbOptions, serveOpts.ContextRoot)
-	if err != nil {
-		return err
-	}
-	feServer.SessionName = sessionOptions.SessionName
-	feServer.SessionStore = sessionStore
-	if shutdownFn != nil {
-		feServer.ShutdownFn = append(feServer.ShutdownFn, shutdownFn)
-	}
-
-	return nil
-}
-
-func bindOIDC(
-	feServer *FEServer,
-	serveOpts *options.ServeOptions,
-	oidcOptions *auth.OIDCOptions,
-) error {
-	rp, err := auth.SetupOIDC(serveOpts, oidcOptions)
-	if err != nil {
-		return err
-	}
-	feServer.RelayingParty = rp
-
-	rs, err := rs.NewResourceServerClientCredentials(context.Background(), oidcOptions.Issuer, oidcOptions.ClientID, oidcOptions.ClientSecret)
-	if err != nil {
-		return err
-	}
-	feServer.ResourceServer = rs
-
-	return nil
-}
-
-func instrumentNewHTTPClient() *http.Client {
-	transport := otelhttp.NewTransport(http.DefaultTransport)
-	client := &http.Client{
-		Transport: transport,
-	}
-	return client
-}
-
-func instrumentUnleashHTTPClient() *http.Client {
-	transport := otelhttp.NewTransport(http.DefaultTransport)
-	client := &http.Client{
-		Transport: transport,
-	}
-	return client
 }
