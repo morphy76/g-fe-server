@@ -33,14 +33,21 @@ func (d *exampleServiceDelegate) doUp(serviceContext context.Context) error {
 	return nil
 }
 
-func (d *exampleServiceDelegate) callDown(serviceContext context.Context) (chan string, error) {
+func (d *exampleServiceDelegate) callDown(ctx context.Context) (chan []byte, error) {
 	d.log.Debug().Msg("start call down biz")
 
-	span := trace.SpanFromContext(serviceContext)
-	rvCh := make(chan string)
+	isTestFeatOn := d.feServer.IsFeatureEnabled("call.down")
+
+	if !isTestFeatOn {
+		d.log.Info().Msg("feature is off")
+		return nil, nil
+	}
+
+	span := trace.SpanFromContext(ctx)
+	rvCh := make(chan []byte)
 	go func() {
 		defer close(rvCh)
-		downAnswer, err := d.feServer.GetAIWFacade().CallDown(serviceContext)
+		downAnswer, err := d.feServer.GetAIWFacade().CallDown(ctx)
 		if err != nil {
 			d.log.Error().Err(err).Msg("error in call down biz")
 			return
@@ -54,16 +61,16 @@ func (d *exampleServiceDelegate) callDown(serviceContext context.Context) (chan 
 	return rvCh, nil
 }
 
-func (d *exampleServiceDelegate) doDown(serviceContext context.Context) (string, error) {
+func (d *exampleServiceDelegate) doDown(ctx context.Context) (string, error) {
 	d.log.Debug().Msg("start down biz")
 
-	span := trace.SpanFromContext(serviceContext)
+	span := trace.SpanFromContext(ctx)
 	<-time.After(1 * time.Second)
 	test := uuid.NewString()
 	addBusinessMetrics(len(test))
 	span.AddEvent("testEventDown")
 
-	// useFEServer.MongoClient.Database("fe_db").Collection("test_collection").InsertOne(r.Context(), map[string]string{"test": test})
+	d.feServer.MongoClient.Database("fe_db").Collection("test_collection").InsertOne(ctx, map[string]string{"test": test})
 
 	span.RecordError(errors.New("testError"))
 	span.SetStatus(codes.Error, "testError")

@@ -49,35 +49,24 @@ func Handler(
 
 func doUpHandler(w http.ResponseWriter, r *http.Request) {
 	useLogger := logger.GetLogger(r.Context(), "http."+moduleName)
-	useFEServer := server.ExtractFEServer(r.Context())
-	isTestFeatOn := useFEServer.IsFeatureEnabled("test")
 
 	service := NewExampleService(r.Context())
 
 	service.DoUp()
 
-	if isTestFeatOn {
-
-		downAnswer, err := service.CallDown()
-
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			err = common.ToJSON(NewExampleResponse(err.Error()), w)
-			if err != nil {
-				useLogger.Error().Err(err).Msg(failedToWriteResponse)
-			}
-			return
-		}
-
-		err = common.ToJSON(NewExampleResponse(downAnswer), w)
+	downAnswer, err := service.CallDown()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		err = common.ToJSON(NewExampleResponse(err.Error()), w)
 		if err != nil {
 			useLogger.Error().Err(err).Msg(failedToWriteResponse)
 		}
-	} else {
-		err := common.ToJSON(NewExampleResponse("Hello, World!"), w)
-		if err != nil {
-			useLogger.Error().Err(err).Msg(failedToWriteResponse)
-		}
+		return
+	}
+
+	err = common.ToJSON(NewExampleResponse("From AIW: "+downAnswer.Message), w)
+	if err != nil {
+		useLogger.Error().Err(err).Msg(failedToWriteResponse)
 	}
 }
 

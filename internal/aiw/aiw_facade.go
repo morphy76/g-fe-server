@@ -18,32 +18,32 @@ type AIWFacade struct {
 }
 
 // Fake method, it actually calls the presentation server again
-func (aiw *AIWFacade) CallDown(ctx context.Context) (string, error) {
+func (aiw *AIWFacade) CallDown(ctx context.Context) ([]byte, error) {
 
 	_, span := trace.SpanFromContext(ctx).TracerProvider().Tracer("AIW").Start(ctx, "CallDown")
 	defer span.End()
 
 	aiwOptions := aiw.AIWOptions
 
-	newUrl := fmt.Sprintf("http://%s/api/example/down",
+	newUrl := fmt.Sprintf("%s/api/example/down",
 		aiwOptions.FQDN,
 	)
 
 	newReq, err := http.NewRequestWithContext(ctx, http.MethodGet, newUrl, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(newReq.Header))
 	newRes, err := aiw.HttpClient.Do(newReq)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer newRes.Body.Close()
 	rv, err := io.ReadAll(newRes.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(rv), nil
+	return rv, nil
 }
