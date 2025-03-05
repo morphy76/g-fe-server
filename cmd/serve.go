@@ -40,6 +40,7 @@ func main() {
 	dbOptionsBuilder := cli.DBOptionsBuilder()
 	OTelOptionsBuilder := cli.OTelOptionsBuilder()
 	unleashOptionsBuilder := cli.UnleashOptionsBuilder()
+	aiwOptionsBuilder := cli.AIWOptionsBuilder()
 
 	help := flag.Bool("help", false, "prints help message")
 
@@ -104,6 +105,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	AIWOptions, err := aiwOptionsBuilder()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error parsing AIW options")
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	startServer(
 		serveOptions,
 		sessionOptions,
@@ -111,6 +121,7 @@ func main() {
 		dbOptions,
 		OTelOptions,
 		unleashOptions,
+		AIWOptions,
 		trace,
 	)
 }
@@ -122,6 +133,7 @@ func startServer(
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
 	unleashOptions *options.UnleashOptions,
+	aiwOptions *options.AIWOptions,
 	trace *bool,
 ) {
 	// manage termination criteria and channels
@@ -137,6 +149,7 @@ func startServer(
 		dbOptions,
 		otelOptions,
 		unleashOptions,
+		aiwOptions,
 		trace,
 	)
 	bootLogger := logger.GetLogger(appContext, "feServer")
@@ -183,6 +196,7 @@ func createAppContext(
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
 	unleashOptions *options.UnleashOptions,
+	aiwOptions *options.AIWOptions,
 	trace *bool,
 ) (context.Context, context.CancelFunc) {
 	// as server application, the context is enriched with logger and server instance
@@ -225,6 +239,7 @@ func createAppContext(
 		dbOptions,
 		otelOptions,
 		unleashOptions,
+		aiwOptions,
 	)
 
 	return context.WithCancel(appContext)

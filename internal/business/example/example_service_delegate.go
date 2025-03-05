@@ -47,7 +47,7 @@ func (d *exampleServiceDelegate) callDown(ctx context.Context) (chan []byte, err
 	rvCh := make(chan []byte)
 	go func() {
 		defer close(rvCh)
-		downAnswer, err := d.feServer.GetAIWFacade().CallDown(ctx)
+		downAnswer, err := d.feServer.AIWfacade.CallDown(ctx)
 		if err != nil {
 			d.log.Error().Err(err).Msg("error in call down biz")
 			return

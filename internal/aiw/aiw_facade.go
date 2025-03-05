@@ -13,7 +13,7 @@ import (
 )
 
 type AIWFacade struct {
-	AIWOptions options.AIWOptions
+	AIWOptions *options.AIWOptions
 	HttpClient *http.Client
 }
 

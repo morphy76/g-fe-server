@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
 
 	"github.com/Unleash/unleash-client-go/v4"
 	"github.com/gorilla/mux"
@@ -39,8 +38,6 @@ type FEServer struct {
 	SessionName  string
 	SessionStore sessions.Store
 
-	BackendHTTPClient *http.Client
-
 	MongoClient *mongo.Client
 
 	RelayingParty  rp.RelyingParty
@@ -53,8 +50,7 @@ type FEServer struct {
 
 	featureEnabled bool
 
-	aiwFacadeLock sync.Mutex
-	aiwFacade     *aiw.AIWFacade
+	AIWfacade *aiw.AIWFacade
 }
 
 // ExtractFEServer returns the FEServer from the context
@@ -77,17 +73,21 @@ func NewFEServer(
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
 	unleashOptions *options.UnleashOptions,
+	aiwOptions *options.AIWOptions,
 ) context.Context {
+	aiwFacade := &aiw.AIWFacade{
+		AIWOptions: aiwOptions,
+		HttpClient: instrumentNewHTTPClient(),
+	}
+
 	feServer := &FEServer{
-		UID:               uuid.New().String(),
-		ServeOpts:         serveOpts,
-		BackendHTTPClient: instrumentNewHTTPClient(),
-		ServiceName:       otelOptions.ServiceName,
-		ShutdownFn:        make([]func() error, 0),
+		UID:         uuid.New().String(),
+		ServeOpts:   serveOpts,
+		ServiceName: otelOptions.ServiceName,
+		ShutdownFn:  make([]func() error, 0),
 
 		featureEnabled: unleashOptions.Enabled,
-
-		aiwFacadeLock: sync.Mutex{},
+		AIWfacade:      aiwFacade,
 	}
 
 	otelShutdown, err := otel.SetupOTelSDK(otelOptions)
@@ -106,6 +106,7 @@ func NewFEServer(
 		dbOptions,
 		otelOptions,
 		unleashOptions,
+		aiwOptions,
 	)
 	if err != nil {
 		panic(err)
@@ -130,7 +131,7 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 			Str("ctx", feServer.ServeOpts.ContextRoot).
 			Str("serving", feServer.ServeOpts.StaticPath)).
 		Dict("aiw", zerolog.Dict().
-			Str("fqdn", feServer.ServeOpts.FQDN)).
+			Str("fqdn", feServer.AIWfacade.AIWOptions.FQDN)).
 		Msg("Server started")
 
 	return http.ListenAndServe(feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port, rootRouter)
@@ -145,21 +146,6 @@ func (feServer *FEServer) Shutdown(ctx context.Context) {
 		}
 	}
 	feLogger.Info().Msg("Server stopped")
-}
-
-func (feServer *FEServer) GetAIWFacade() *aiw.AIWFacade {
-
-	feServer.aiwFacadeLock.Lock()
-	defer feServer.aiwFacadeLock.Unlock()
-
-	if feServer.aiwFacade != nil {
-		return feServer.aiwFacade
-	}
-
-	return &aiw.AIWFacade{
-		AIWOptions: feServer.ServeOpts.AIWOptions,
-		HttpClient: feServer.BackendHTTPClient,
-	}
 }
 
 func (feServer *FEServer) IsFeatureEnabled(feature string, opts ...unleash.FeatureOption) bool {
@@ -177,6 +163,7 @@ func bindInfrastructuralDependencies(
 	dbOptions *options.MongoDBOptions,
 	otelOptions *options.OTelOptions,
 	unleashOptions *options.UnleashOptions,
+	aiwOptions *options.AIWOptions,
 ) error {
 	err := bindOIDC(feServer, serveOpts, oidcOptions)
 	if err != nil {
