@@ -76,6 +76,7 @@ func addAPIHandlers(contextRouter *mux.Router, feServer *server.FEServer, router
 	// apiRouter.Use(middleware.MixedAuthenticationRequired)
 	// apiRouter.Use(middleware.MixedInspectAndRenew)
 
+	HandleOpenAPI(apiRouter, feServer.ServeOpts.ContextRoot)
 	bindModules(apiRouter, feServer, routerLog)
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
