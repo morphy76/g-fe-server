@@ -22,13 +22,10 @@ func bindInfrastructuralDependencies(
 	serveOpts *options.ServeOptions,
 	oidcOptions *auth.OIDCOptions,
 	sessionOptions *session.SessionOptions,
-	dbOptions *options.MongoDBOptions,
-	otelOptions *options.OTelOptions,
-	unleashOptions *options.UnleashOptions,
-	aiwOptions *options.AIWOptions,
+	integrationsOptions *options.IntegrationOptions,
 ) error {
 
-	otelShutdown, err := otel.SetupOTelSDK(otelOptions)
+	otelShutdown, err := otel.SetupOTelSDK(integrationsOptions.OTelOptions)
 	if err != nil {
 		return fmt.Errorf("failed to setup OTel: %w", err)
 	}
@@ -41,22 +38,22 @@ func bindInfrastructuralDependencies(
 		return fmt.Errorf("failed to bind OIDC: %w", err)
 	}
 
-	err = bindSessionStore(feServer, serveOpts, sessionOptions, dbOptions)
+	err = bindSessionStore(feServer, serveOpts, sessionOptions, integrationsOptions.DBOptions)
 	if err != nil {
 		return fmt.Errorf("failed to bind session store: %w", err)
 	}
 
-	err = bindMongoDB(feServer, err, dbOptions, otelOptions.Enabled)
+	err = bindMongoDB(feServer, err, integrationsOptions.DBOptions, integrationsOptions.OTelOptions.Enabled)
 	if err != nil {
 		return fmt.Errorf("failed to bind MongoDB: %w", err)
 	}
 
-	err = bindUnleash(unleashOptions)
+	err = bindUnleash(integrationsOptions.UnleashOptions)
 	if err != nil {
 		return fmt.Errorf("failed to bind Unleash: %w", err)
 	}
 
-	err = bindAIW(feServer, aiwOptions)
+	err = bindAIW(feServer, integrationsOptions.AIWOptions)
 	if err != nil {
 		return fmt.Errorf("failed to bind AIW: %w", err)
 	}
@@ -145,7 +142,13 @@ func bindOIDC(
 	serveOpts *options.ServeOptions,
 	oidcOptions *auth.OIDCOptions,
 ) error {
-	rp, err := auth.SetupOIDC(serveOpts, oidcOptions)
+	rp, err := auth.SetupOIDC(
+		serveOpts.Protocol,
+		serveOpts.Host,
+		serveOpts.Port,
+		serveOpts.ContextRoot,
+		oidcOptions,
+	)
 	if err != nil {
 		return err
 	}

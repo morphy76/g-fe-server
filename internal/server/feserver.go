@@ -65,19 +65,16 @@ func NewFEServer(
 	serveOpts *options.ServeOptions,
 	sessionOptions *session.SessionOptions,
 	oidcOptions *auth.OIDCOptions,
-	dbOptions *options.MongoDBOptions,
-	otelOptions *options.OTelOptions,
-	unleashOptions *options.UnleashOptions,
-	aiwOptions *options.AIWOptions,
+	integrationsOptions *options.IntegrationOptions,
 ) context.Context {
 
 	feServer := &FEServer{
 		UID:         uuid.New().String(),
 		ServeOpts:   serveOpts,
-		ServiceName: otelOptions.ServiceName,
+		ServiceName: integrationsOptions.OTelOptions.ServiceName,
 		ShutdownFn:  make([]func() error, 0),
 
-		featureEnabled: unleashOptions.Enabled,
+		featureEnabled: integrationsOptions.UnleashOptions.Enabled,
 	}
 
 	err := bindInfrastructuralDependencies(
@@ -85,16 +82,13 @@ func NewFEServer(
 		serveOpts,
 		oidcOptions,
 		sessionOptions,
-		dbOptions,
-		otelOptions,
-		unleashOptions,
-		aiwOptions,
+		integrationsOptions,
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	err = addHealthChecks(feServer, dbOptions)
+	err = addHealthChecks(feServer, integrationsOptions.DBOptions)
 	if err != nil {
 		panic(err)
 	}

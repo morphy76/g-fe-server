@@ -6,14 +6,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // SetupOIDC sets up the OIDC client
 func SetupOIDC(
-	serveOptions *options.ServeOptions,
+	protocol string,
+	host string,
+	port string,
+	contextRoot string,
 	oidcOptions *OIDCOptions,
 ) (rp.RelyingParty, error) {
 
@@ -21,10 +23,10 @@ func SetupOIDC(
 
 	redirectURI := fmt.Sprintf(
 		"%s://%s:%s/%s/auth/callback",
-		serveOptions.Protocol,
-		serveOptions.Host,
-		serveOptions.Port,
-		serveOptions.ContextRoot,
+		protocol,
+		host,
+		port,
+		contextRoot,
 	)
 
 	oidcOpts := []rp.Option{

@@ -87,7 +87,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	OTelOptions, err := OTelOptionsBuilder()
+	oTelOptions, err := OTelOptionsBuilder()
 	if err != nil {
 		log.Error().
 			Err(err).
@@ -114,14 +114,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	collectedIntegrationOptions := &options.IntegrationOptions{
+		DBOptions:      dbOptions,
+		OTelOptions:    oTelOptions,
+		UnleashOptions: unleashOptions,
+		AIWOptions:     AIWOptions,
+	}
+
 	startServer(
 		serveOptions,
 		sessionOptions,
 		oidcOptions,
-		dbOptions,
-		OTelOptions,
-		unleashOptions,
-		AIWOptions,
+		collectedIntegrationOptions,
 		trace,
 	)
 }
@@ -130,10 +134,7 @@ func startServer(
 	serveOptions *options.ServeOptions,
 	sessionOptions *session.SessionOptions,
 	oidcOptions *auth.OIDCOptions,
-	dbOptions *options.MongoDBOptions,
-	otelOptions *options.OTelOptions,
-	unleashOptions *options.UnleashOptions,
-	aiwOptions *options.AIWOptions,
+	integrationOptions *options.IntegrationOptions,
 	trace *bool,
 ) {
 	// manage termination criteria and channels
@@ -146,10 +147,7 @@ func startServer(
 		serveOptions,
 		sessionOptions,
 		oidcOptions,
-		dbOptions,
-		otelOptions,
-		unleashOptions,
-		aiwOptions,
+		integrationOptions,
 		trace,
 	)
 	bootLogger := logger.GetLogger(appContext, "feServer")
@@ -193,10 +191,7 @@ func createAppContext(
 	serveOpts *options.ServeOptions,
 	sessionOptions *session.SessionOptions,
 	oidcOptions *auth.OIDCOptions,
-	dbOptions *options.MongoDBOptions,
-	otelOptions *options.OTelOptions,
-	unleashOptions *options.UnleashOptions,
-	aiwOptions *options.AIWOptions,
+	integrationOptions *options.IntegrationOptions,
 	trace *bool,
 ) (context.Context, context.CancelFunc) {
 	// as server application, the context is enriched with logger and server instance
@@ -236,10 +231,7 @@ func createAppContext(
 		serveOpts,
 		sessionOptions,
 		oidcOptions,
-		dbOptions,
-		otelOptions,
-		unleashOptions,
-		aiwOptions,
+		integrationOptions,
 	)
 
 	return context.WithCancel(appContext)
