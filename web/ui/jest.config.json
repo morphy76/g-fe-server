@@ -1,0 +1,24 @@
+{
+  "preset": "ts-jest",
+  "testEnvironment": "jsdom",
+  "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
+  "testMatch": ["**/__tests__/**/*.[jt]s?(x)", "**/?(*.)+(spec|test).[tj]s?(x)"],
+  "collectCoverageFrom": ["src/**/*.{ts,tsx,js,jsx}", "!src/**/*.d.ts"],
+  "coverageDirectory": "coverage",
+  "coverageReporters": ["json", "lcov", "text", "clover"],
+  "watchPlugins": [
+    "jest-watch-typeahead/filename",
+    "jest-watch-typeahead/testname"
+  ],
+  "testPathIgnorePatterns": ["/node_modules/", "/dist/"],
+  "testResultsProcessor": "jest-sonar-reporter",
+  "globals": {
+    "ts-jest": {
+      "tsconfig": "tsconfig.json"
+    }
+  },
+  "errorOnDeprecated": true,
+  "bail": false,
+  "transformIgnorePatterns": ["/node_modules/"],
+  "passWithNoTests": true
+}

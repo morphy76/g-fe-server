@@ -1,5 +1,6 @@
 # stack for development purposes
 services:
+  # Databases
 
   go_db:
     image: mongo:7.0
@@ -17,20 +18,21 @@ services:
     networks:
       - fe-private-network
 
-  mongo-express:
-    image: mongo-express:latest
-    platform: linux/arm64/v8
+  relational-db:
+    image: postgres:17.4
+    platform: linux/amd64
     restart: unless-stopped
-    ports:
-      - 8081:8081
-    depends_on:
-      - "go_db"
     environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: go_root
-      ME_CONFIG_MONGODB_ADMINPASSWORD: go_password
-      ME_CONFIG_MONGODB_SERVER: go_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      PGDATA: /var/lib/postgresql/data/pgdata
     networks:
       - fe-private-network
+    volumes:
+      - pgsql_data:/var/lib/postgresql/data
+      - ./imports/pgsql:/docker-entrypoint-initdb.d
+
+  # Infrastructural services
 
   iam:
     image: quay.io/keycloak/keycloak:26.0
@@ -57,6 +59,24 @@ services:
     networks:
       - fe-private-network
 
+  unleash-edge:
+    image: unleashorg/unleash-edge:v19.7
+    platform: linux/amd64
+    command: ["edge"]
+    restart: unless-stopped
+    ports:
+      - "3063:3063"
+    depends_on:
+      - "unleash"
+    environment:
+      UPSTREAM_URL: http://unleash:4242/
+      TOKENS: "default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617"
+      STRICT: true
+    networks:
+      - fe-private-network
+
+  # Monitoring services
+
   zipkin:
     image: openzipkin/zipkin-slim:3
     platform: linux/amd64
@@ -82,6 +102,8 @@ services:
     networks:
       - fe-private-network
 
+  # Development tools
+
   unleash:
     image: unleashorg/unleash-server:6.7
     platform: linux/amd64
@@ -89,46 +111,68 @@ services:
     ports:
       - "4242:4242"
     depends_on:
-      - "feature-db"
+      - "relational-db"
     environment:
-      DATABASE_HOST: feature-db
+      DATABASE_HOST: relational-db
       DATABASE_NAME: feat_db
       DATABASE_USERNAME: feat_user
       DATABASE_PASSWORD: feat_password
+      DATABASE_SCHEMA: feat_schema
       DATABASE_SSL: false
     networks:
       - fe-private-network
 
-  unleash-edge:
-    image: unleashorg/unleash-edge:v19.7
+  pgcli:
+    image: dpage/pgadmin4:9.1
     platform: linux/amd64
-    command: ["edge"]
     restart: unless-stopped
-    ports:
-      - "3063:3063"
     depends_on:
-      - "unleash"
+      - "relational-db"
     environment:
-      UPSTREAM_URL: http://unleash:4242/
-      TOKENS: "default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617"
-      STRICT: true
+      PGADMIN_DEFAULT_EMAIL: riccardo.pasquini@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: pgcli_password
+      PGPASSWORD: adminpassword
+      PGUSER: admin
+      PGHOST: relational-db
+    ports:
+      - "5050:80"
     networks:
       - fe-private-network
 
-  feature-db:
-    image: postgres:17.4
+  mongo-express:
+    image: mongo-express:latest
+    platform: linux/arm64/v8
+    restart: unless-stopped
+    ports:
+      - 8081:8081
+    depends_on:
+      - "go_db"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: go_root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: go_password
+      ME_CONFIG_MONGODB_SERVER: go_db
+    networks:
+      - fe-private-network
+
+  sonarqube:
+    image: sonarqube:community
     platform: linux/amd64
     restart: unless-stopped
     environment:
-      POSTGRES_USER: feat_user
-      POSTGRES_PASSWORD: feat_password
-      POSTGRES_DB: feat_db
-      PGDATA: /var/lib/postgresql/data/pgdata
+      SONAR_JDBC_URL: jdbc:postgresql://relational-db:5432/sonar_db?currentSchema=sonar_schema
+      SONAR_JDBC_USERNAME: sonar_user
+      SONAR_JDBC_PASSWORD: sonar_password
+      SONAR_SEARCH_JAVAADDITIONALOPTS: -Dbootstrap.system_call_filter=false
+    ports:
+      - "9000:9000"
+    depends_on:
+      - "relational-db"
     networks:
       - fe-private-network
     volumes:
-      - unleash_data:/var/lib/postgresql/data
-
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
 
 networks:
   fe-private-network:
@@ -136,4 +180,7 @@ networks:
 volumes:
   fe_data:
   prometheus-data:
-  unleash_data:
+  pgsql_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:

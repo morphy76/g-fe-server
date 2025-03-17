@@ -1,43 +1,43 @@
 # Builder image: BFF
 FROM --platform=linux/amd64 golang:1.24 AS ps-builder
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update \
-    && apt-get install -y ca-certificates curl \
-    && install -m 0755 -d /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
-    && chmod a+r /etc/apt/keyrings/docker.asc \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    && apt-get update \
-    && apt-get install -y docker-ce-cli
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  apt-get update \
+  && apt-get install -y ca-certificates curl \
+  && install -m 0755 -d /etc/apt/keyrings \
+  && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
+  && chmod a+r /etc/apt/keyrings/docker.asc \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+  && apt-get update \
+  && apt-get install -y docker-ce-cli
 ARG DOCKER_HOST=tcp://127.0.0.1:12345
 WORKDIR /app
 COPY . .
 ENV GOOS=linux
 RUN --mount=type=cache,target=/go/pkg/mod \
-    make build-server
+  make build-server
 
-# # Builder image: FE
-# FROM node:lts AS fe-builder
-# RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-#     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-#     apt-get update \
-#     && apt-get install -y make
-# WORKDIR /app
-# COPY . .
-# RUN --mount=type=cache,target=/root/.npm \
-#     make build-fe
+# Builder image: FE
+FROM node:lts AS fe-builder
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  apt-get update \
+  && apt-get install -y make
+WORKDIR /app
+COPY . .
+RUN --mount=type=cache,target=/root/.npm \
+  make build-fe
 
 # Final image
 FROM --platform=linux/amd64 gcr.io/distroless/base-nossl-debian12:nonroot
 COPY --from=ps-builder /app/g-fe-server /g-fe-server
-# COPY --from=fe-builder /app/web/build /static
+COPY --from=fe-builder /app/web/ui/dist /static
 ENV STATIC_PATH=/static
 CMD [ "/g-fe-server" ]
 LABEL Name=$TAG_NAME \
-      Version=$TAG_VERSION \
-      Maintainer="Riccardo Pasquini <riccardo.pasquini@gmail.com>" \
-      Vendor="sixdeex.net" \
-      Description="Go frontend server" \
-      License="WHOCARES" \
-      Usage="docker run --rm -d -p 8080:8080 -e CONTEXT_ROOT=/fe g-fe-service:0.0.1"
+  Version=$TAG_VERSION \
+  Maintainer="Riccardo Pasquini <riccardo.pasquini@gmail.com>" \
+  Vendor="sixdeex.net" \
+  Description="Go frontend server" \
+  License="WHOCARES" \
+  Usage="docker run --rm -d -p 8080:8080 -e CONTEXT_ROOT=/fe g-fe-service:0.0.1"
