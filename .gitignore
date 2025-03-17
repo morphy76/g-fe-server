@@ -50,3 +50,4 @@ Chart.lock
 tools/helm/g-fe-server/charts/mongodb-15.1.7.tgz
 tools/helm/g-fe-server/charts/prometheus-1.0.9.tgz
 tools/helm/g-fe-server/charts/zipkin-0.3.3.tgz
+web/ui/test-report.xml

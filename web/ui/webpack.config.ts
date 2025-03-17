@@ -9,6 +9,7 @@ import HtmlWebpackPlugin from "html-webpack-plugin";
 import MiniCssExtractPlugin from "mini-css-extract-plugin";
 import WorkboxWebpackPlugin from "workbox-webpack-plugin";
 import { Configuration as DevServerConfiguration } from "webpack-dev-server";
+import { reactCompilerLoader } from "react-compiler-webpack";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,7 +36,12 @@ const config: webpack.Configuration & { devServer: DevServerConfiguration } = {
     rules: [
       {
         test: /\.(ts|tsx)$/i,
-        loader: "ts-loader",
+        use: [
+          "ts-loader",
+          {
+            loader: reactCompilerLoader,
+          },
+        ],
         exclude: ["/node_modules/"],
       },
       {
