@@ -32,6 +32,25 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 		if requestedFileStats.IsDir() {
 			http.ServeFile(w, r, defaultFile)
 		} else {
+			ext := strings.ToLower(filepath.Ext(requestedFile))
+			switch ext {
+			case ".css":
+				w.Header().Set("Content-Type", "text/css")
+			case ".js":
+				w.Header().Set("Content-Type", "application/javascript")
+			case ".html":
+				w.Header().Set("Content-Type", "text/html")
+			case ".png":
+				w.Header().Set("Content-Type", "image/png")
+			case ".jpg", ".jpeg":
+				w.Header().Set("Content-Type", "image/jpeg")
+			case ".gif":
+				w.Header().Set("Content-Type", "image/gif")
+			case ".svg":
+				w.Header().Set("Content-Type", "image/svg+xml")
+			default:
+				w.Header().Set("Content-Type", "application/octet-stream")
+			}
 			http.ServeFile(w, r, requestedFile)
 		}
 	}

@@ -9,6 +9,7 @@ deploy.env
 /g-be-service
 /go.sum
 /web/build
+dist
 
 # Test binary, built with `go test -c`
 *.test

@@ -6,11 +6,15 @@
   },
   "plugins": [
     "@typescript-eslint",
-    "react-hooks"
+    "react-hooks",
+    "jsx-a11y"
   ],
   "extends": [
     "plugin:react/recommended",
-    "plugin:@typescript-eslint/recommended"
+    "plugin:@typescript-eslint/recommended",
+    "react-app",
+    "react-app/jest",
+    "prettier"
   ],
   "rules": {
     "react-hooks/rules-of-hooks": "error",
@@ -23,5 +27,6 @@
       "pragma": "React",
       "version": "detect"
     }
-  }
+  },
+  "extensions": [".js", ".jsx", ".ts", ".tsx"]
 }

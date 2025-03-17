@@ -19,7 +19,7 @@ SERVER_SOURCES := ./cmd/serve.go
 
 ## Define the target binary name
 SERVER_TARGET := g-fe-server
-SERVER_TARGET_FE := ./web/build
+SERVER_TARGET_FE := ./web/ui/dist
 SERVER_DOCKERFILE := ./tools/docker/Dockerfile.server
 SERVER_DEPLOY_TAG ?= g-fe-service:0.0.1
 SERVER_TAG = $(word 1,$(subst :, ,$(SERVER_DEPLOY_TAG)))
