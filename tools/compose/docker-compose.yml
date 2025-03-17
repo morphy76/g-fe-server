@@ -155,7 +155,17 @@ services:
       - fe-private-network
 
   sonarqube:
-    image: sonarqube:community
+    # cat ~/Library/Application\ Support/rancher-desktop/lima/_config/override.yaml
+    # provision:
+    # - mode: system
+    #   script: |
+    #     #!/bin/sh
+    #     cat <<'EOF' > /etc/security/limits.d/rancher-desktop.conf
+    #     * soft     nofile         82920
+    #     * hard     nofile         82920
+    #     EOF
+    #     sysctl -w vm.max_map_count=262144
+    image: sonarqube:8.9-community # downgrade to let me to disable syscalls
     platform: linux/amd64
     restart: unless-stopped
     environment:
@@ -163,6 +173,7 @@ services:
       SONAR_JDBC_USERNAME: sonar_user
       SONAR_JDBC_PASSWORD: sonar_password
       SONAR_SEARCH_JAVAADDITIONALOPTS: -Dbootstrap.system_call_filter=false
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
     ports:
       - "9000:9000"
     depends_on:
