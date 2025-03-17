@@ -31,7 +31,7 @@ const (
 func SessionOptionsBuilder() SessionOptionsBuilderFn {
 
 	sessionKeyArg := flag.String("session-key", "", "session key. Environment: "+envSessionKey)
-	sessionNameArg := flag.String("session-name", "gofe.sid", "session name. Environment: "+envSessionName)
+	sessionNameArg := flag.String("session-name", "gofe_sid", "session name. Environment: "+envSessionName)
 	sessionMaxAgeArg := flag.Int("session-max-age", 0, "session max age. Environment: "+envSessionMaxAge)
 	sessionHTTPOnlyArg := flag.Bool("session-http-only", false, "session http only. Environment: "+envSessionHTTPOnly)
 	sessionDomainArg := flag.String("session-domain", "", "session domain. Environment: "+envSessionDomain)
@@ -52,7 +52,7 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 			useSessionName = *sessionNameArg
 		}
 		if len(useSessionName) == 0 {
-			useSessionName = "gofe.sid"
+			useSessionName = "gofe_sid"
 		}
 
 		var useSessionMaxAge int

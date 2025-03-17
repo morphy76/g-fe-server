@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/sessions"
+	"github.com/morphy76/g-fe-server/internal/logger"
 )
 
 // BindHTTPSessionToRequests injects the session store into the request context
@@ -20,7 +21,11 @@ func BindHTTPSessionToRequests(sessionStore sessions.Store, sessionName string) 
 			next.ServeHTTP(w, useRequest)
 
 			if wrapper.IsDirty() {
-				session.Save(r, w)
+				err := session.Save(r, w)
+				if err != nil {
+					useLogger := logger.GetLogger(r.Context(), "http")
+					useLogger.Error().Err(err).Msg("Failed to save session")
+				}
 			}
 		})
 	}

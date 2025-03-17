@@ -65,12 +65,10 @@ func addAuthHandlers(contextRouter *mux.Router, routerLog zerolog.Logger, feServ
 }
 
 func addAPIHandlers(contextRouter *mux.Router, feServer *server.FEServer, routerLog zerolog.Logger) {
-	// serve server APIs
 
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
 	apiRouter.Use(middleware.JSONResponse)
 
-	// apiRouter.Use(middleware.PrometheusMiddleware)
 	// TODO: gw oriented auth, inspect and renew
 	// apiRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.ServeOpts.SessionName)) ????
 	// apiRouter.Use(middleware.MixedAuthenticationRequired)
@@ -89,10 +87,9 @@ func bindModules(apiRouter *mux.Router, feServer *server.FEServer, routerLog zer
 }
 
 func addUIHandlers(contextRouter *mux.Router, feServer *server.FEServer, routerLog zerolog.Logger) {
-	// Static content
+
 	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
 
-	// staticRouter.Use(middleware.InjectSession(feServer.SessionStore, feServer.SessionsOpts.SessionName))
 	// staticRouter.Use(middleware.HTTPSessionAuthenticationRequired(feServer.ServeOpts))
 	// staticRouter.Use(middleware.HTTPSessionInspectAndRenew(feServer.ResourceServer, feServer.RelayingParty, feServer.ServeOpts))
 	if routerLog.Trace().Enabled() {
@@ -127,8 +124,6 @@ func initializeTheNonFunctionalRouter(appContext context.Context, rootRouter *mu
 
 func enrichFunctionalRequestContext(router *mux.Router, feServer *server.FEServer, appContext context.Context) {
 
-	router.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
-
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			useRequestContext := server.InjectFEServer(r.Context(), appContext)
@@ -139,6 +134,8 @@ func enrichFunctionalRequestContext(router *mux.Router, feServer *server.FEServe
 	})
 
 	router.Use(logger.RequestLogger)
+
+	router.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
 }
 
 func enrichNonFunctionalRequestContext(router *mux.Router, appContext context.Context) {

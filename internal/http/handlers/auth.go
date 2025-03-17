@@ -58,7 +58,7 @@ func onLogout(serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) 
 			serveOptions.ContextRoot,
 		)
 
-		idToken := session.Get("id_token")
+		idToken, _ := session.Get("id_token")
 		if idToken == nil {
 			authURL := fmt.Sprintf(
 				"%s://%s:%s/%s/auth/login",
@@ -106,18 +106,18 @@ func onInfo(ctxRoot string) http.HandlerFunc {
 
 		logger.Trace().Msg("Info requested")
 
-		idToken := session.Get("id_token")
-		if idToken == nil {
+		_, found := session.Get("id_token")
+		if !found {
 			http.Error(w, "Auth session not found", http.StatusUnauthorized)
 			return
 		}
 
 		rv := &map[string]string{
-			"email":              session.Get("email").(string),
-			"family_name":        session.Get("family_name").(string),
-			"given_name":         session.Get("given_name").(string),
-			"name":               session.Get("name").(string),
-			"preferred_username": session.Get("preferred_username").(string),
+			"email":              session.GetOrElse("email", "").(string),
+			"family_name":        session.GetOrElse("family_name", "").(string),
+			"given_name":         session.GetOrElse("given_name", "").(string),
+			"name":               session.GetOrElse("name", "").(string),
+			"preferred_username": session.GetOrElse("preferred_username", "").(string),
 			"logout_url":         ctxRoot + "/auth/logout",
 		}
 		responseBody, err := json.Marshal(rv)

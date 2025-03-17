@@ -1,13 +1,18 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/morphy76/g-fe-server/internal/http/session"
 )
+
+const contentTypeHTTPHeader = "Content-Type"
 
 func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 
@@ -21,6 +26,15 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 			}
 		}()
 
+		useSession := session.ExtractSession(r.Context())
+		_, found := useSession.Get("boh")
+		if found {
+			fmt.Printf("-------------> Session found: %v\n", useSession)
+		}
+		if useSession != nil {
+			useSession.Put("boh", uuid.New().String())
+		}
+
 		requestedFile := filepath.Join(staticPath, strings.TrimPrefix(r.URL.Path, ctxRoot+"/ui"))
 
 		requestedFileStats, err := os.Stat(requestedFile)
@@ -30,26 +44,27 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 		}
 
 		if requestedFileStats.IsDir() {
+			w.Header().Set(contentTypeHTTPHeader, "text/html")
 			http.ServeFile(w, r, defaultFile)
 		} else {
 			ext := strings.ToLower(filepath.Ext(requestedFile))
 			switch ext {
 			case ".css":
-				w.Header().Set("Content-Type", "text/css")
+				w.Header().Set(contentTypeHTTPHeader, "text/css")
 			case ".js":
-				w.Header().Set("Content-Type", "application/javascript")
+				w.Header().Set(contentTypeHTTPHeader, "application/javascript")
 			case ".html":
-				w.Header().Set("Content-Type", "text/html")
+				w.Header().Set(contentTypeHTTPHeader, "text/html")
 			case ".png":
-				w.Header().Set("Content-Type", "image/png")
+				w.Header().Set(contentTypeHTTPHeader, "image/png")
 			case ".jpg", ".jpeg":
-				w.Header().Set("Content-Type", "image/jpeg")
+				w.Header().Set(contentTypeHTTPHeader, "image/jpeg")
 			case ".gif":
-				w.Header().Set("Content-Type", "image/gif")
+				w.Header().Set(contentTypeHTTPHeader, "image/gif")
 			case ".svg":
-				w.Header().Set("Content-Type", "image/svg+xml")
+				w.Header().Set(contentTypeHTTPHeader, "image/svg+xml")
 			default:
-				w.Header().Set("Content-Type", "application/octet-stream")
+				w.Header().Set(contentTypeHTTPHeader, "application/octet-stream")
 			}
 			http.ServeFile(w, r, requestedFile)
 		}

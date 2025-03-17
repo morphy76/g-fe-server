@@ -30,8 +30,12 @@ func CreateSessionStore(
 		return nil, nil, err
 	}
 
+	dbName, err := extractDBNameFromURL(useURL)
+	if err != nil {
+		return nil, nil, err
+	}
 	store := mongostore.NewMongoStore(
-		client.Database(useURL.Path).Collection(sessionOptions.SessionName),
+		client.Database(dbName).Collection("http_sessions"),
 		sessionOptions.SessionMaxAge,
 		true,
 		[]byte(sessionOptions.SessionKey),
@@ -51,4 +55,12 @@ func CreateSessionStore(
 	}
 
 	return store, shutdownFunc, nil
+}
+
+func extractDBNameFromURL(useURL *url.URL) (string, error) {
+	dbName := useURL.Path
+	if len(dbName) > 1 {
+		dbName = dbName[1:]
+	}
+	return dbName, nil
 }
