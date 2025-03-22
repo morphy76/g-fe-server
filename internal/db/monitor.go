@@ -14,7 +14,6 @@ type startedSignature func(context.Context, *event.CommandStartedEvent)
 type succeededSignature func(context.Context, *event.CommandSucceededEvent)
 type failedSignature func(context.Context, *event.CommandFailedEvent)
 
-// TODO
 func NewMonitor() *event.CommandMonitor {
 	return &event.CommandMonitor{
 		Started:   newCommandStartedEvent(),

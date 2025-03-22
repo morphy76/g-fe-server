@@ -3,8 +3,12 @@
 ## Known TODOa
 
 - Test and fix HTTP session management
-- Test and fix OIDC integration, e.g. backchannel logout
-- Fix mongo monitoring
+- Test and fix OIDC integration, e.g. backchannel logout (see `internal/http/handlers/auth.go`)
+- Fix mongo monitoring (see `internal/db/monitor.go`)
+- Observability fallback to Opentracing/Jaeger using build flags
+- Observability enrich outgoing HTTP requests
+- Framework/standard to build the business request model: how logger, feserver, clients reaches the business module (*)
+- A React 19 case study with MFEs
 
 ## What happened
 
@@ -57,14 +61,19 @@ The trace level can be enabled through command flags and its expected audience i
 Logging is enriched by contextual information:
 
 - an _ownership_ dictionary to trace the attribution of the operation, in particular logical user organizations like tenants, subscriptions and stuff like that;
-- a _correlation_ dictionary to trace the operation correlation, using the OTEL SDK, across decoupled or hierarchical operations: the log is enriched with the span_id and the trace_id.
+- a _correlation_ dictionary to trace the operation correlation, using the OTEL SDK, across decoupled or hierarchical operations: the log is enriched with the span_id and the trace_id;
+- a _timing_ dictionary to trace the operation duration, in particular the time spent in the HTTP stack and in the business logic;
+- a _routing_ dictionary to trace the GO runtime information.
 
 #### Routing
 
-Routing is hierarchical, `cmd/serve.go` prepares the server context and moves on to `internal/server/main_handler.go` to build the hierarchy Known/non-functional handlers are in the `internal/http/handlers` package:
+Routing is hierarchical, `cmd/serve.go` prepares the server context and moves on to `internal/http/handlers/main_handler.go` to build the hierarchy.
+
+Core handlers are in the `internal/http/handlers` package:
 
 - `auth` for authentication routes: login, login callback, front-channel logout and back-channel logout;
 - `health` for health probes;
+- `openapi` to serve the OpenAPI specification which is statically documented in the `api` package;
 - `static` to serve the static content of the front end application.
 
 #### Infrastructural dependencies, functional modules and dependency injection
@@ -75,7 +84,7 @@ The FEServer struct provides:
 - the MongoDB Client to access the database;
 - the HTTP Client to propagate the trace context to the backend services.
 
-A functional module will be added under the `internal` package to provide business logic, It can inject dependencies extracting the FEServer from the request context, hence it should be structured in the following way:
+A functional module will be added under the `internal/business` package to provide business logic, It can inject dependencies extracting the FEServer from the request context, hence it should be structured in the following way:
 
 ```shell
 internal/
@@ -91,7 +100,9 @@ internal/
 
 Hence this module can provide request or application scoped entities building from the related context which provides the FEServer.
 
-As a best practice, it should be created as a request scoped module, see the example module (TODO).
+As a best practice, it should be created as a request scoped module, see the example module (*).
+
+A special module is the `internal/aiw` package prividing facilities and models to bind AIW platform services.
 
 ### React application
 

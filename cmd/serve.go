@@ -114,7 +114,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	collectedIntegrationOptions := &options.IntegrationOptions{
+	integrationOptions := &options.IntegrationOptions{
 		DBOptions:      dbOptions,
 		OTelOptions:    oTelOptions,
 		UnleashOptions: unleashOptions,
@@ -125,7 +125,7 @@ func main() {
 		serveOptions,
 		sessionOptions,
 		oidcOptions,
-		collectedIntegrationOptions,
+		integrationOptions,
 		trace,
 	)
 }

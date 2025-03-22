@@ -134,7 +134,6 @@ func onInfo(ctxRoot string) http.HandlerFunc {
 }
 
 func onBackChannelLogout() http.HandlerFunc {
-	// TODO implement back channel logout
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logger.GetLogger(r.Context(), "auth")
 
