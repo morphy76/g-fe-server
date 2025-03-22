@@ -10,7 +10,6 @@ import (
 
 	"github.com/morphy76/g-fe-server/internal/business/example"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
-	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
 )
@@ -64,6 +63,7 @@ func enrichNonFunctionalRequestContext(router *mux.Router, appContext context.Co
 func initializeTheFunctionalRouter(appContext context.Context, rootRouter *mux.Router, feServer *server.FEServer, routerLog zerolog.Logger) {
 	// propagates FEServer and logger to functional requests
 	// Add functional endpoints
+	// - OpenAPI as a public endpoint
 	// - auth endpoints
 	// - static content (the UI) at /ui
 	// - API endpoints at /api
@@ -80,6 +80,7 @@ func initializeTheFunctionalRouter(appContext context.Context, rootRouter *mux.R
 			Msg("Context router registered")
 	}
 
+	HandleOpenAPI(contextRouter, feServer.ServeOpts.ContextRoot)
 	addAuthHandlers(contextRouter, routerLog, feServer)
 	addUIHandlers(contextRouter, feServer, routerLog)
 	addAPIHandlers(contextRouter, feServer, routerLog)
@@ -97,8 +98,6 @@ func enrichFunctionalRequestContext(router *mux.Router, feServer *server.FEServe
 	})
 
 	router.Use(logger.RequestLogger)
-
-	router.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
 }
 
 func addAuthHandlers(contextRouter *mux.Router, routerLog zerolog.Logger, feServer *server.FEServer) {
@@ -122,6 +121,7 @@ func addUIHandlers(contextRouter *mux.Router, feServer *server.FEServer, routerL
 	// - TODO: static content of MFEs
 
 	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
+	staticRouter.Use(middleware.IsAuthenticated(feServer))
 
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
@@ -136,13 +136,11 @@ func addUIHandlers(contextRouter *mux.Router, feServer *server.FEServer, routerL
 
 func addAPIHandlers(contextRouter *mux.Router, feServer *server.FEServer, routerLog zerolog.Logger) {
 	// Add API endpoints
-	// - OpenAPI
 	// - Resource modules bindings
 
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
+	apiRouter.Use(middleware.IsAuthenticated(feServer))
 	apiRouter.Use(middleware.JSONResponse)
-
-	HandleOpenAPI(apiRouter, feServer.ServeOpts.ContextRoot)
 
 	bindModules(apiRouter, feServer, routerLog)
 	if routerLog.Trace().Enabled() {

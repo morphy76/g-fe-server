@@ -6,6 +6,7 @@ import (
 
 	"github.com/Unleash/unleash-client-go/v4"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/morphy76/g-fe-server/internal/aiw"
@@ -32,6 +33,7 @@ type FEServer struct {
 
 	SessionName  string
 	SessionStore sessions.Store
+	CookieStore  *securecookie.SecureCookie
 
 	MongoClient *mongo.Client
 

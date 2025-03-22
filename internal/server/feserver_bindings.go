@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 
 	"github.com/Unleash/unleash-client-go/v4"
+	"github.com/gorilla/securecookie"
 	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/morphy76/g-fe-server/internal/aiw"
 	"github.com/morphy76/g-fe-server/internal/auth"
@@ -133,6 +135,9 @@ func bindSessionStore(
 	if shutdownFn != nil {
 		feServer.ShutdownFn = append(feServer.ShutdownFn, shutdownFn)
 	}
+
+	blockKey := sha256.Sum256([]byte(sessionOptions.SessionKey))
+	feServer.CookieStore = securecookie.New([]byte(sessionOptions.SessionKey), blockKey[:])
 
 	return nil
 }

@@ -33,9 +33,9 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 	sessionKeyArg := flag.String("session-key", "", "session key. Environment: "+envSessionKey)
 	sessionNameArg := flag.String("session-name", "gofe_sid", "session name. Environment: "+envSessionName)
 	sessionMaxAgeArg := flag.Int("session-max-age", 0, "session max age. Environment: "+envSessionMaxAge)
-	sessionHTTPOnlyArg := flag.Bool("session-http-only", false, "session http only. Environment: "+envSessionHTTPOnly)
+	sessionHTTPOnlyArg := flag.Bool("session-http-only", true, "session http only. Environment: "+envSessionHTTPOnly)
 	sessionDomainArg := flag.String("session-domain", "", "session domain. Environment: "+envSessionDomain)
-	sessionSecureArg := flag.Bool("session-secure", false, "session secure. Environment: "+envSessionSecure)
+	sessionSecureArg := flag.Bool("session-secure", true, "session secure. Environment: "+envSessionSecure)
 	sessionSameSiteArg := flag.String("session-same-site", "Lax", "session same site: Default, Lax, Strict or None. Environment: "+envSessionSameSite)
 
 	return func() (*session.SessionOptions, error) {

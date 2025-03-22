@@ -1,6 +1,98 @@
 package auth
 
-const authLogout = "/auth/logout"
+import (
+	"net/http"
+
+	"github.com/gorilla/securecookie"
+	"github.com/gorilla/sessions"
+	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	"github.com/zitadel/oidc/v3/pkg/client/rs"
+)
+
+func isAuthenticatedBySession(
+	sessionName string,
+	secureCookie securecookie.SecureCookie,
+	sessionStore sessions.Store,
+	relyingParty rp.RelyingParty,
+	next http.Handler,
+) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(sessionName)
+		if err != nil {
+			rp.AuthURLHandler(func() string { return "" }, relyingParty)(w, r)
+			return
+		}
+
+		value := make(map[string]string)
+		err = secureCookie.Decode(sessionName, cookie.Value, &value)
+		if err != nil {
+			rp.AuthURLHandler(func() string { return "" }, relyingParty)(w, r)
+			return
+		}
+
+		if value["session_name"] == "" {
+			rp.AuthURLHandler(func() string { return "" }, relyingParty)(w, r)
+			return
+		}
+
+		session, err := sessionStore.Get(r, value["session_name"])
+		if err != nil {
+			rp.AuthURLHandler(func() string { return "" }, relyingParty)(w, r)
+			return
+		}
+
+		isAuth, found := session.Values["authenticated"]
+		if found && isAuth.(bool) {
+			next.ServeHTTP(w, r)
+		} else {
+			rp.AuthURLHandler(func() string { return "" }, relyingParty)(w, r)
+		}
+	})
+}
+
+func isAuthenticateByBearerToken(
+	rp rp.RelyingParty,
+	rs rs.ResourceServer,
+	next http.Handler,
+) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// token := r.Header.Get("Authorization")
+		// if token == "" {
+		// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		// 	return
+		// }
+
+		// resp, err := rs.Introspect[*oidc.IntrospectionResponse](context.Background(), resourceServer, accessToken.(string))
+		// if err != nil {
+		// 	logger.Warn().Err(err).Msg("Failed to refresh tokens")
+		// 	http.Redirect(w, r, ctxRoot+authLogout, http.StatusTemporaryRedirect)
+		// 	return
+		// }
+		// if resp.Active {
+		// 	logger.Trace().Msg("Token is active")
+		// 	next.ServeHTTP(w, r)
+		// 	return
+		// } else {
+		// 	logger.Trace().Msg("Token is not active")
+		// }
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func IsAuthenticated(
+	rp rp.RelyingParty,
+	rs rs.ResourceServer,
+	sessionName string,
+	secureCookie securecookie.SecureCookie,
+	sessionStore sessions.Store,
+) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(sessionName, secureCookie, sessionStore, rp, next))
+	}
+}
+
+// const authLogout = "/auth/logout"
 
 // // HTTPSessionInspectAndRenew checks the session for an active token and renews it if necessary
 // func HTTPSessionInspectAndRenew(resourceServer rs.ResourceServer, relyingParty rp.RelyingParty, serveOpts *options.ServeOptions) func(http.Handler) http.Handler {
