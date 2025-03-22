@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
   make build-server
 
 # Builder image: FE
-FROM node:lts AS fe-builder
+FROM --platform=linux/amd64 node:lts AS fe-builder
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
   apt-get update \
