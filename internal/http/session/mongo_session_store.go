@@ -36,18 +36,18 @@ func CreateSessionStore(
 	}
 	store := mongostore.NewMongoStore(
 		client.Database(dbName).Collection("http_sessions"),
-		sessionOptions.SessionMaxAge,
+		sessionOptions.MaxAge,
 		true,
-		[]byte(sessionOptions.SessionKey),
+		[]byte(sessionOptions.Key),
 	)
 
 	store.Options = &sessions.Options{
-		Path:     contextRoot,
-		MaxAge:   sessionOptions.SessionMaxAge,
-		HttpOnly: sessionOptions.SessionHttpOnly,
-		Domain:   sessionOptions.SessionDomain,
-		Secure:   sessionOptions.SessionSecureCookies,
-		SameSite: sessionOptions.SessionSameSite,
+		Path:     sessionOptions.Path,
+		MaxAge:   sessionOptions.MaxAge,
+		HttpOnly: sessionOptions.HttpOnly,
+		Domain:   sessionOptions.Domain,
+		Secure:   sessionOptions.SecureCookies,
+		SameSite: sessionOptions.SameSite,
 	}
 
 	shutdownFunc := func() error {

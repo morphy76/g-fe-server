@@ -130,14 +130,18 @@ func bindSessionStore(
 	if err != nil {
 		return err
 	}
-	feServer.SessionName = sessionOptions.SessionName
+	feServer.SessionName = sessionOptions.Name
 	feServer.SessionStore = sessionStore
 	if shutdownFn != nil {
 		feServer.ShutdownFn = append(feServer.ShutdownFn, shutdownFn)
 	}
 
-	blockKey := sha256.Sum256([]byte(sessionOptions.SessionKey))
-	feServer.CookieStore = securecookie.New([]byte(sessionOptions.SessionKey), blockKey[:])
+	blockKey := sha256.Sum256([]byte(sessionOptions.Key))
+	feServer.CookieStore = securecookie.New([]byte(sessionOptions.Key), blockKey[:])
+	feServer.SessionOptions = sessionOptions
+	if feServer.SessionOptions.Path == "" {
+		feServer.SessionOptions.Path = serveOpts.ContextRoot
+	}
 
 	return nil
 }

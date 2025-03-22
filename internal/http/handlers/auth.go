@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
+	"github.com/morphy76/g-fe-server/internal/server"
+	"github.com/rs/zerolog"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
@@ -43,59 +44,61 @@ func onLogin(ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
 
 func onLogout(serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := logger.GetLogger(r.Context(), "auth")
-		logger.Trace().Msg("Logging out")
+		// logger := logger.GetLogger(r.Context(), "auth")
+		// logger.Trace().Msg("Logging out")
 
-		session := session.ExtractSession(r.Context())
+		// session := session.ExtractSession(r.Context())
 
-		logger.Trace().Msg("Start logging out")
+		// logger.Trace().Msg("Start logging out")
 
-		backTo := fmt.Sprintf(
-			"%s://%s:%s/%s/ui/",
-			serveOptions.Protocol,
-			serveOptions.Host,
-			serveOptions.Port,
-			serveOptions.ContextRoot,
-		)
+		// backTo := fmt.Sprintf(
+		// 	"%s://%s:%s/%s/ui/",
+		// 	serveOptions.Protocol,
+		// 	serveOptions.Host,
+		// 	serveOptions.Port,
+		// 	serveOptions.ContextRoot,
+		// )
 
-		idToken, _ := session.Get("id_token")
-		if idToken == nil {
-			authURL := fmt.Sprintf(
-				"%s://%s:%s/%s/auth/login",
-				serveOptions.Protocol,
-				serveOptions.Host,
-				serveOptions.Port,
-				serveOptions.ContextRoot,
-			)
+		// idToken, _ := session.Get("id_token")
+		// if idToken == nil {
+		// 	authURL := fmt.Sprintf(
+		// 		"%s://%s:%s/%s/auth/login",
+		// 		serveOptions.Protocol,
+		// 		serveOptions.Host,
+		// 		serveOptions.Port,
+		// 		serveOptions.ContextRoot,
+		// 	)
 
-			w.Header().Set("Cache-Control", "no-cache")
-			http.Redirect(w, r, authURL, http.StatusFound)
-			return
-		}
-
-		// session.Options.MaxAge = -1
-		// delete(session.Values, "id_token")
-		// session.Save(r, w)
-		// sessionState, found := session.Values["session_state"]
-
-		var url *url.URL
-		var err error
-		// if found {
-		// 	url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, sessionState.(string))
-		// } else {
-		url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, "")
+		// 	w.Header().Set("Cache-Control", "no-cache")
+		// 	http.Redirect(w, r, authURL, http.StatusFound)
+		// 	return
 		// }
-		if err != nil {
-			logger.Error().Err(err).Msg("End session failed")
-			http.Error(w, "End session failed", http.StatusInternalServerError)
-			return
-		}
-		logger.Trace().
-			Any("to url", url).
-			Msg("Auth session deleted")
 
-		w.Header().Set("Cache-Control", "no-cache")
-		http.Redirect(w, r, url.String(), http.StatusFound)
+		// // session.Options.MaxAge = -1
+		// // delete(session.Values, "id_token")
+		// // session.Save(r, w)
+		// // sessionState, found := session.Values["session_state"]
+
+		// var url *url.URL
+		// var err error
+		// // if found {
+		// // 	url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, sessionState.(string))
+		// // } else {
+		// url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, "")
+		// // }
+		// if err != nil {
+		// 	logger.Error().Err(err).Msg("End session failed")
+		// 	http.Error(w, "End session failed", http.StatusInternalServerError)
+		// 	return
+		// }
+		// logger.Trace().
+		// 	Any("to url", url).
+		// 	Msg("Auth session deleted")
+
+		// w.Header().Set("Cache-Control", "no-cache")
+		// http.Redirect(w, r, url.String(), http.StatusFound)
+
+		w.Write([]byte("OK"))
 	}
 }
 
@@ -154,20 +157,74 @@ func onBackChannelLogout() http.HandlerFunc {
 	}
 }
 
-func marshalUserinfo(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, provider rp.RelyingParty, info *oidc.UserInfo) {
-	session := session.ExtractSession(r.Context())
-	logger := logger.GetLogger(r.Context(), "auth")
+func marshalUserinfo(
+	w http.ResponseWriter,
+	r *http.Request,
+	tokens *oidc.Tokens[*oidc.IDTokenClaims],
+	state string,
+	provider rp.RelyingParty,
+	info *oidc.UserInfo,
+) {
 
-	session.Put("access_token", tokens.AccessToken)
-	session.Put("refresh_token", tokens.RefreshToken)
-	session.Put("id_token", tokens.IDToken)
-	session.Put("email", info.Email)
-	session.Put("family_name", info.FamilyName)
-	session.Put("given_name", info.GivenName)
-	session.Put("name", info.Name)
-	session.Put("preferred_username", info.PreferredUsername)
+	// tokens.IDTokenClaims.Issuer
+	// tokens.IDTokenClaims.Subject
+	// tokens.IDTokenClaims.SessionID
+	logger := logger.GetLogger(r.Context(), "auth")
+	feServer := server.ExtractFEServer(r.Context())
+
+	sessionName := fmt.Sprintf("session_%s_%s", tokens.IDTokenClaims.Subject, tokens.IDTokenClaims.SessionID)
+	logger.Debug().
+		Str("session_name", sessionName).
+		Dict("tokens", zerolog.Dict().
+			Str("issuer", tokens.IDTokenClaims.Issuer).
+			Str("subject", tokens.IDTokenClaims.Subject).
+			Str("session_id", tokens.IDTokenClaims.SessionID)).
+		Msg("On auth callback")
+	session, err := feServer.SessionStore.Get(r, sessionName)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to create session")
+		onLogout(feServer.ServeOpts, provider)(w, r)
+	}
+
+	session.Values["authenticated"] = "true"
+	session.AddFlash("You are now logged in")
+
+	err = session.Save(r, w)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to save session")
+		onLogout(feServer.ServeOpts, provider)(w, r)
+	}
+	cookieValue := map[string]string{
+		"session_name": sessionName,
+	}
+	encodedCookieValue, err := feServer.CookieStore.Encode(feServer.SessionName, cookieValue)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to encode cookie value")
+		onLogout(feServer.ServeOpts, provider)(w, r)
+	}
+	cookie := &http.Cookie{
+		Name:     feServer.SessionOptions.Name,
+		Value:    encodedCookieValue,
+		Path:     feServer.SessionOptions.Path,
+		MaxAge:   feServer.SessionOptions.MaxAge,
+		HttpOnly: feServer.SessionOptions.HttpOnly,
+		Domain:   feServer.SessionOptions.Domain,
+		Secure:   feServer.SessionOptions.SecureCookies,
+		SameSite: feServer.SessionOptions.SameSite,
+	}
+	http.SetCookie(w, cookie)
+
+	// session.Put("access_token", tokens.AccessToken)
+	// session.Put("refresh_token", tokens.RefreshToken)
+	// session.Put("id_token", tokens.IDToken)
+	// session.Put("email", info.Email)
+	// session.Put("family_name", info.FamilyName)
+	// session.Put("given_name", info.GivenName)
+	// session.Put("name", info.Name)
+	// session.Put("preferred_username", info.PreferredUsername)
 
 	logger.Trace().Msg("Auth session saved")
 
-	http.Redirect(w, r, state, http.StatusFound)
+	// http.Redirect(w, r, state, http.StatusFound)
+	w.Write([]byte(state))
 }

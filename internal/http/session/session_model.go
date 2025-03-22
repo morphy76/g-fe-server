@@ -7,13 +7,14 @@ import (
 )
 
 type SessionOptions struct {
-	SessionKey           string
-	SessionName          string
-	SessionMaxAge        int
-	SessionHttpOnly      bool
-	SessionDomain        string
-	SessionSecureCookies bool
-	SessionSameSite      http.SameSite
+	Key           string
+	Name          string
+	Path          string
+	MaxAge        int
+	HttpOnly      bool
+	Domain        string
+	SecureCookies bool
+	SameSite      http.SameSite
 }
 
 type Session interface {

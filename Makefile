@@ -29,7 +29,7 @@ SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=3000 -session-key="my secure session key" -session-secure=false
 OTEL_ARGS := -otel-enabled=true --otlp-url=http://localhost:4317
 OIDC_ARGS := -oidc-issuer=http://localhost:8080/realms/gfes -oidc-client-id=ps -oidc-client-secret=tefnJ7pbekZuTV7vPVpI3VHPNto7LlOy -oidc-scopes=openid,profile,email
-MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-url=mongodb://localhost:27017/fe_db
+MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-url=mongodb://localhost:27017/fe_db?w=1
 UNLEASH_ARGS := -unleash-enabled=true -unleash-url=http://localhost:3063/api -unleash-app-name=fe-server -unleash-token=default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617
 AIW_ARGS := -aiw-fqdn=http://localhost:3000/fe
 
@@ -72,7 +72,7 @@ run-docker:
     -e SESSION_KEY="my secure session key" -e SESSION_SECURE=false \
     -e OTEL_ENABLED=true -e OTLP_URL=http://localhost:4317 \
     -e OIDC_ISSUER=http://localhost:8080/realms/gfes -e OIDC_CLIENT_ID=ps -e OIDC_CLIENT_SECRET=tefnJ7pbekZuTV7vPVpI3VHPNto7LlOy -e OIDC_SCOPES=openid,profile,email \
-    -e DB_MONGO_PASSWORD=fe_password -e DB_MONGO_USER=fe_user -e DB_MONGO_URL=mongodb://localhost:27017/fe_db \
+    -e DB_MONGO_PASSWORD=fe_password -e DB_MONGO_USER=fe_user -e DB_MONGO_URL=mongodb://localhost:27017/fe_db?w=1 \
     -e UNLEASH_ENABLED=true -e UNLEASH_URL=http://localhost:4242/api -e UNLEASH_APP_NAME=fe-server -e UNLEASH_TOKEN=default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617 \
      -e AIW_FQDN=http://localhost:3000/fe \
     $(SERVER_DEPLOY_TAG)

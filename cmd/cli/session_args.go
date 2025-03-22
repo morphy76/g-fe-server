@@ -20,6 +20,7 @@ var ErrInvalidSessionSameSite = errors.New("invalid session same site")
 const (
 	envSessionKey      = "SESSION_KEY"
 	envSessionName     = "SESSION_NAME"
+	envSessionPath     = "SESSION_PATH"
 	envSessionMaxAge   = "SESSION_MAX_AGE"
 	envSessionHTTPOnly = "SESSION_HTTP_ONLY"
 	envSessionDomain   = "SESSION_DOMAIN"
@@ -32,6 +33,7 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 
 	sessionKeyArg := flag.String("session-key", "", "session key. Environment: "+envSessionKey)
 	sessionNameArg := flag.String("session-name", "gofe_sid", "session name. Environment: "+envSessionName)
+	sessionPathArg := flag.String("session-path", "", "session path. Environment: "+envSessionPath)
 	sessionMaxAgeArg := flag.Int("session-max-age", 0, "session max age. Environment: "+envSessionMaxAge)
 	sessionHTTPOnlyArg := flag.Bool("session-http-only", true, "session http only. Environment: "+envSessionHTTPOnly)
 	sessionDomainArg := flag.String("session-domain", "", "session domain. Environment: "+envSessionDomain)
@@ -53,6 +55,11 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 		}
 		if len(useSessionName) == 0 {
 			useSessionName = "gofe_sid"
+		}
+
+		useSessionPath, found := os.LookupEnv(envSessionPath)
+		if !found {
+			useSessionPath = *sessionPathArg
 		}
 
 		var useSessionMaxAge int
@@ -106,13 +113,14 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 		}
 
 		return &session.SessionOptions{
-			SessionKey:           useSessionKey,
-			SessionName:          useSessionName,
-			SessionMaxAge:        useSessionMaxAge,
-			SessionHttpOnly:      useSessionHTTPOnly,
-			SessionDomain:        useSessionDomain,
-			SessionSecureCookies: useSessionSecure,
-			SessionSameSite:      useSessionSameSite,
+			Key:           useSessionKey,
+			Name:          useSessionName,
+			Path:          useSessionPath,
+			MaxAge:        useSessionMaxAge,
+			HttpOnly:      useSessionHTTPOnly,
+			Domain:        useSessionDomain,
+			SecureCookies: useSessionSecure,
+			SameSite:      useSessionSameSite,
 		}, nil
 	}
 }

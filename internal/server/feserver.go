@@ -31,9 +31,10 @@ type FEServer struct {
 
 	ServeOpts *options.ServeOptions
 
-	SessionName  string
-	SessionStore sessions.Store
-	CookieStore  *securecookie.SecureCookie
+	SessionName    string
+	SessionStore   sessions.Store
+	SessionOptions *session.SessionOptions
+	CookieStore    *securecookie.SecureCookie
 
 	MongoClient *mongo.Client
 
