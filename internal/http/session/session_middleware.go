@@ -11,22 +11,22 @@ import (
 func BindHTTPSessionToRequests(sessionStore sessions.Store, sessionName string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 			session, _ := sessionStore.Get(r, sessionName)
 			wrapper := NewSessionWrapper(session)
+			defer func() {
+				if wrapper.IsDirty() {
+					err := session.Save(r, w)
+					if err != nil {
+						useLogger := logger.GetLogger(r.Context(), "http")
+						useLogger.Error().Err(err).Msg("Failed to save session")
+					}
+				}
+			}()
 
 			sessionContext := InjectSession(r.Context(), wrapper)
 			useRequest := r.WithContext(sessionContext)
 
 			next.ServeHTTP(w, useRequest)
-
-			if wrapper.IsDirty() {
-				err := session.Save(r, w)
-				if err != nil {
-					useLogger := logger.GetLogger(r.Context(), "http")
-					useLogger.Error().Err(err).Msg("Failed to save session")
-				}
-			}
 		})
 	}
 }

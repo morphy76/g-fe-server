@@ -222,6 +222,5 @@ func marshalUserinfo(
 
 	logger.Trace().Msg("Auth session saved")
 
-	// http.Redirect(w, r, state, http.StatusFound)
-	w.Write([]byte(state))
+	http.Redirect(w, r, state, http.StatusFound)
 }

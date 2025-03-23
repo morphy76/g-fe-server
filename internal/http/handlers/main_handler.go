@@ -8,8 +8,10 @@ import (
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 
+	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/business/example"
 	"github.com/morphy76/g-fe-server/internal/http/middleware"
+	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
 )
@@ -121,7 +123,8 @@ func addUIHandlers(contextRouter *mux.Router, feServer *server.FEServer, routerL
 	// - TODO: static content of MFEs
 
 	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
-	staticRouter.Use(middleware.IsAuthenticated(feServer))
+	staticRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
+	staticRouter.Use(auth.IsAuthenticated(feServer.RelayingParty, feServer.ResourceServer))
 
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
@@ -139,7 +142,8 @@ func addAPIHandlers(contextRouter *mux.Router, feServer *server.FEServer, router
 	// - Resource modules bindings
 
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
-	apiRouter.Use(middleware.IsAuthenticated(feServer))
+	apiRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
+	apiRouter.Use(auth.IsAuthenticated(feServer.RelayingParty, feServer.ResourceServer))
 	apiRouter.Use(middleware.JSONResponse)
 
 	bindModules(apiRouter, feServer, routerLog)

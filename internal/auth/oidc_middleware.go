@@ -3,7 +3,6 @@ package auth
 import (
 	"net/http"
 
-	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
@@ -11,36 +10,25 @@ import (
 )
 
 func isAuthenticatedBySession(
-	sessionName string,
-	sessionStore sessions.Store,
-	sessionOptions *session.SessionOptions,
 	relyingParty rp.RelyingParty,
 	next http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		useLogger := logger.GetLogger(r.Context(), "auth")
+		useSession := session.ExtractSession(r.Context())
 
 		requestedURLStateFn := func() string {
 			return r.URL.String()
 		}
 
-		session, err := sessionStore.Get(r, sessionName)
-		if err != nil {
-			useLogger.Error().Err(err).Msg("Failed to get session")
-			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
-			return
-		}
-
-		flashes := session.Flashes()
+		flashes := useSession.Flashes()
 		for _, flash := range flashes {
 			useLogger.Debug().Interface("flash", flash).Msg("Flash message")
 		}
 
-		isAuth, found := session.Values["authenticated"]
-		useLogger.Debug().Bool("found", found).Interface("auth", isAuth).Msg("Session values found")
-		if found && isAuth.(bool) == true {
-			session.Save(r, w)
+		isAuth := useSession.GetOrElse("authenticated", false)
+		if isAuth.(bool) {
 			next.ServeHTTP(w, r)
 		} else {
 			useLogger.Debug().Msg("Session is not authenticated")
@@ -82,12 +70,9 @@ func isAuthenticateByBearerToken(
 func IsAuthenticated(
 	rp rp.RelyingParty,
 	rs rs.ResourceServer,
-	sessionName string,
-	sessionStore sessions.Store,
-	sessionOptions *session.SessionOptions,
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(sessionName, sessionStore, sessionOptions, rp, next))
+		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(rp, next))
 	}
 }
 

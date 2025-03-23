@@ -23,6 +23,7 @@ type Session interface {
 	GetOrElse(key string, alt any) any
 	Delete(key string)
 	IsDirty() bool
+	Flashes() []interface{}
 }
 
 type SessionWrapper struct {
@@ -73,6 +74,10 @@ func (s *SessionWrapper) Delete(key string) {
 	}
 	delete(s.session.Values, key)
 	s.dirty = true
+}
+
+func (s *SessionWrapper) Flashes() []interface{} {
+	return s.session.Flashes()
 }
 
 func (s *SessionWrapper) IsDirty() bool {
