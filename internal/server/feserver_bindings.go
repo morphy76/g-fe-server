@@ -124,6 +124,7 @@ func bindSessionStore(
 	sessionOptions *session.SessionOptions,
 	dbOptions *options.MongoDBOptions,
 ) error {
+	feServer.SessionName = sessionOptions.Name
 	feServer.SessionOptions = sessionOptions
 	if feServer.SessionOptions.Path == "" {
 		feServer.SessionOptions.Path = serveOpts.ContextRoot
@@ -133,7 +134,6 @@ func bindSessionStore(
 	if err != nil {
 		return err
 	}
-	feServer.SessionName = sessionOptions.Name
 	feServer.SessionStore = sessionStore
 	if shutdownFn != nil {
 		feServer.ShutdownFn = append(feServer.ShutdownFn, shutdownFn)

@@ -2,7 +2,6 @@
 
 ## Known TODO
 
-- _doing_ Test and fix HTTP session management
 - _doing_ Test and fix OIDC integration, e.g. backchannel logout (see `internal/http/handlers/auth.go`) and redirect arguments to keep the state
 - Fix mongo monitoring (see `internal/db/monitor.go`)
 - Observability fallback to Opentracing/Jaeger using build flags

@@ -22,11 +22,6 @@ func isAuthenticatedBySession(
 			return r.URL.String()
 		}
 
-		flashes := useSession.Flashes()
-		for _, flash := range flashes {
-			useLogger.Debug().Interface("flash", flash).Msg("Flash message")
-		}
-
 		isAuth := useSession.GetOrElse("authenticated", false)
 		if isAuth.(bool) {
 			next.ServeHTTP(w, r)

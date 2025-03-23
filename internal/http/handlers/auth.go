@@ -184,32 +184,12 @@ func marshalUserinfo(
 	}
 
 	session.Values["authenticated"] = true
-	session.AddFlash("You are now logged in")
 
 	err = session.Save(r, w)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to save session")
 		onLogout(feServer.ServeOpts, provider)(w, r)
 	}
-	// cookieValue := map[string]string{
-	// 	"session_name": sessionName,
-	// }
-	// encodedCookieValue, err := feServer.CookieStore.Encode(feServer.SessionName, cookieValue)
-	// if err != nil {
-	// 	logger.Error().Err(err).Msg("Failed to encode cookie value")
-	// 	onLogout(feServer.ServeOpts, provider)(w, r)
-	// }
-	// cookie := &http.Cookie{
-	// 	Name:     feServer.SessionOptions.Name,
-	// 	Value:    encodedCookieValue,
-	// 	Path:     feServer.SessionOptions.Path,
-	// 	MaxAge:   feServer.SessionOptions.MaxAge,
-	// 	HttpOnly: feServer.SessionOptions.HttpOnly,
-	// 	Domain:   feServer.SessionOptions.Domain,
-	// 	Secure:   feServer.SessionOptions.SecureCookies,
-	// 	SameSite: feServer.SessionOptions.SameSite,
-	// }
-	// http.SetCookie(w, cookie)
 
 	// session.Put("access_token", tokens.AccessToken)
 	// session.Put("refresh_token", tokens.RefreshToken)
