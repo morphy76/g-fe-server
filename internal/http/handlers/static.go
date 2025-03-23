@@ -1,15 +1,12 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/morphy76/g-fe-server/internal/http/session"
 )
 
 const contentTypeHTTPHeader = "Content-Type"
@@ -25,15 +22,6 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 				http.NotFound(w, r)
 			}
 		}()
-
-		useSession := session.ExtractSession(r.Context())
-		_, found := useSession.Get("boh")
-		if found {
-			fmt.Printf("-------------> Session found: %v\n", useSession)
-		}
-		if useSession != nil {
-			useSession.Put("boh", uuid.New().String())
-		}
 
 		requestedFile := filepath.Join(staticPath, strings.TrimPrefix(r.URL.Path, ctxRoot+"/ui"))
 

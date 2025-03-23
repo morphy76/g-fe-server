@@ -10,7 +10,6 @@ import (
 
 	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/business/example"
-	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
@@ -144,7 +143,7 @@ func addAPIHandlers(contextRouter *mux.Router, feServer *server.FEServer, router
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
 	apiRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
 	apiRouter.Use(auth.IsAuthenticated(feServer.RelayingParty, feServer.ResourceServer))
-	apiRouter.Use(middleware.JSONResponse)
+	apiRouter.Use(setJSONResponse)
 
 	bindModules(apiRouter, feServer, routerLog)
 	if routerLog.Trace().Enabled() {

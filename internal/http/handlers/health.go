@@ -9,7 +9,6 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/morphy76/g-fe-server/internal/common/health"
-	"github.com/morphy76/g-fe-server/internal/http/middleware"
 	"github.com/morphy76/g-fe-server/internal/logger"
 )
 
@@ -21,7 +20,7 @@ func HandleHealth(
 	additionalChecks []health.AdditionalCheckFn,
 ) {
 	healthRouter := parent.PathPrefix("/health").Subrouter()
-	healthRouter.Use(middleware.JSONResponse)
+	healthRouter.Use(setJSONResponse)
 
 	liveChecks := make([]health.HealthCheckFn, 0)
 	readyChecks := make([]health.HealthCheckFn, 0)
