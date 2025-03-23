@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 
 	"github.com/gorilla/sessions"
@@ -34,6 +35,7 @@ func CreateSessionStore(
 	if err != nil {
 		return nil, nil, err
 	}
+	fmt.Printf("===================>: %+v\n", sessionOptions)
 	store := mongostore.NewMongoStore(
 		client.Database(dbName).Collection("http_sessions"),
 		sessionOptions.MaxAge,

@@ -2,12 +2,10 @@ package server
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"net/http"
 
 	"github.com/Unleash/unleash-client-go/v4"
-	"github.com/gorilla/securecookie"
 	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/morphy76/g-fe-server/internal/aiw"
 	"github.com/morphy76/g-fe-server/internal/auth"
@@ -126,6 +124,11 @@ func bindSessionStore(
 	sessionOptions *session.SessionOptions,
 	dbOptions *options.MongoDBOptions,
 ) error {
+	feServer.SessionOptions = sessionOptions
+	if feServer.SessionOptions.Path == "" {
+		feServer.SessionOptions.Path = serveOpts.ContextRoot
+	}
+
 	sessionStore, shutdownFn, err := session.CreateSessionStore(sessionOptions, dbOptions, serveOpts.ContextRoot)
 	if err != nil {
 		return err
@@ -134,13 +137,6 @@ func bindSessionStore(
 	feServer.SessionStore = sessionStore
 	if shutdownFn != nil {
 		feServer.ShutdownFn = append(feServer.ShutdownFn, shutdownFn)
-	}
-
-	blockKey := sha256.Sum256([]byte(sessionOptions.Key))
-	feServer.CookieStore = securecookie.New([]byte(sessionOptions.Key), blockKey[:])
-	feServer.SessionOptions = sessionOptions
-	if feServer.SessionOptions.Path == "" {
-		feServer.SessionOptions.Path = serveOpts.ContextRoot
 	}
 
 	return nil

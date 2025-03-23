@@ -12,7 +12,6 @@ func IsAuthenticated(feServer *server.FEServer) func(handler http.Handler) http.
 		feServer.RelayingParty,
 		feServer.ResourceServer,
 		feServer.SessionName,
-		*feServer.CookieStore,
 		feServer.SessionStore,
 		feServer.SessionOptions,
 	)

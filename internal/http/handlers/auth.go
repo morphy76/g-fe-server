@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -172,21 +171,19 @@ func marshalUserinfo(
 	logger := logger.GetLogger(r.Context(), "auth")
 	feServer := server.ExtractFEServer(r.Context())
 
-	sessionName := fmt.Sprintf("session_%s_%s", tokens.IDTokenClaims.Subject, tokens.IDTokenClaims.SessionID)
 	logger.Debug().
-		Str("session_name", sessionName).
 		Dict("tokens", zerolog.Dict().
 			Str("issuer", tokens.IDTokenClaims.Issuer).
 			Str("subject", tokens.IDTokenClaims.Subject).
 			Str("session_id", tokens.IDTokenClaims.SessionID)).
 		Msg("On auth callback")
-	session, err := feServer.SessionStore.Get(r, sessionName)
+	session, err := feServer.SessionStore.New(r, feServer.SessionName)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create session")
 		onLogout(feServer.ServeOpts, provider)(w, r)
 	}
 
-	session.Values["authenticated"] = "true"
+	session.Values["authenticated"] = true
 	session.AddFlash("You are now logged in")
 
 	err = session.Save(r, w)
@@ -194,25 +191,25 @@ func marshalUserinfo(
 		logger.Error().Err(err).Msg("Failed to save session")
 		onLogout(feServer.ServeOpts, provider)(w, r)
 	}
-	cookieValue := map[string]string{
-		"session_name": sessionName,
-	}
-	encodedCookieValue, err := feServer.CookieStore.Encode(feServer.SessionName, cookieValue)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to encode cookie value")
-		onLogout(feServer.ServeOpts, provider)(w, r)
-	}
-	cookie := &http.Cookie{
-		Name:     feServer.SessionOptions.Name,
-		Value:    encodedCookieValue,
-		Path:     feServer.SessionOptions.Path,
-		MaxAge:   feServer.SessionOptions.MaxAge,
-		HttpOnly: feServer.SessionOptions.HttpOnly,
-		Domain:   feServer.SessionOptions.Domain,
-		Secure:   feServer.SessionOptions.SecureCookies,
-		SameSite: feServer.SessionOptions.SameSite,
-	}
-	http.SetCookie(w, cookie)
+	// cookieValue := map[string]string{
+	// 	"session_name": sessionName,
+	// }
+	// encodedCookieValue, err := feServer.CookieStore.Encode(feServer.SessionName, cookieValue)
+	// if err != nil {
+	// 	logger.Error().Err(err).Msg("Failed to encode cookie value")
+	// 	onLogout(feServer.ServeOpts, provider)(w, r)
+	// }
+	// cookie := &http.Cookie{
+	// 	Name:     feServer.SessionOptions.Name,
+	// 	Value:    encodedCookieValue,
+	// 	Path:     feServer.SessionOptions.Path,
+	// 	MaxAge:   feServer.SessionOptions.MaxAge,
+	// 	HttpOnly: feServer.SessionOptions.HttpOnly,
+	// 	Domain:   feServer.SessionOptions.Domain,
+	// 	Secure:   feServer.SessionOptions.SecureCookies,
+	// 	SameSite: feServer.SessionOptions.SameSite,
+	// }
+	// http.SetCookie(w, cookie)
 
 	// session.Put("access_token", tokens.AccessToken)
 	// session.Put("refresh_token", tokens.RefreshToken)

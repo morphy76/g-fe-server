@@ -3,7 +3,6 @@ package auth
 import (
 	"net/http"
 
-	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
@@ -13,7 +12,6 @@ import (
 
 func isAuthenticatedBySession(
 	sessionName string,
-	secureCookie securecookie.SecureCookie,
 	sessionStore sessions.Store,
 	sessionOptions *session.SessionOptions,
 	relyingParty rp.RelyingParty,
@@ -27,33 +25,9 @@ func isAuthenticatedBySession(
 			return r.URL.String()
 		}
 
-		useLogger.Debug().Msg("Checking session")
-		cookie, err := r.Cookie(sessionName)
+		session, err := sessionStore.Get(r, sessionName)
 		if err != nil {
-			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
-			return
-		}
-
-		useLogger.Debug().Msg("Checking cookie")
-		value := make(map[string]string)
-		err = secureCookie.Decode(sessionName, cookie.Value, &value)
-		if err != nil {
-			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
-			return
-		}
-
-		useLogger.Debug().Msg("Checking session name")
-		if value["session_name"] == "" {
-			expireTheCookie(w, sessionOptions)
-			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
-			return
-		}
-
-		useLogger.Debug().Msg("Checking session store for session " + value["session_name"])
-		session, err := sessionStore.Get(r, value["session_name"])
-		if err != nil {
-			useLogger.Debug().Msg("Session not found with name " + value["session_name"])
-			expireTheCookie(w, sessionOptions)
+			useLogger.Error().Err(err).Msg("Failed to get session")
 			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
 			return
 		}
@@ -63,46 +37,16 @@ func isAuthenticatedBySession(
 			useLogger.Debug().Interface("flash", flash).Msg("Flash message")
 		}
 
-		useLogger.Debug().Any("values", session.Values).Msg("Checking session values")
 		isAuth, found := session.Values["authenticated"]
 		useLogger.Debug().Bool("found", found).Interface("auth", isAuth).Msg("Session values found")
-		if found && isAuth.(string) == "true" {
-			useLogger.Debug().Msg("Session is authenticated")
-			renewTheCookie(w, sessionOptions, cookie.Value)
+		if found && isAuth.(bool) == true {
+			session.Save(r, w)
 			next.ServeHTTP(w, r)
 		} else {
 			useLogger.Debug().Msg("Session is not authenticated")
-			expireTheCookie(w, sessionOptions)
 			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
 		}
 	})
-}
-
-func renewTheCookie(w http.ResponseWriter, sessionOptions *session.SessionOptions, value string) {
-	cookie := &http.Cookie{
-		Name:     sessionOptions.Name,
-		Value:    value,
-		Path:     sessionOptions.Path,
-		MaxAge:   sessionOptions.MaxAge,
-		HttpOnly: sessionOptions.HttpOnly,
-		Domain:   sessionOptions.Domain,
-		Secure:   sessionOptions.SecureCookies,
-		SameSite: sessionOptions.SameSite,
-	}
-	http.SetCookie(w, cookie)
-}
-func expireTheCookie(w http.ResponseWriter, sessionOptions *session.SessionOptions) {
-	expiredCookie := &http.Cookie{
-		Name:     sessionOptions.Name,
-		Value:    "",
-		Path:     sessionOptions.Path,
-		Domain:   sessionOptions.Domain,
-		Secure:   sessionOptions.SecureCookies,
-		HttpOnly: sessionOptions.HttpOnly,
-		SameSite: sessionOptions.SameSite,
-		MaxAge:   -1,
-	}
-	http.SetCookie(w, expiredCookie)
 }
 
 func isAuthenticateByBearerToken(
@@ -139,12 +83,11 @@ func IsAuthenticated(
 	rp rp.RelyingParty,
 	rs rs.ResourceServer,
 	sessionName string,
-	secureCookie securecookie.SecureCookie,
 	sessionStore sessions.Store,
 	sessionOptions *session.SessionOptions,
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(sessionName, secureCookie, sessionStore, sessionOptions, rp, next))
+		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(sessionName, sessionStore, sessionOptions, rp, next))
 	}
 }
 
