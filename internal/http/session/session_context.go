@@ -10,8 +10,9 @@ const (
 	ctxSessionKey ContextSessionKey = "session"
 )
 
-func ExtractSession(ctx context.Context) Session {
-	return ctx.Value(ctxSessionKey).(Session)
+func ExtractSession(ctx context.Context) (Session, bool) {
+	session, ok := ctx.Value(ctxSessionKey).(Session)
+	return session, ok
 }
 
 func InjectSession(ctx context.Context, session Session) context.Context {

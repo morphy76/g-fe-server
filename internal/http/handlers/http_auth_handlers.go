@@ -103,8 +103,13 @@ func onLogout(serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) 
 
 func onInfo(ctxRoot string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session := session.ExtractSession(r.Context())
 		logger := logger.GetLogger(r.Context(), "auth")
+
+		session, ok := session.ExtractSession(r.Context())
+		if !ok {
+			http.Error(w, "Session not found", http.StatusUnauthorized)
+			return
+		}
 
 		logger.Trace().Msg("Info requested")
 

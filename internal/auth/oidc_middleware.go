@@ -16,10 +16,16 @@ func isAuthenticatedBySession(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		useLogger := logger.GetLogger(r.Context(), "auth")
-		useSession := session.ExtractSession(r.Context())
 
 		requestedURLStateFn := func() string {
 			return r.URL.String()
+		}
+
+		useSession, ok := session.ExtractSession(r.Context())
+		if !ok {
+			useLogger.Error().Msg("Failed to extract session")
+			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
+			return
 		}
 
 		isAuth := useSession.GetOrElse("authenticated", false)
