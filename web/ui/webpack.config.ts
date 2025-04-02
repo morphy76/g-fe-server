@@ -23,7 +23,9 @@ const config: webpack.Configuration & { devServer: DevServerConfiguration } = {
   entry: "./src/index.tsx",
   output: {
     path: path.resolve(__dirname, "dist"),
-    publicPath: "ui",
+    // publicPath: "ui",
+    filename: "[name]-[fullhash].js",
+    clean: true,
   },
   devServer: {
     open: true,
@@ -37,7 +39,15 @@ const config: webpack.Configuration & { devServer: DevServerConfiguration } = {
       {
         test: /\.(ts|tsx)$/i,
         use: [
-          "ts-loader",
+          {
+            loader: "ts-loader",
+            options: {
+              compilerOptions: {
+                declaration: !__production,
+                declarationMap: !__production
+              }
+            }
+          },
           {
             loader: reactCompilerLoader,
           },
@@ -82,8 +92,27 @@ config.plugins = [
 
 if (__production) {
   config.mode = "production";
-  config.plugins.push(new MiniCssExtractPlugin());
-  config.plugins.push(new WorkboxWebpackPlugin.GenerateSW());
+  config.plugins.push(new MiniCssExtractPlugin({
+    filename: "[name]-[fullhash].css",
+    chunkFilename: "[id]-[fullhash].css",
+  }));
+  config.plugins.push(
+    new WorkboxWebpackPlugin.GenerateSW({
+      clientsClaim: true,
+      skipWaiting: true,
+    })
+  );
+  config.optimization = {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          chunks: 'all',
+        },
+      },
+    },
+  };
 } else {
   config.mode = "development";
   config.devtool = "source-map";
