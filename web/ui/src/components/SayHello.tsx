@@ -8,6 +8,7 @@ type SayHelloProps = {
 
 export const SayHello: React.FC<SayHelloProps> = () => {
   const [counter, setCounter] = useState(0);
+
   const incrementCounter = () => {
     setCounter((prev: number) => prev + 1);
   };
@@ -18,7 +19,7 @@ export const SayHello: React.FC<SayHelloProps> = () => {
     setCounter(0);
   };
 
-  const randomString = uuid();
+  const randomString = "3: " + uuid();
 
   return (
     <div className={wrapper}>
