@@ -3,7 +3,7 @@ module github.com/morphy76/g-fe-server
 go 1.24
 
 require (
-	github.com/Unleash/unleash-client-go/v4 v4.4.0
+	github.com/Unleash/unleash-client-go/v4 v4.5.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/securecookie v1.1.2
