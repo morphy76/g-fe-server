@@ -13,7 +13,7 @@
     "dup": "npx ncu -t patch -u"
   },
   "devDependencies": {
-    "@types/node": "^22.13.10",
+    "@types/node": "^24.0.0",
     "@types/webpack": "^5.28.5",
     "@types/webpack-dev-server": "^4.7.1",
     "@typescript-eslint/eslint-plugin": "^8.26.1",
