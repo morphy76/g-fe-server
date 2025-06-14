@@ -11,10 +11,10 @@ type SessionOptions struct {
 	Name          string
 	Path          string
 	MaxAge        int
-	HttpOnly      bool
 	Domain        string
 	SecureCookies bool
 	SameSite      http.SameSite
+	Partitioned   bool
 }
 
 type Session interface {

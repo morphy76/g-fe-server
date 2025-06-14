@@ -30,22 +30,23 @@ type MongoStore struct {
 	coll    *mongo.Collection
 }
 
-func NewMongoStore(c *mongo.Collection, maxAge int, ensureTTL bool,
-	keyPairs ...[]byte) *MongoStore {
+func NewMongoStore(
+	c *mongo.Collection,
+	sessionOptions *sessions.Options,
+	ensureTTL bool,
+	keyPairs ...[]byte,
+) *MongoStore {
 	store := &MongoStore{
-		Codecs: securecookie.CodecsFromPairs(keyPairs...),
-		Options: &sessions.Options{
-			Path:   "/",
-			MaxAge: maxAge,
-		},
-		Token: &CookieToken{},
-		coll:  c,
+		Codecs:  securecookie.CodecsFromPairs(keyPairs...),
+		Options: sessionOptions,
+		Token:   &CookieToken{},
+		coll:    c,
 	}
 
-	store.MaxAge(maxAge)
+	store.MaxAge(sessionOptions.MaxAge)
 
 	if ensureTTL {
-		expireAfter := time.Duration(maxAge) * time.Second
+		expireAfter := time.Duration(sessionOptions.MaxAge) * time.Second
 
 		indexModel := mongo.IndexModel{
 			Keys:    bson.M{"modified": 1},
@@ -70,11 +71,13 @@ func (m *MongoStore) New(r *http.Request, name string) (
 	*sessions.Session, error) {
 	session := sessions.NewSession(m, name)
 	session.Options = &sessions.Options{
-		Path:     m.Options.Path,
-		MaxAge:   m.Options.MaxAge,
-		Domain:   m.Options.Domain,
-		Secure:   m.Options.Secure,
-		HttpOnly: m.Options.HttpOnly,
+		Path:        m.Options.Path,
+		MaxAge:      m.Options.MaxAge,
+		Domain:      m.Options.Domain,
+		Secure:      m.Options.Secure,
+		HttpOnly:    m.Options.HttpOnly,
+		Partitioned: m.Options.Partitioned,
+		SameSite:    m.Options.SameSite,
 	}
 	session.IsNew = true
 	var err error

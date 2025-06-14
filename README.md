@@ -9,6 +9,22 @@
 - Framework/standard to build the business request model: how logger, feserver, clients reaches the business module (*)
 - A React 19 case study with MFEs
 
+In summary:
+
+- With HTTP session management
+- With Unleash integration <- reviewing
+  - Feature gateway for FE flags
+- With OIDC integration
+- With Mongo integration
+- With AIW logging
+- With AIW tracing
+- With AIW audit
+- With OpenAPI endpoint
+- With Health endpoint
+  - Testing HTTP serving
+  - Testing Mongo connection
+- No business logic included
+
 ## What happened
 
 A presentation server is a Backend For Front-end component (<https://microservices.io/patterns/apigateway.html>) for react UIs.

@@ -127,9 +127,7 @@ func bindSessionStore(
 ) error {
 	feServer.SessionName = sessionOptions.Name
 	feServer.SessionOptions = sessionOptions
-	if feServer.SessionOptions.Path == "" {
-		feServer.SessionOptions.Path = serveOpts.ContextRoot
-	}
+	feServer.SessionOptions.Path = serveOpts.ContextRoot
 
 	sessionStore, shutdownFn, err := session.CreateSessionStore(sessionOptions, dbOptions, serveOpts.ContextRoot)
 	if err != nil {
