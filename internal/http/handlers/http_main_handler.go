@@ -112,7 +112,7 @@ func initializeTheFunctionalRouter(
 	// - TODO: tenant resolution
 
 	contextRouter := rootRouter.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
-	err := enrichFunctionalRequestContext(contextRouter, feServer, appContext)
+	err := enrichFunctionalRequestContext(contextRouter, appContext)
 	if err != nil {
 		return fmt.Errorf("failed to enrich functional request context: %w", err)
 	}
@@ -143,7 +143,6 @@ func initializeTheFunctionalRouter(
 
 func enrichFunctionalRequestContext(
 	router *mux.Router,
-	feServer *server.FEServer,
 	appContext context.Context,
 ) error {
 

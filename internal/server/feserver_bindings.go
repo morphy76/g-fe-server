@@ -160,7 +160,12 @@ func bindOIDC(
 	}
 	feServer.RelayingParty = rp
 
-	rs, err := rs.NewResourceServerClientCredentials(context.Background(), oidcOptions.Issuer, oidcOptions.ClientID, oidcOptions.ClientSecret)
+	rs, err := rs.NewResourceServerClientCredentials(
+		context.Background(),
+		oidcOptions.Issuer,
+		oidcOptions.ClientID,
+		oidcOptions.ClientSecret,
+	)
 	if err != nil {
 		return err
 	}
