@@ -10,7 +10,7 @@ NODEMON := nodemon
 GOFLAGS := #-mod=vendor
 LDFLAGS := -ldflags="-s -w"
 GCFLAGS := -gcflags="-m -l"
-TESTFLAGS := -v
+TESTFLAGS := -v -count=1 -timeout=2s
 # DOCKERBUILDFLAGS := --no-cache
 NPMFLAGS := --no-audit --no-fund
 
@@ -33,23 +33,22 @@ MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-ur
 UNLEASH_ARGS := -unleash-enabled=true -unleash-url=http://localhost:3063/api -unleash-app-name=fe-server -unleash-token=default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617 -unleash-environment=production
 AIW_ARGS := -aiw-fqdn=http://localhost:3000/fe
 
-build-fe:
-	@$(NPM) $(NPMFLAGS) --prefix ./web/ui i
-	@$(NPM) --prefix ./web/ui test
-	@$(NPM) --prefix ./web/ui run build
+clean:
+	-@rm -f $(SERVER_TARGET)
+	-@rm -rf $(SERVER_TARGET_FE)
+
+test-server:
+	@$(GO) test $(TESTFLAGS) $(shell $(GO) list ./... | grep -vE '/tools/|/web/')
+
+vet:
+	@$(GO) vet $(shell $(GO) list ./... | grep -vE '/tools/|/web/')
 
 build-server:
-	# @$(GO) test $(TESTFLAGS) ./...
 	$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVER_TARGET) $(SERVER_SOURCES)
-
-watch-fe:
-	@$(NPM) --prefix ./web/ui i
-	@$(NPM) --prefix ./web/ui run watch
 
 watch-server:
 	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(NO_OIDC_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS)
 
-# run-server: build-fe
 run-server:
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS)
 
@@ -62,9 +61,14 @@ run-ssl-server:
     $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS) \
     -protocol=https -tls-cert=$$TMPDIR/server.crt -tls-key=$$TMPDIR/server.key
 
-clean:
-	-@rm -f $(SERVER_TARGET)
-	-@rm -rf $(SERVER_TARGET_FE)
+build-fe:
+	@$(NPM) $(NPMFLAGS) --prefix ./web/ui i
+	@$(NPM) --prefix ./web/ui test
+	@$(NPM) --prefix ./web/ui run build
+
+watch-fe:
+	@$(NPM) --prefix ./web/ui i
+	@$(NPM) --prefix ./web/ui run watch
 
 deploy: clean
 	@$(DOCKER) run -d --network host --rm -v /var/run/docker.sock:/var/run/docker.sock --name socat alpine/socat tcp-listen:12345,fork,reuseaddr,ignoreeof unix-connect:/var/run/docker.sock

@@ -6,6 +6,9 @@ on:
   push:
     branches: [disabled-simplified-fe-server]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
