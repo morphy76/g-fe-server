@@ -30,6 +30,9 @@ const (
 	envStaticPath = "STATIC_PATH"
 	envPort       = "SERVE_PORT"
 	envHost       = "SERVE_HOST"
+	envProtocol   = "SERVE_PROTOCOL"
+	envCertFile   = "SERVE_CERT_FILE"
+	envKeyFile    = "SERVE_KEY_FILE"
 )
 
 func PathOptionsBuilder() PathOptionsBuilderFn {
@@ -64,6 +67,9 @@ func PathOptionsBuilder() PathOptionsBuilderFn {
 func URLOptionsBuilder() URLOptionsBuilderFn {
 	portArg := flag.String("port", "8080", "binding port of the presentation server. Environment: "+envPort)
 	hostArg := flag.String("host", "0.0.0.0", "binding host of the presentation server. Environment: "+envHost)
+	protocolArg := flag.String("protocol", "http", "protocol of the presentation server. Environment: "+envProtocol)
+	certFileArg := flag.String("tls-cert", "", "path to the TLS certificate file. Environment: "+envCertFile)
+	keyFileArg := flag.String("tls-key", "", "path to the TLS key file. Environment: "+envKeyFile)
 
 	return func() (*options.URLOptions, error) {
 
@@ -77,10 +83,35 @@ func URLOptionsBuilder() URLOptionsBuilderFn {
 			useHost = *hostArg
 		}
 
+		useProtocol, found := os.LookupEnv(envProtocol)
+		if !found {
+			useProtocol = *protocolArg
+		}
+
+		useCertFile, found := os.LookupEnv(envCertFile)
+		if !found {
+			useCertFile = *certFileArg
+		}
+
+		useKeyFile, found := os.LookupEnv(envKeyFile)
+		if !found {
+			useKeyFile = *keyFileArg
+		}
+
+		if useProtocol != "http" && useProtocol != "https" {
+			return nil, errors.New("invalid protocol: must be 'http' or 'https'")
+		}
+
+		if useProtocol == "https" && (len(useCertFile) == 0 || len(useKeyFile) == 0) {
+			return nil, errors.New("cert and key files must be provided for https protocol")
+		}
+
 		return &options.URLOptions{
-			Protocol: "http",
+			Protocol: useProtocol,
 			Port:     usePort,
 			Host:     useHost,
+			CertFile: useCertFile,
+			KeyFile:  useKeyFile,
 		}, nil
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/morphy76/g-fe-server/cmd/options"
 )
 
+// AIWOptionsBuilderFn is a function that builds AIW options from the command line arguments
 type AIWOptionsBuilderFn func() (*options.AIWOptions, error)
 
 // ErrInvalidFQDN is an invalid FQDN error
@@ -17,6 +18,7 @@ const (
 	envFQDN = "AIW_FQDN"
 )
 
+// AIWOptionsBuilder builds AIW options from command line flags and environment variables.
 func AIWOptionsBuilder() AIWOptionsBuilderFn {
 	fqdnArg := flag.String("aiw-fqdn", "", "fully qualified domain name of the application. Environment: "+envFQDN)
 

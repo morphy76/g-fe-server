@@ -11,7 +11,7 @@ import (
 
 const contentTypeHTTPHeader = "Content-Type"
 
-func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
+func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) error {
 
 	defaultFile := filepath.Join(staticPath, "index.html")
 
@@ -59,4 +59,6 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) {
 	}
 
 	staticRouter.Methods(http.MethodGet).HandlerFunc(fileServer).Name("GET " + ctxRoot + "/ui")
+
+	return nil
 }

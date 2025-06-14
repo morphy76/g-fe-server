@@ -30,7 +30,7 @@ SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=3000 -s
 OTEL_ARGS := -otel-enabled=true --otlp-url=http://localhost:4317
 OIDC_ARGS := -oidc-issuer=http://localhost:8080/realms/gfes -oidc-client-id=ps -oidc-client-secret=tefnJ7pbekZuTV7vPVpI3VHPNto7LlOy -oidc-scopes=openid,profile,email
 MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-url=mongodb://localhost:27017/fe_db?w=1
-UNLEASH_ARGS := -unleash-enabled=true -unleash-url=http://localhost:3063/api -unleash-app-name=fe-server -unleash-token=default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617
+UNLEASH_ARGS := -unleash-enabled=true -unleash-url=http://localhost:3063/api -unleash-app-name=fe-server -unleash-token=default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617 -unleash-environment=production
 AIW_ARGS := -aiw-fqdn=http://localhost:3000/fe
 
 build-fe:
@@ -52,6 +52,15 @@ watch-server:
 # run-server: build-fe
 run-server:
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS)
+
+run-ssl-server:
+	@TMPDIR=$$(mktemp -d)
+	openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+    -keyout $$TMPDIR/server.key -out $$TMPDIR/server.crt \
+    -subj "/CN=localhost"
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) \
+    $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS) \
+    -protocol=https -tls-cert=$$TMPDIR/server.crt -tls-key=$$TMPDIR/server.key
 
 clean:
 	-@rm -f $(SERVER_TARGET)

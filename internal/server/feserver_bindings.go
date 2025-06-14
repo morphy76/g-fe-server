@@ -80,6 +80,7 @@ func bindUnleash(unleashOptions *options.UnleashOptions) error {
 		unleash.WithHttpClient(instrumentUnleashHTTPClient()),
 		// unleash.WithListener(unleash.DebugListener{}),
 		unleash.WithAppName(unleashOptions.AppName),
+		unleash.WithEnvironment(unleashOptions.Environment),
 		unleash.WithUrl(unleashOptions.URL),
 		unleash.WithCustomHeaders(http.Header{"Authorization": {unleashOptions.Token}}),
 	)

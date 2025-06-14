@@ -16,7 +16,11 @@ import (
 )
 
 // IAMHandlers registers the IAM authentication handlers
-func IAMHandlers(authRouter *mux.Router, serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) {
+func IAMHandlers(
+	authRouter *mux.Router,
+	serveOptions *options.ServeOptions,
+	relyingParty rp.RelyingParty,
+) error {
 	ctxRoot := serveOptions.ContextRoot
 
 	authRouter.HandleFunc("/login", onLogin(ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
@@ -24,6 +28,8 @@ func IAMHandlers(authRouter *mux.Router, serveOptions *options.ServeOptions, rel
 	authRouter.HandleFunc("/logout", onLogout(serveOptions, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
 	authRouter.HandleFunc("/info", onInfo(ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
 	authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
+
+	return nil
 }
 
 func onLogin(ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
@@ -174,7 +180,12 @@ func marshalUserinfo(
 	// tokens.IDTokenClaims.Subject
 	// tokens.IDTokenClaims.SessionID
 	logger := logger.GetLogger(r.Context(), "auth")
-	feServer := server.ExtractFEServer(r.Context())
+	feServer, err := server.ExtractFEServer(r.Context())
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to extract FEServer from context")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 
 	logger.Debug().
 		Dict("tokens", zerolog.Dict().

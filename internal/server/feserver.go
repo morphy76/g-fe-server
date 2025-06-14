@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/Unleash/unleash-client-go/v4"
@@ -24,50 +26,73 @@ import (
 
 const appModelCtxKey common.CtxKey = "App"
 
+// ErrFEServerNotFound is returned when the FEServer is not found in the context
+var ErrFEServerNotFound = errors.New("FEServer not found in context")
+
 // FEServer is a simple struct that represents an event bus
 type FEServer struct {
+	// UID is a unique identifier for the server instance
 	UID string
 
+	// ServeOpts contains options for serving the application
 	ServeOpts *options.ServeOptions
 
-	SessionName    string
-	SessionStore   sessions.Store
+	// SessionName is the name of the session used for storing user data
+	SessionName string
+	// SessionStore is the session store used for managing user sessions
+	SessionStore sessions.Store
+	// SessionOptions contains options for session management
 	SessionOptions *session.SessionOptions
 
+	// MongoClient is the MongoDB client used for database operations
 	MongoClient *mongo.Client
 
-	RelayingParty  rp.RelyingParty
+	// RelyingParty is the OIDC relying party client used for authentication
+	RelayingParty rp.RelyingParty
+	// ResourceServer is the OIDC resource server client used for authorization
 	ResourceServer rs.ResourceServer
 
+	// ServiceName is the name of the service, used for logging and tracing
 	ServiceName string
-	ShutdownFn  []func() error
 
+	// ShutdownFn is a list of functions to be called when shutting down the server
+	ShutdownFn []func() error
+
+	// HealthChecksFn is a list of additional health check functions
 	HealthChecksFn []health.AdditionalCheckFn
 
-	featureEnabled bool
-
+	// AIWfacade is the AIW facade used for interacting with the AIW service
 	AIWfacade *aiw.AIWFacade
+
+	featureEnabled bool
 }
 
 // ExtractFEServer returns the FEServer from the context
-func ExtractFEServer(ctx context.Context) *FEServer {
-	return ctx.Value(appModelCtxKey).(*FEServer)
+func ExtractFEServer(ctx context.Context) (*FEServer, error) {
+	rv := ctx.Value(appModelCtxKey)
+	if rv == nil {
+		return nil, ErrFEServerNotFound
+	}
+	return rv.(*FEServer), nil
 }
 
 // InjectFEServer adds the FEServer to the context
-func InjectFEServer(ctx context.Context, appContext context.Context) context.Context {
-	feServer := ExtractFEServer(appContext)
-	return context.WithValue(ctx, appModelCtxKey, feServer)
+func InjectFEServer(ctx context.Context, appContext context.Context) (context.Context, error) {
+	feServer, err := ExtractFEServer(appContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract FEServer from app context: %w", err)
+	}
+	return context.WithValue(ctx, appModelCtxKey, feServer), nil
 }
 
 // NewFEServer creates a Context with a new EventBus
 func NewFEServer(
-	ctx context.Context,
+	appContext context.Context,
 	serveOpts *options.ServeOptions,
 	sessionOptions *session.SessionOptions,
 	oidcOptions *auth.OIDCOptions,
 	integrationsOptions *options.IntegrationOptions,
-) context.Context {
+) (context.Context, error) {
 
 	feServer := &FEServer{
 		UID:         uuid.New().String(),
@@ -86,15 +111,15 @@ func NewFEServer(
 		integrationsOptions,
 	)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to bind infrastructural dependencies: %w", err)
 	}
 
 	err = addHealthChecks(feServer, integrationsOptions.DBOptions)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to add health checks: %w", err)
 	}
 
-	return context.WithValue(ctx, appModelCtxKey, feServer)
+	return context.WithValue(appContext, appModelCtxKey, feServer), nil
 }
 
 // ListenAndServe starts the server
@@ -103,6 +128,7 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 
 	feLogger.Info().
 		Dict("serve_opts", zerolog.Dict().
+			Str("protocol", feServer.ServeOpts.Protocol).
 			Str("host", feServer.ServeOpts.Host).
 			Str("port", feServer.ServeOpts.Port).
 			Str("ctx", feServer.ServeOpts.ContextRoot).
@@ -111,7 +137,20 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 			Str("fqdn", feServer.AIWfacade.AIWOptions.FQDN)).
 		Msg("Server started")
 
-	return http.ListenAndServe(feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port, rootRouter)
+	if feServer.ServeOpts.Protocol == "https" {
+		return http.ListenAndServeTLS(
+			feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port,
+			feServer.ServeOpts.CertFile,
+			feServer.ServeOpts.KeyFile,
+			rootRouter,
+		)
+	} else {
+		return http.ListenAndServe(
+			feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port,
+			rootRouter,
+		)
+	}
+
 }
 
 // Shutdown stops the server
@@ -125,6 +164,7 @@ func (feServer *FEServer) Shutdown(ctx context.Context) {
 	feLogger.Info().Msg("Server stopped")
 }
 
+// IsFeatureEnabled checks if a feature is enabled using Unleash
 func (feServer *FEServer) IsFeatureEnabled(feature string, opts ...unleash.FeatureOption) bool {
 	if !feServer.featureEnabled {
 		return true

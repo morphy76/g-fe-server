@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -19,49 +20,85 @@ import (
 func Handler(
 	appContext context.Context,
 	rootRouter *mux.Router,
-) {
+) error {
 	routerLog := logger.GetLogger(appContext, "router")
-	feServer := server.ExtractFEServer(appContext)
+	feServer, err := server.ExtractFEServer(appContext)
+	if err != nil {
+		return fmt.Errorf("failed to extract FEServer from context: %w", err)
+	}
 
 	// Parent router
 	rootRouter.Use(otelmux.Middleware(feServer.ServiceName))
 
-	initializeTheNonFunctionalRouter(appContext, rootRouter, feServer, routerLog)
-	initializeTheFunctionalRouter(appContext, rootRouter, feServer, routerLog)
+	err = initializeTheNonFunctionalRouter(appContext, rootRouter, feServer, routerLog)
+	if err != nil {
+		return fmt.Errorf("failed to initialize non-functional router: %w", err)
+	}
+	err = initializeTheFunctionalRouter(appContext, rootRouter, feServer, routerLog)
+	if err != nil {
+		return fmt.Errorf("failed to initialize functional router: %w", err)
+	}
+
+	return nil
 }
 
-func initializeTheNonFunctionalRouter(appContext context.Context, rootRouter *mux.Router, feServer *server.FEServer, routerLog zerolog.Logger) {
+func initializeTheNonFunctionalRouter(
+	appContext context.Context,
+	rootRouter *mux.Router,
+	feServer *server.FEServer,
+	routerLog zerolog.Logger,
+) error {
 	// propagates FEServer and logger to non functional requests
 	// add non functional endopints
 	// - health checks
 
 	nonFunctionalRouter := rootRouter.PathPrefix(feServer.ServeOpts.NonFunctionalRoot).Subrouter()
-	enrichNonFunctionalRequestContext(nonFunctionalRouter, appContext)
+	err := enrichNonFunctionalRequestContext(nonFunctionalRouter, appContext)
+	if err != nil {
+		return fmt.Errorf("failed to enrich non-functional request context: %w", err)
+	}
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Non functional router registered")
 	}
 
-	HandleHealth(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot, feServer.HealthChecksFn)
+	err = HandleHealth(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot, feServer.HealthChecksFn)
+	if err != nil {
+		return fmt.Errorf("failed to register health handler: %w", err)
+	}
+
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Health handler registered")
 	}
+
+	return nil
 }
 
-func enrichNonFunctionalRequestContext(router *mux.Router, appContext context.Context) {
+func enrichNonFunctionalRequestContext(router *mux.Router, appContext context.Context) error {
 
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			useRequestContext := server.InjectFEServer(r.Context(), appContext)
+			useRequestContext, err := server.InjectFEServer(r.Context(), appContext)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("failed to inject FEServer: %v", err), http.StatusInternalServerError)
+				return
+			}
 			useRequestContext = logger.InjectLogger(useRequestContext, appContext)
 			useRequest := r.WithContext(useRequestContext)
 			next.ServeHTTP(w, useRequest)
 		})
 	})
+
+	return nil
 }
 
-func initializeTheFunctionalRouter(appContext context.Context, rootRouter *mux.Router, feServer *server.FEServer, routerLog zerolog.Logger) {
+func initializeTheFunctionalRouter(
+	appContext context.Context,
+	rootRouter *mux.Router,
+	feServer *server.FEServer,
+	routerLog zerolog.Logger,
+) error {
 	// propagates FEServer and logger to functional requests
 	// Add functional endpoints
 	// - OpenAPI as a public endpoint
@@ -75,23 +112,48 @@ func initializeTheFunctionalRouter(appContext context.Context, rootRouter *mux.R
 	// - TODO: tenant resolution
 
 	contextRouter := rootRouter.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
-	enrichFunctionalRequestContext(contextRouter, feServer, appContext)
+	err := enrichFunctionalRequestContext(contextRouter, feServer, appContext)
+	if err != nil {
+		return fmt.Errorf("failed to enrich functional request context: %w", err)
+	}
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Context router registered")
 	}
 
-	HandleOpenAPI(contextRouter, feServer.ServeOpts.ContextRoot)
-	addAuthHandlers(contextRouter, routerLog, feServer)
-	addUIHandlers(contextRouter, feServer, routerLog)
-	addAPIHandlers(contextRouter, feServer, routerLog)
+	err = HandleOpenAPI(contextRouter, feServer.ServeOpts.ContextRoot)
+	if err != nil {
+		return fmt.Errorf("failed to register OpenAPI handler: %w", err)
+	}
+	err = addAuthHandlers(contextRouter, routerLog, feServer)
+	if err != nil {
+		return fmt.Errorf("failed to register auth handlers: %w", err)
+	}
+	err = addUIHandlers(contextRouter, feServer, routerLog)
+	if err != nil {
+		return fmt.Errorf("failed to register UI handlers: %w", err)
+	}
+	err = addAPIHandlers(contextRouter, feServer, routerLog)
+	if err != nil {
+		return fmt.Errorf("failed to register API handlers: %w", err)
+	}
+
+	return nil
 }
 
-func enrichFunctionalRequestContext(router *mux.Router, feServer *server.FEServer, appContext context.Context) {
+func enrichFunctionalRequestContext(
+	router *mux.Router,
+	feServer *server.FEServer,
+	appContext context.Context,
+) error {
 
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			useRequestContext := server.InjectFEServer(r.Context(), appContext)
+			useRequestContext, err := server.InjectFEServer(r.Context(), appContext)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("failed to inject FEServer: %v", err), http.StatusInternalServerError)
+				return
+			}
 			useRequestContext = logger.InjectLogger(useRequestContext, appContext)
 			useRequest := r.WithContext(useRequestContext)
 			next.ServeHTTP(w, useRequest)
@@ -99,9 +161,14 @@ func enrichFunctionalRequestContext(router *mux.Router, feServer *server.FEServe
 	})
 
 	router.Use(logger.RequestLogger)
+	return nil
 }
 
-func addAuthHandlers(contextRouter *mux.Router, routerLog zerolog.Logger, feServer *server.FEServer) {
+func addAuthHandlers(
+	contextRouter *mux.Router,
+	routerLog zerolog.Logger,
+	feServer *server.FEServer,
+) error {
 	// OIDC integration
 
 	authRouter := contextRouter.PathPrefix("/auth").Subrouter()
@@ -109,14 +176,22 @@ func addAuthHandlers(contextRouter *mux.Router, routerLog zerolog.Logger, feServ
 		routerLog.Trace().
 			Msg("Auth router registered")
 	}
-	IAMHandlers(authRouter, feServer.ServeOpts, feServer.RelayingParty)
+	err := IAMHandlers(authRouter, feServer.ServeOpts, feServer.RelayingParty)
+	if err != nil {
+		return fmt.Errorf("failed to register IAM handlers: %w", err)
+	}
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Auth handler registered")
 	}
+	return nil
 }
 
-func addUIHandlers(contextRouter *mux.Router, feServer *server.FEServer, routerLog zerolog.Logger) {
+func addUIHandlers(
+	contextRouter *mux.Router,
+	feServer *server.FEServer,
+	routerLog zerolog.Logger,
+) error {
 	// Add UI endpoints for
 	// - static content of the container application
 	// - TODO: static content of MFEs
@@ -129,14 +204,22 @@ func addUIHandlers(contextRouter *mux.Router, feServer *server.FEServer, routerL
 		routerLog.Trace().
 			Msg("Static router registered")
 	}
-	HandleStatic(staticRouter, feServer.ServeOpts.ContextRoot, feServer.ServeOpts.StaticPath)
+	err := HandleStatic(staticRouter, feServer.ServeOpts.ContextRoot, feServer.ServeOpts.StaticPath)
+	if err != nil {
+		return fmt.Errorf("failed to register static handler: %w", err)
+	}
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Static handler registered")
 	}
+	return nil
 }
 
-func addAPIHandlers(contextRouter *mux.Router, feServer *server.FEServer, routerLog zerolog.Logger) {
+func addAPIHandlers(
+	contextRouter *mux.Router,
+	feServer *server.FEServer,
+	routerLog zerolog.Logger,
+) error {
 	// Add API endpoints
 	// - Resource modules bindings
 
@@ -145,16 +228,25 @@ func addAPIHandlers(contextRouter *mux.Router, feServer *server.FEServer, router
 	apiRouter.Use(auth.IsAuthenticated(feServer.RelayingParty, feServer.ResourceServer))
 	apiRouter.Use(setJSONResponse)
 
-	bindModules(apiRouter, feServer, routerLog)
+	err := bindModules(apiRouter, feServer, routerLog)
+	if err != nil {
+		return fmt.Errorf("failed to bind modules: %w", err)
+	}
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("API router registered")
 	}
+	return nil
 }
 
-func bindModules(apiRouter *mux.Router, feServer *server.FEServer, routerLog zerolog.Logger) {
+func bindModules(
+	apiRouter *mux.Router,
+	feServer *server.FEServer,
+	routerLog zerolog.Logger,
+) error {
 	// Each resource module provides its own handlers
 	// - example module
 
 	example.Handler(apiRouter, feServer, routerLog)
+	return nil
 }
