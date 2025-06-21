@@ -12,7 +12,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/logger"
 )
 
-// Handlers registers the health check handlers
+// HandleHealth registers the health check handlers
 func HandleHealth(
 	appContext context.Context,
 	parent *mux.Router,

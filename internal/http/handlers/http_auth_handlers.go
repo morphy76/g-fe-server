@@ -192,7 +192,9 @@ func marshalUserinfo(
 			Str("issuer", tokens.IDTokenClaims.Issuer).
 			Str("subject", tokens.IDTokenClaims.Subject).
 			Str("session_id", tokens.IDTokenClaims.SessionID)).
+		Str("state", state).
 		Msg("On auth callback")
+
 	session, err := feServer.SessionStore.New(r, feServer.HTTPOpts.SessionOptions.Name)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create session")

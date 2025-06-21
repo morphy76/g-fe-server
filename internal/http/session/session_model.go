@@ -4,6 +4,8 @@ import (
 	"github.com/gorilla/sessions"
 )
 
+var staticSessionAssert Session = (*Wrapper)(nil)
+
 // Session interface defines the methods for session management.
 type Session interface {
 	Put(key string, value any)

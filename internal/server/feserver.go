@@ -139,12 +139,12 @@ func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Ro
 			serveOpts.KeyFile,
 			rootRouter,
 		)
-	} else {
-		return http.ListenAndServe(
-			serveOpts.Host+":"+serveOpts.Port,
-			rootRouter,
-		)
 	}
+
+	return http.ListenAndServe(
+		serveOpts.Host+":"+serveOpts.Port,
+		rootRouter,
+	)
 
 }
 

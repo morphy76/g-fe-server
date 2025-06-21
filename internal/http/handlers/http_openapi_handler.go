@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// HandleOpenAPI registers the OpenAPI handler for the given parent router.
 func HandleOpenAPI(
 	parent *mux.Router,
 	ctxRoot string,
