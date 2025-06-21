@@ -17,7 +17,6 @@ import (
 	"github.com/morphy76/g-fe-server/cmd/options"
 	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/http/handlers"
-	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
 )
@@ -114,6 +113,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	httpOptions := &options.HTTPOptions{
+		ServeOptions:   serveOptions,
+		SessionOptions: sessionOptions,
+	}
+
 	integrationOptions := &options.IntegrationOptions{
 		DBOptions:      dbOptions,
 		OTelOptions:    oTelOptions,
@@ -122,8 +126,7 @@ func main() {
 	}
 
 	err = startServer(
-		serveOptions,
-		sessionOptions,
+		httpOptions,
 		oidcOptions,
 		integrationOptions,
 		trace,
@@ -137,8 +140,7 @@ func main() {
 }
 
 func startServer(
-	serveOptions *options.ServeOptions,
-	sessionOptions *session.SessionOptions,
+	httpOptions *options.HTTPOptions,
 	oidcOptions *auth.OIDCOptions,
 	integrationOptions *options.IntegrationOptions,
 	trace *bool,
@@ -208,8 +210,7 @@ func startServer(
 }
 
 func createAppContext(
-	serveOpts *options.ServeOptions,
-	sessionOptions *session.SessionOptions,
+	httpOptions *options.HTTPOptions,
 	oidcOptions *auth.OIDCOptions,
 	integrationOptions *options.IntegrationOptions,
 	trace *bool,

@@ -1,22 +1,10 @@
 package session
 
 import (
-	"net/http"
-
 	"github.com/gorilla/sessions"
 )
 
-type SessionOptions struct {
-	Key           string
-	Name          string
-	Path          string
-	MaxAge        int
-	Domain        string
-	SecureCookies bool
-	SameSite      http.SameSite
-	Partitioned   bool
-}
-
+// Session interface defines the methods for session management.
 type Session interface {
 	Put(key string, value any)
 	Get(key string) (any, bool)
@@ -26,16 +14,19 @@ type Session interface {
 	Flashes() []interface{}
 }
 
-type SessionWrapper struct {
+// Wrapper is a wrapper around the Gorilla sessions.Session that implements the Session interface.
+type Wrapper struct {
 	session *sessions.Session
 
 	dirty bool
 }
 
+// NewSessionWrapper creates a new SessionWrapper from a Gorilla sessions.Session.
 func NewSessionWrapper(session *sessions.Session) *SessionWrapper {
 	return &SessionWrapper{session: session}
 }
 
+// Put adds a key-value pair to the session. If the value is the same as the previous value, it does nothing.
 func (s *SessionWrapper) Put(key string, value any) {
 	prev, found := s.session.Values[key]
 	if found && prev == value {
@@ -45,6 +36,7 @@ func (s *SessionWrapper) Put(key string, value any) {
 	s.dirty = true
 }
 
+// Get retrieves a value from the session by key. It returns the value and a boolean indicating if the key was found.
 func (s *SessionWrapper) Get(key string) (any, bool) {
 	rv, found := s.session.Values[key]
 	if !found {
@@ -59,6 +51,7 @@ func (s *SessionWrapper) Get(key string) (any, bool) {
 	return val, true
 }
 
+// GetOrElse retrieves a value from the session by key, returning an alternative value if the key is not found.
 func (s *SessionWrapper) GetOrElse(key string, alt any) any {
 	rv, found := s.Get(key)
 	if !found {
@@ -67,6 +60,7 @@ func (s *SessionWrapper) GetOrElse(key string, alt any) any {
 	return rv
 }
 
+// Delete removes a key-value pair from the session. If the key does not exist, it does nothing.
 func (s *SessionWrapper) Delete(key string) {
 	_, found := s.session.Values[key]
 	if !found {
@@ -76,10 +70,12 @@ func (s *SessionWrapper) Delete(key string) {
 	s.dirty = true
 }
 
+// Flashes retrieves and clears the flash messages from the session.
 func (s *SessionWrapper) Flashes() []interface{} {
 	return s.session.Flashes()
 }
 
+// IsDirty checks if the session has been modified since it was last saved. It returns true if the session is dirty (modified), otherwise false.
 func (s *SessionWrapper) IsDirty() bool {
 	return s.dirty
 }
