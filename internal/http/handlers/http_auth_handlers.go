@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/gob"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -8,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/cmd/options"
+	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
 	"github.com/rs/zerolog"
@@ -24,11 +26,13 @@ func IAMHandlers(
 ) error {
 	ctxRoot := httpOptions.ServeOptions.ContextRoot
 
+	gob.Register(auth.UserInfo{}) // Register UserInfo type for session storage
+
 	authRouter.HandleFunc("/login", onLogin(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
 	authRouter.HandleFunc("/logout", onLogout(sessionStore, httpOptions, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
-	// authRouter.HandleFunc("/info", onInfo(ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
-	authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
+	authRouter.HandleFunc("/info", onInfo(sessionStore, httpOptions, ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
+	// authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
 
 	return nil
 }
@@ -38,15 +42,19 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 		logger := logger.GetLogger(r.Context(), "auth")
 		logger.Trace().Msg("Logging in")
 
-		requestedURL, err := url.QueryUnescape(r.URL.Query().Get("requested_url"))
+		requestedURL, err := url.QueryUnescape(r.URL.Query().Get("redirect_to"))
 		if err != nil {
 			requestedURL = ctxRoot + "/ui"
+		}
+
+		stateFn := func() string {
+			return requestedURL
 		}
 
 		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to get session")
-			// TODO
+			rp.AuthURLHandler(stateFn, relyingParty)(w, r)
 			return
 		}
 
@@ -55,10 +63,6 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 			logger.Debug().Msg("Session is already authenticated")
 			http.Redirect(w, r, requestedURL, http.StatusFound)
 			return
-		}
-
-		stateFn := func() string {
-			return requestedURL
 		}
 
 		rp.AuthURLHandler(stateFn, relyingParty)(w, r)
@@ -104,65 +108,60 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, rel
 	}
 }
 
-// func onInfo(ctxRoot string) http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		logger := logger.GetLogger(r.Context(), "auth")
-
-// 		session, ok := session.ExtractSession(r.Context())
-// 		if !ok {
-// 			http.Error(w, "Session not found", http.StatusUnauthorized)
-// 			return
-// 		}
-
-// 		logger.Trace().Msg("Info requested")
-
-// 		_, found := session.Get("id_token")
-// 		if !found {
-// 			http.Error(w, "Auth session not found", http.StatusUnauthorized)
-// 			return
-// 		}
-
-// 		rv := &map[string]string{
-// 			"email":              session.GetOrElse("email", "").(string),
-// 			"family_name":        session.GetOrElse("family_name", "").(string),
-// 			"given_name":         session.GetOrElse("given_name", "").(string),
-// 			"name":               session.GetOrElse("name", "").(string),
-// 			"preferred_username": session.GetOrElse("preferred_username", "").(string),
-// 			"logout_url":         ctxRoot + "/auth/logout",
-// 		}
-// 		responseBody, err := json.Marshal(rv)
-// 		if err != nil {
-// 			logger.Error().Err(err).Msg("Failed to marshal response")
-// 			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-// 			return
-// 		}
-
-// 		w.Header().Set("Content-Type", "application/json")
-// 		w.WriteHeader(http.StatusOK)
-// 		w.Write(responseBody)
-// 	}
-// }
-
-func onBackChannelLogout() http.HandlerFunc {
+func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRoot string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log := logger.GetLogger(r.Context(), "auth")
+		logger := logger.GetLogger(r.Context(), "auth")
 
-		log.Debug().Msg("Back channel logout")
-
-		var body map[string]interface{}
-		err := json.NewDecoder(r.Body).Decode(&body)
+		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
 		if err != nil {
-			http.Error(w, "Failed to decode request body", http.StatusBadRequest)
+			logger.Error().Err(err).Msg("Failed to get session")
+			http.Error(w, "Failed to get session", http.StatusInternalServerError)
 			return
 		}
-		defer r.Body.Close()
 
-		log.Trace().Interface("body", body).Msg("Back channel logout")
+		logger.Trace().Msg("Info requested")
 
+		authenticated, found := session.Values["authenticated"]
+		if !found || !authenticated.(bool) {
+			logger.Debug().Msg("User is not authenticated")
+			http.Error(w, "User is not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		rv := session.Values["user_info"]
+		responseBody, err := json.Marshal(rv)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to marshal response")
+			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		w.Write(responseBody)
 	}
 }
+
+// func onBackChannelLogout() http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		log := logger.GetLogger(r.Context(), "auth")
+
+// 		log.Debug().Msg("Back channel logout")
+
+// 		var body map[string]interface{}
+// 		err := json.NewDecoder(r.Body).Decode(&body)
+// 		if err != nil {
+// 			http.Error(w, "Failed to decode request body", http.StatusBadRequest)
+// 			return
+// 		}
+// 		defer r.Body.Close()
+
+// 		log.Trace().Interface("body", body).Msg("Back channel logout")
+
+// 		w.WriteHeader(http.StatusOK)
+// 		w.Write([]byte("OK"))
+// 	}
+// }
 
 func marshalUserinfo(
 	w http.ResponseWriter,
@@ -180,12 +179,14 @@ func marshalUserinfo(
 		return
 	}
 
+	userInfo := auth.Convert(info)
 	logger.Debug().
 		Dict("tokens", zerolog.Dict().
 			Str("issuer", tokens.IDTokenClaims.Issuer).
 			Str("subject", tokens.IDTokenClaims.Subject).
 			Str("session_id", tokens.IDTokenClaims.SessionID)).
 		Str("state", state).
+		Any("user_info", userInfo).
 		Msg("On auth callback")
 
 	session, err := sessions.GetRegistry(r).Get(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name)
@@ -199,6 +200,10 @@ func marshalUserinfo(
 	session.Values["subject"] = tokens.IDTokenClaims.Subject
 	session.Values["session_id"] = tokens.IDTokenClaims.SessionID
 	session.Values["id_token"] = tokens.IDToken
+	session.Values["user_info"] = userInfo
+	session.Values["access_token"] = tokens.AccessToken
+	session.Values["refresh_token"] = tokens.RefreshToken
+	session.Values["expires_in"] = tokens.ExpiresIn
 
 	err = session.Save(r, w)
 	if err != nil {
