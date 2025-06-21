@@ -21,13 +21,13 @@ type Wrapper struct {
 	dirty bool
 }
 
-// NewSessionWrapper creates a new SessionWrapper from a Gorilla sessions.Session.
-func NewSessionWrapper(session *sessions.Session) *SessionWrapper {
-	return &SessionWrapper{session: session}
+// NewWrapper creates a new Wrapper from a Gorilla sessions.Session.
+func NewWrapper(session *sessions.Session) *Wrapper {
+	return &Wrapper{session: session}
 }
 
 // Put adds a key-value pair to the session. If the value is the same as the previous value, it does nothing.
-func (s *SessionWrapper) Put(key string, value any) {
+func (s *Wrapper) Put(key string, value any) {
 	prev, found := s.session.Values[key]
 	if found && prev == value {
 		return
@@ -37,7 +37,7 @@ func (s *SessionWrapper) Put(key string, value any) {
 }
 
 // Get retrieves a value from the session by key. It returns the value and a boolean indicating if the key was found.
-func (s *SessionWrapper) Get(key string) (any, bool) {
+func (s *Wrapper) Get(key string) (any, bool) {
 	rv, found := s.session.Values[key]
 	if !found {
 		var zero any
@@ -52,7 +52,7 @@ func (s *SessionWrapper) Get(key string) (any, bool) {
 }
 
 // GetOrElse retrieves a value from the session by key, returning an alternative value if the key is not found.
-func (s *SessionWrapper) GetOrElse(key string, alt any) any {
+func (s *Wrapper) GetOrElse(key string, alt any) any {
 	rv, found := s.Get(key)
 	if !found {
 		return alt
@@ -61,7 +61,7 @@ func (s *SessionWrapper) GetOrElse(key string, alt any) any {
 }
 
 // Delete removes a key-value pair from the session. If the key does not exist, it does nothing.
-func (s *SessionWrapper) Delete(key string) {
+func (s *Wrapper) Delete(key string) {
 	_, found := s.session.Values[key]
 	if !found {
 		return
@@ -71,11 +71,11 @@ func (s *SessionWrapper) Delete(key string) {
 }
 
 // Flashes retrieves and clears the flash messages from the session.
-func (s *SessionWrapper) Flashes() []interface{} {
+func (s *Wrapper) Flashes() []interface{} {
 	return s.session.Flashes()
 }
 
 // IsDirty checks if the session has been modified since it was last saved. It returns true if the session is dirty (modified), otherwise false.
-func (s *SessionWrapper) IsDirty() bool {
+func (s *Wrapper) IsDirty() bool {
 	return s.dirty
 }

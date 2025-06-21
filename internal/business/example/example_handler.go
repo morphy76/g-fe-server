@@ -19,11 +19,14 @@ const (
 	failedToWriteResponse = "Failed to write response"
 )
 
+// Handler registers the example module's routes with the provided API router.
 func Handler(
 	apiRouter *mux.Router,
 	feServer *server.FEServer,
 	routerLog zerolog.Logger,
 ) {
+	ctxRoot := feServer.HTTPOpts.ServeOptions.ContextRoot
+
 	exampleRouter := apiRouter.PathPrefix(modulePath).Subrouter()
 	featCtx := featContext.Context{
 		Properties: map[string]string{
@@ -37,8 +40,8 @@ func Handler(
 			Msg("Router registered")
 	}
 
-	exampleRouter.HandleFunc("/up", doUpHandler).Name("GET " + feServer.ServeOpts.ContextRoot + "/api/" + moduleName + "/up")
-	exampleRouter.HandleFunc("/down", doDownHandler).Name("GET " + feServer.ServeOpts.ContextRoot + "/api/" + moduleName + "/down")
+	exampleRouter.HandleFunc("/up", doUpHandler).Name("GET " + ctxRoot + "/api/" + moduleName + "/up")
+	exampleRouter.HandleFunc("/down", doDownHandler).Name("GET " + ctxRoot + "/api/" + moduleName + "/down")
 
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().

@@ -52,8 +52,10 @@ func initializeTheNonFunctionalRouter(
 	// add non functional endopints
 	// - health checks
 
-	nonFunctionalRouter := rootRouter.PathPrefix(feServer.ServeOpts.NonFunctionalRoot).Subrouter()
-	err := enrichNonFunctionalRequestContext(nonFunctionalRouter, appContext)
+	nfRoot := feServer.HTTPOpts.ServeOptions.NonFunctionalRoot
+
+	nonFunctionalRouter := rootRouter.PathPrefix(nfRoot).Subrouter()
+	err := enrichNonFunctionalRequestContext(appContext, nonFunctionalRouter)
 	if err != nil {
 		return fmt.Errorf("failed to enrich non-functional request context: %w", err)
 	}
@@ -62,7 +64,7 @@ func initializeTheNonFunctionalRouter(
 			Msg("Non functional router registered")
 	}
 
-	err = HandleHealth(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot, feServer.HealthChecksFn)
+	err = HandleHealth(appContext, nonFunctionalRouter, nfRoot, feServer.HealthChecksFn)
 	if err != nil {
 		return fmt.Errorf("failed to register health handler: %w", err)
 	}
@@ -75,7 +77,7 @@ func initializeTheNonFunctionalRouter(
 	return nil
 }
 
-func enrichNonFunctionalRequestContext(router *mux.Router, appContext context.Context) error {
+func enrichNonFunctionalRequestContext(appContext context.Context, router *mux.Router) error {
 
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -111,8 +113,10 @@ func initializeTheFunctionalRouter(
 	// - TODO: RBAC
 	// - TODO: tenant resolution
 
-	contextRouter := rootRouter.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
-	err := enrichFunctionalRequestContext(contextRouter, appContext)
+	ctxRoot := feServer.HTTPOpts.ServeOptions.ContextRoot
+
+	contextRouter := rootRouter.PathPrefix(ctxRoot).Subrouter()
+	err := enrichFunctionalRequestContext(appContext, contextRouter)
 	if err != nil {
 		return fmt.Errorf("failed to enrich functional request context: %w", err)
 	}
@@ -121,7 +125,7 @@ func initializeTheFunctionalRouter(
 			Msg("Context router registered")
 	}
 
-	err = HandleOpenAPI(contextRouter, feServer.ServeOpts.ContextRoot)
+	err = HandleOpenAPI(contextRouter, ctxRoot)
 	if err != nil {
 		return fmt.Errorf("failed to register OpenAPI handler: %w", err)
 	}
@@ -142,8 +146,8 @@ func initializeTheFunctionalRouter(
 }
 
 func enrichFunctionalRequestContext(
-	router *mux.Router,
 	appContext context.Context,
+	router *mux.Router,
 ) error {
 
 	router.Use(func(next http.Handler) http.Handler {
@@ -175,7 +179,7 @@ func addAuthHandlers(
 		routerLog.Trace().
 			Msg("Auth router registered")
 	}
-	err := IAMHandlers(authRouter, feServer.ServeOpts, feServer.RelayingParty)
+	err := IAMHandlers(authRouter, feServer.HTTPOpts.ServeOptions, feServer.RelayingParty)
 	if err != nil {
 		return fmt.Errorf("failed to register IAM handlers: %w", err)
 	}
@@ -196,14 +200,14 @@ func addUIHandlers(
 	// - TODO: static content of MFEs
 
 	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
-	staticRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
+	staticRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name))
 	staticRouter.Use(auth.IsAuthenticated(feServer.RelayingParty, feServer.ResourceServer))
 
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Static router registered")
 	}
-	err := HandleStatic(staticRouter, feServer.ServeOpts.ContextRoot, feServer.ServeOpts.StaticPath)
+	err := HandleStatic(staticRouter, feServer.HTTPOpts.ServeOptions.ContextRoot, feServer.HTTPOpts.ServeOptions.StaticPath)
 	if err != nil {
 		return fmt.Errorf("failed to register static handler: %w", err)
 	}
@@ -223,7 +227,7 @@ func addAPIHandlers(
 	// - Resource modules bindings
 
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
-	apiRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
+	apiRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name))
 	apiRouter.Use(auth.IsAuthenticated(feServer.RelayingParty, feServer.ResourceServer))
 	apiRouter.Use(setJSONResponse)
 

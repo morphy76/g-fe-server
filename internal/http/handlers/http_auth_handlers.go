@@ -193,10 +193,10 @@ func marshalUserinfo(
 			Str("subject", tokens.IDTokenClaims.Subject).
 			Str("session_id", tokens.IDTokenClaims.SessionID)).
 		Msg("On auth callback")
-	session, err := feServer.SessionStore.New(r, feServer.SessionName)
+	session, err := feServer.SessionStore.New(r, feServer.HTTPOpts.SessionOptions.Name)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create session")
-		onLogout(feServer.ServeOpts, provider)(w, r)
+		onLogout(feServer.HTTPOpts.ServeOptions, provider)(w, r)
 	}
 
 	session.Values["authenticated"] = true
@@ -204,7 +204,7 @@ func marshalUserinfo(
 	err = session.Save(r, w)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to save session")
-		onLogout(feServer.ServeOpts, provider)(w, r)
+		onLogout(feServer.HTTPOpts.ServeOptions, provider)(w, r)
 	}
 
 	// session.Put("access_token", tokens.AccessToken)

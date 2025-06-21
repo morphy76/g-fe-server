@@ -19,9 +19,8 @@ import (
 
 func bindInfrastructuralDependencies(
 	feServer *FEServer,
-	serveOpts *options.ServeOptions,
+	httpOpts *options.HTTPOptions,
 	oidcOptions *auth.OIDCOptions,
-	sessionOptions *session.SessionOptions,
 	integrationsOptions *options.IntegrationOptions,
 ) error {
 
@@ -33,12 +32,12 @@ func bindInfrastructuralDependencies(
 		feServer.ShutdownFn = append(feServer.ShutdownFn, otelShutdown)
 	}
 
-	err = bindOIDC(feServer, serveOpts, oidcOptions)
+	err = bindOIDC(feServer, httpOpts.ServeOptions, oidcOptions)
 	if err != nil {
 		return fmt.Errorf("failed to bind OIDC: %w", err)
 	}
 
-	err = bindSessionStore(feServer, serveOpts, sessionOptions, integrationsOptions.DBOptions)
+	err = bindSessionStore(feServer, httpOpts, integrationsOptions.DBOptions)
 	if err != nil {
 		return fmt.Errorf("failed to bind session store: %w", err)
 	}
@@ -121,15 +120,10 @@ func bindMongoDB(feServer *FEServer, err error, dbOptions *options.MongoDBOption
 
 func bindSessionStore(
 	feServer *FEServer,
-	serveOpts *options.ServeOptions,
-	sessionOptions *session.SessionOptions,
+	httpOpts *options.HTTPOptions,
 	dbOptions *options.MongoDBOptions,
 ) error {
-	feServer.SessionName = sessionOptions.Name
-	feServer.SessionOptions = sessionOptions
-	feServer.SessionOptions.Path = serveOpts.ContextRoot
-
-	sessionStore, shutdownFn, err := session.CreateSessionStore(sessionOptions, dbOptions, serveOpts.ContextRoot)
+	sessionStore, shutdownFn, err := session.CreateSessionStore(httpOpts.SessionOptions, dbOptions, httpOpts.ServeOptions.ContextRoot)
 	if err != nil {
 		return err
 	}

@@ -152,8 +152,7 @@ func startServer(
 
 	// Server application context which provides the feServer instance and log facilities
 	appContext, cancel, err := createAppContext(
-		serveOptions,
-		sessionOptions,
+		httpOptions,
 		oidcOptions,
 		integrationOptions,
 		trace,
@@ -218,8 +217,7 @@ func createAppContext(
 	appContext := logger.InitLogger(context.Background(), trace)
 	appContext, err := server.NewFEServer(
 		appContext,
-		serveOpts,
-		sessionOptions,
+		httpOptions,
 		oidcOptions,
 		integrationOptions,
 	)

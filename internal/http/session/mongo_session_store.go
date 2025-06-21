@@ -10,8 +10,9 @@ import (
 	"github.com/morphy76/g-fe-server/internal/http/session/mongostore"
 )
 
+// CreateSessionStore initializes a MongoDB session store with the provided options and returns it along with a shutdown function.
 func CreateSessionStore(
-	sessionOptions *SessionOptions,
+	sessionOptions *options.SessionOptions,
 	dbOptions *options.MongoDBOptions,
 	contextRoot string,
 ) (sessions.Store, func() error, error) {
