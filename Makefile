@@ -53,10 +53,10 @@ run-server:
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS)
 
 run-ssl-server:
-	@TMPDIR=$$(mktemp -d)
+	@TMPDIR=$$(mktemp -d) && \
 	openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
     -keyout $$TMPDIR/server.key -out $$TMPDIR/server.crt \
-    -subj "/CN=localhost"
+    -subj "/CN=localhost" && \
 	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) \
     $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS) \
     -protocol=https -tls-cert=$$TMPDIR/server.crt -tls-key=$$TMPDIR/server.key
@@ -89,3 +89,11 @@ run-docker:
     -e UNLEASH_ENABLED=true -e UNLEASH_URL=http://localhost:4242/api -e UNLEASH_APP_NAME=fe-server -e UNLEASH_TOKEN=default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617 \
      -e AIW_FQDN=http://localhost:3000/fe \
     $(SERVER_DEPLOY_TAG)
+
+start-deps:
+	@echo "Starting dependencies using Docker Compose..."
+	@$(DOCKER) compose -p gfe -f ./tools/compose/docker-compose.yml up -d
+
+stop-deps:
+	@echo "Stopping dependencies..."
+	@$(DOCKER) compose -p gfe -f ./tools/compose/docker-compose.yml down

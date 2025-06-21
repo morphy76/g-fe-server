@@ -3,8 +3,8 @@ services:
   # Databases
 
   go_db:
-    image: mongo:7.0
-    platform: linux/arm64/v8
+    image: mongo:8
+    platform: linux/amd64
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: go_root
@@ -19,7 +19,7 @@ services:
       - fe-private-network
 
   relational-db:
-    image: postgres:17.4
+    image: postgres:17
     platform: linux/amd64
     restart: unless-stopped
     environment:
@@ -35,8 +35,8 @@ services:
   # Infrastructural services
 
   iam:
-    image: quay.io/keycloak/keycloak:26.0
-    platform: linux/arm64
+    image: quay.io/keycloak/keycloak:26.2
+    platform: linux/amd64
     restart: unless-stopped
     command:
       - start-dev
@@ -44,14 +44,13 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-      JAVA_OPTS_APPEND: "-XX:UseSVE=0"
     volumes:
       - ./imports/realm:/opt/keycloak/data/import
     network_mode: "host"
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.120.0
-    platform: linux/arm64
+    image: otel/opentelemetry-collector-contrib:latest
+    platform: linux/amd64
     volumes:
       - ./imports/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
     ports:
@@ -60,7 +59,7 @@ services:
       - fe-private-network
 
   unleash-edge:
-    image: unleashorg/unleash-edge:v19.7
+    image: unleashorg/unleash-edge:v19.11
     platform: linux/amd64
     command: ["edge"]
     restart: unless-stopped
@@ -89,7 +88,7 @@ services:
       - fe-private-network
 
   prometheus:
-    image: prom/prometheus:v3.2.1
+    image: prom/prometheus:v3.4.1
     platform: linux/amd64
     restart: unless-stopped
     volumes:
@@ -105,7 +104,7 @@ services:
   # Development tools
 
   unleash:
-    image: unleashorg/unleash-server:6.7
+    image: unleashorg/unleash-server:7
     platform: linux/amd64
     restart: unless-stopped
     ports:
@@ -123,7 +122,7 @@ services:
       - fe-private-network
 
   pgcli:
-    image: dpage/pgadmin4:9.1
+    image: dpage/pgadmin4:latest
     platform: linux/amd64
     restart: unless-stopped
     depends_on:
@@ -141,7 +140,7 @@ services:
 
   mongo-express:
     image: mongo-express:latest
-    platform: linux/arm64/v8
+    platform: linux/amd64
     restart: unless-stopped
     ports:
       - 8081:8081
