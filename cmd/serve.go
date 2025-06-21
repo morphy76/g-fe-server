@@ -67,6 +67,7 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
+	sessionOptions.Path = serveOptions.ContextRoot
 
 	oidcOptions, err := oidcOptionsBuilder()
 	if err != nil {

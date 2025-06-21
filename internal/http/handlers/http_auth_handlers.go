@@ -6,8 +6,8 @@ import (
 	"net/url"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/cmd/options"
-	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
 	"github.com/rs/zerolog"
@@ -26,7 +26,7 @@ func IAMHandlers(
 	authRouter.HandleFunc("/login", onLogin(ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
 	authRouter.HandleFunc("/logout", onLogout(serveOptions, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
-	authRouter.HandleFunc("/info", onInfo(ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
+	// authRouter.HandleFunc("/info", onInfo(ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
 	authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
 
 	return nil
@@ -107,44 +107,44 @@ func onLogout(serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) 
 	}
 }
 
-func onInfo(ctxRoot string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		logger := logger.GetLogger(r.Context(), "auth")
+// func onInfo(ctxRoot string) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		logger := logger.GetLogger(r.Context(), "auth")
 
-		session, ok := session.ExtractSession(r.Context())
-		if !ok {
-			http.Error(w, "Session not found", http.StatusUnauthorized)
-			return
-		}
+// 		session, ok := session.ExtractSession(r.Context())
+// 		if !ok {
+// 			http.Error(w, "Session not found", http.StatusUnauthorized)
+// 			return
+// 		}
 
-		logger.Trace().Msg("Info requested")
+// 		logger.Trace().Msg("Info requested")
 
-		_, found := session.Get("id_token")
-		if !found {
-			http.Error(w, "Auth session not found", http.StatusUnauthorized)
-			return
-		}
+// 		_, found := session.Get("id_token")
+// 		if !found {
+// 			http.Error(w, "Auth session not found", http.StatusUnauthorized)
+// 			return
+// 		}
 
-		rv := &map[string]string{
-			"email":              session.GetOrElse("email", "").(string),
-			"family_name":        session.GetOrElse("family_name", "").(string),
-			"given_name":         session.GetOrElse("given_name", "").(string),
-			"name":               session.GetOrElse("name", "").(string),
-			"preferred_username": session.GetOrElse("preferred_username", "").(string),
-			"logout_url":         ctxRoot + "/auth/logout",
-		}
-		responseBody, err := json.Marshal(rv)
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to marshal response")
-			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-			return
-		}
+// 		rv := &map[string]string{
+// 			"email":              session.GetOrElse("email", "").(string),
+// 			"family_name":        session.GetOrElse("family_name", "").(string),
+// 			"given_name":         session.GetOrElse("given_name", "").(string),
+// 			"name":               session.GetOrElse("name", "").(string),
+// 			"preferred_username": session.GetOrElse("preferred_username", "").(string),
+// 			"logout_url":         ctxRoot + "/auth/logout",
+// 		}
+// 		responseBody, err := json.Marshal(rv)
+// 		if err != nil {
+// 			logger.Error().Err(err).Msg("Failed to marshal response")
+// 			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+// 			return
+// 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(responseBody)
-	}
-}
+// 		w.Header().Set("Content-Type", "application/json")
+// 		w.WriteHeader(http.StatusOK)
+// 		w.Write(responseBody)
+// 	}
+// }
 
 func onBackChannelLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -195,7 +195,7 @@ func marshalUserinfo(
 		Str("state", state).
 		Msg("On auth callback")
 
-	session, err := feServer.SessionStore.New(r, feServer.HTTPOpts.SessionOptions.Name)
+	session, err := sessions.GetRegistry(r).Get(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create session")
 		onLogout(feServer.HTTPOpts.ServeOptions, provider)(w, r)

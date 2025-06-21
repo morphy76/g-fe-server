@@ -3,13 +3,15 @@ package auth
 import (
 	"net/http"
 
-	"github.com/morphy76/g-fe-server/internal/http/session"
+	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
 )
 
 func isAuthenticatedBySession(
+	sessionStore sessions.Store,
+	sessionName string,
 	relyingParty rp.RelyingParty,
 	next http.Handler,
 ) http.Handler {
@@ -21,15 +23,15 @@ func isAuthenticatedBySession(
 			return r.URL.String()
 		}
 
-		useSession, ok := session.ExtractSession(r.Context())
-		if !ok {
+		useSession, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
+		if err != nil {
 			useLogger.Error().Msg("Failed to extract session")
 			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
 			return
 		}
 
-		isAuth := useSession.GetOrElse("authenticated", false)
-		if isAuth.(bool) {
+		isAuth, found := useSession.Values["authenticated"]
+		if found && isAuth.(bool) {
 			next.ServeHTTP(w, r)
 		} else {
 			useLogger.Debug().Msg("Session is not authenticated")
@@ -68,12 +70,15 @@ func isAuthenticateByBearerToken(
 	})
 }
 
+// IsAuthenticated checks if the user is authenticated by session and bearer token.
 func IsAuthenticated(
+	sessionStore sessions.Store,
+	sessionName string,
 	rp rp.RelyingParty,
 	rs rs.ResourceServer,
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(rp, next))
+		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(sessionStore, sessionName, rp, next))
 	}
 }
 

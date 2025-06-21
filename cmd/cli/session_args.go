@@ -85,15 +85,16 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 		if !found {
 			strSessionSameSite = *sessionSameSiteArg
 		}
-		if strSessionSameSite == "Lax" {
+		switch strSessionSameSite {
+		case "Lax":
 			useSessionSameSite = http.SameSiteLaxMode
-		} else if strSessionSameSite == "Strict" {
+		case "Strict":
 			useSessionSameSite = http.SameSiteStrictMode
-		} else if strSessionSameSite == "None" {
+		case "None":
 			useSessionSameSite = http.SameSiteNoneMode
-		} else if strSessionSameSite == "Default" {
+		case "Default":
 			useSessionSameSite = http.SameSiteDefaultMode
-		} else {
+		default:
 			return nil, ErrInvalidSessionSameSite
 		}
 

@@ -11,7 +11,6 @@ import (
 
 	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/business/example"
-	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
 )
@@ -200,8 +199,12 @@ func addUIHandlers(
 	// - TODO: static content of MFEs
 
 	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
-	staticRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name))
-	staticRouter.Use(auth.IsAuthenticated(feServer.RelayingParty, feServer.ResourceServer))
+	staticRouter.Use(auth.IsAuthenticated(
+		feServer.SessionStore,
+		feServer.HTTPOpts.SessionOptions.Name,
+		feServer.RelayingParty,
+		feServer.ResourceServer,
+	))
 
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
@@ -227,8 +230,12 @@ func addAPIHandlers(
 	// - Resource modules bindings
 
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
-	apiRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name))
-	apiRouter.Use(auth.IsAuthenticated(feServer.RelayingParty, feServer.ResourceServer))
+	apiRouter.Use(auth.IsAuthenticated(
+		feServer.SessionStore,
+		feServer.HTTPOpts.SessionOptions.Name,
+		feServer.RelayingParty,
+		feServer.ResourceServer,
+	))
 	apiRouter.Use(setJSONResponse)
 
 	err := bindModules(apiRouter, feServer, routerLog)
