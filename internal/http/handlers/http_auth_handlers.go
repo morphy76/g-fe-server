@@ -18,25 +18,43 @@ import (
 // IAMHandlers registers the IAM authentication handlers
 func IAMHandlers(
 	authRouter *mux.Router,
-	serveOptions *options.ServeOptions,
+	httpOptions *options.HTTPOptions,
+	sessionStore sessions.Store,
 	relyingParty rp.RelyingParty,
 ) error {
-	ctxRoot := serveOptions.ContextRoot
+	ctxRoot := httpOptions.ServeOptions.ContextRoot
 
-	authRouter.HandleFunc("/login", onLogin(ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
+	authRouter.HandleFunc("/login", onLogin(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
-	authRouter.HandleFunc("/logout", onLogout(serveOptions, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
+	authRouter.HandleFunc("/logout", onLogout(sessionStore, httpOptions, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
 	// authRouter.HandleFunc("/info", onInfo(ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
 	authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
 
 	return nil
 }
 
-func onLogin(ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
+func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger := logger.GetLogger(r.Context(), "auth")
+		logger.Trace().Msg("Logging in")
+
 		requestedURL, err := url.QueryUnescape(r.URL.Query().Get("requested_url"))
 		if err != nil {
 			requestedURL = ctxRoot + "/ui"
+		}
+
+		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to get session")
+			// TODO
+			return
+		}
+
+		isAuth, found := session.Values["authenticated"]
+		if found && isAuth.(bool) {
+			logger.Debug().Msg("Session is already authenticated")
+			http.Redirect(w, r, requestedURL, http.StatusFound)
+			return
 		}
 
 		stateFn := func() string {
@@ -47,63 +65,42 @@ func onLogin(ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
 	}
 }
 
-func onLogout(serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) http.HandlerFunc {
+func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, relyingParty rp.RelyingParty) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// logger := logger.GetLogger(r.Context(), "auth")
-		// logger.Trace().Msg("Logging out")
+		logger := logger.GetLogger(r.Context(), "auth")
+		logger.Trace().Msg("Logging out")
 
-		// session := session.ExtractSession(r.Context())
+		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to get session")
+			// TODO
+			return
+		}
 
-		// logger.Trace().Msg("Start logging out")
+		issuer := session.Values["issuer"]
+		subject := session.Values["subject"]
+		sid := session.Values["session_id"]
+		idToken := session.Values["id_token"]
+		logger.Trace().
+			Interface("issuer", issuer).
+			Interface("subject", subject).
+			Interface("session_id", sid).
+			Interface("id_token", idToken).
+			Msg("Start logging out")
 
-		// backTo := fmt.Sprintf(
-		// 	"%s://%s:%s/%s/ui/",
-		// 	serveOptions.Protocol,
-		// 	serveOptions.Host,
-		// 	serveOptions.Port,
-		// 	serveOptions.ContextRoot,
-		// )
+		session.Options.MaxAge = -1
 
-		// idToken, _ := session.Get("id_token")
-		// if idToken == nil {
-		// 	authURL := fmt.Sprintf(
-		// 		"%s://%s:%s/%s/auth/login",
-		// 		serveOptions.Protocol,
-		// 		serveOptions.Host,
-		// 		serveOptions.Port,
-		// 		serveOptions.ContextRoot,
-		// 	)
+		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), "", "")
+		if err != nil {
+			logger.Error().Err(err).Msg("End session failed")
+			// TODO
+			return
+		}
+		logger.Trace().
+			Any("to url", url).
+			Msg("Auth session deleted")
 
-		// 	w.Header().Set("Cache-Control", "no-cache")
-		// 	http.Redirect(w, r, authURL, http.StatusFound)
-		// 	return
-		// }
-
-		// // session.Options.MaxAge = -1
-		// // delete(session.Values, "id_token")
-		// // session.Save(r, w)
-		// // sessionState, found := session.Values["session_state"]
-
-		// var url *url.URL
-		// var err error
-		// // if found {
-		// // 	url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, sessionState.(string))
-		// // } else {
-		// url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, "")
-		// // }
-		// if err != nil {
-		// 	logger.Error().Err(err).Msg("End session failed")
-		// 	http.Error(w, "End session failed", http.StatusInternalServerError)
-		// 	return
-		// }
-		// logger.Trace().
-		// 	Any("to url", url).
-		// 	Msg("Auth session deleted")
-
-		// w.Header().Set("Cache-Control", "no-cache")
-		// http.Redirect(w, r, url.String(), http.StatusFound)
-
-		w.Write([]byte("OK"))
+		http.Redirect(w, r, url.String(), http.StatusFound)
 	}
 }
 
@@ -175,10 +172,6 @@ func marshalUserinfo(
 	provider rp.RelyingParty,
 	info *oidc.UserInfo,
 ) {
-
-	// tokens.IDTokenClaims.Issuer
-	// tokens.IDTokenClaims.Subject
-	// tokens.IDTokenClaims.SessionID
 	logger := logger.GetLogger(r.Context(), "auth")
 	feServer, err := server.ExtractFEServer(r.Context())
 	if err != nil {
@@ -198,25 +191,20 @@ func marshalUserinfo(
 	session, err := sessions.GetRegistry(r).Get(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create session")
-		onLogout(feServer.HTTPOpts.ServeOptions, provider)(w, r)
+		onLogout(feServer.SessionStore, feServer.HTTPOpts, provider)(w, r)
 	}
 
 	session.Values["authenticated"] = true
+	session.Values["issuer"] = tokens.IDTokenClaims.Issuer
+	session.Values["subject"] = tokens.IDTokenClaims.Subject
+	session.Values["session_id"] = tokens.IDTokenClaims.SessionID
+	session.Values["id_token"] = tokens.IDToken
 
 	err = session.Save(r, w)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to save session")
-		onLogout(feServer.HTTPOpts.ServeOptions, provider)(w, r)
+		onLogout(feServer.SessionStore, feServer.HTTPOpts, provider)(w, r)
 	}
-
-	// session.Put("access_token", tokens.AccessToken)
-	// session.Put("refresh_token", tokens.RefreshToken)
-	// session.Put("id_token", tokens.IDToken)
-	// session.Put("email", info.Email)
-	// session.Put("family_name", info.FamilyName)
-	// session.Put("given_name", info.GivenName)
-	// session.Put("name", info.Name)
-	// session.Put("preferred_username", info.PreferredUsername)
 
 	logger.Trace().Msg("Auth session saved")
 

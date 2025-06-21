@@ -14,15 +14,21 @@ import (
 )
 
 var (
-	ErrInvalidId = errors.New("mongostore: invalid session id")
+	// ErrInvalidID is returned when an invalid session ID is encountered.
+	ErrInvalidID = errors.New("mongostore: invalid session id")
 )
 
+// Session represents a session stored in MongoDB.
 type Session struct {
-	Id       bson.ObjectID `bson:"_id,omitempty"`
-	Data     string
+	// Id is the unique identifier for the session, stored as an ObjectID.
+	ID bson.ObjectID `bson:"_id,omitempty"`
+	// Data is the encoded session data.
+	Data string
+	// Modified is the timestamp when the session was last modified.
 	Modified time.Time
 }
 
+// MongoStore is a session store that uses MongoDB to store session data.
 type MongoStore struct {
 	Codecs  []securecookie.Codec
 	Options *sessions.Options
@@ -30,10 +36,10 @@ type MongoStore struct {
 	coll    *mongo.Collection
 }
 
+// NewMongoStore creates a new MongoStore instance with the provided MongoDB collection and session options.
 func NewMongoStore(
 	c *mongo.Collection,
 	sessionOptions *sessions.Options,
-	ensureTTL bool,
 	keyPairs ...[]byte,
 ) *MongoStore {
 	store := &MongoStore{
@@ -45,28 +51,41 @@ func NewMongoStore(
 
 	store.MaxAge(sessionOptions.MaxAge)
 
-	if ensureTTL {
-		expireAfter := time.Duration(sessionOptions.MaxAge) * time.Second
+	var ttlInSeconds int
+	if sessionOptions.MaxAge > 0 {
+		ttlInSeconds = sessionOptions.MaxAge
+	} else {
+		ttlInSeconds = 24 * 60 * 60
+	}
+	if ttlInSeconds > 0 {
+		go func() {
+			expireAfter := time.Duration(ttlInSeconds) * time.Second
 
-		indexModel := mongo.IndexModel{
-			Keys:    bson.M{"modified": 1},
-			Options: options.Index().SetExpireAfterSeconds(int32(expireAfter.Seconds())),
-		}
+			expirationIndexModel := mongo.IndexModel{
+				Keys: bson.M{"modified": 1},
+				Options: options.Index().
+					SetExpireAfterSeconds(int32(expireAfter.Seconds())).
+					SetName("session_expire_index"),
+			}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-		c.Indexes().CreateOne(ctx, indexModel)
+			c.Indexes().DropOne(ctx, "session_expire_index")
+			c.Indexes().CreateOne(ctx, expirationIndexModel)
+		}()
 	}
 
 	return store
 }
 
+// Get retrieves a session by name from the request.
 func (m *MongoStore) Get(r *http.Request, name string) (
 	*sessions.Session, error) {
 	return sessions.GetRegistry(r).Get(m, name)
 }
 
+// New creates a new session with the given name. If a session already exists
 func (m *MongoStore) New(r *http.Request, name string) (
 	*sessions.Session, error) {
 	session := sessions.NewSession(m, name)
@@ -95,6 +114,7 @@ func (m *MongoStore) New(r *http.Request, name string) (
 	return session, err
 }
 
+// Save saves the session to the MongoDB collection and sets the session cookie in the response.
 func (m *MongoStore) Save(r *http.Request, w http.ResponseWriter,
 	session *sessions.Session) error {
 	if session.Options.MaxAge < 0 {
@@ -123,6 +143,7 @@ func (m *MongoStore) Save(r *http.Request, w http.ResponseWriter,
 	return nil
 }
 
+// MaxAge sets the maximum age for the session cookies and updates the codecs accordingly.
 func (m *MongoStore) MaxAge(age int) {
 	m.Options.MaxAge = age
 
@@ -176,13 +197,13 @@ func (m *MongoStore) upsert(session *sessions.Session) error {
 	}
 
 	s := Session{
-		Id:       objID,
+		ID:       objID,
 		Data:     encoded,
 		Modified: modified,
 	}
 
 	opts := options.UpdateOne().SetUpsert(true)
-	filter := bson.M{"_id": s.Id}
+	filter := bson.M{"_id": s.ID}
 	updateData := bson.M{"$set": s}
 
 	if _, err = m.coll.UpdateOne(context.Background(), filter, updateData, opts); err != nil {

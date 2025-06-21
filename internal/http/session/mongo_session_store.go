@@ -49,7 +49,6 @@ func CreateSessionStore(
 	store := mongostore.NewMongoStore(
 		client.Database(dbName).Collection("http_sessions"),
 		useOptions,
-		true,
 		[]byte(sessionOptions.Key),
 	)
 

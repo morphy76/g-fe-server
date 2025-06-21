@@ -9,6 +9,18 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
 )
 
+// IsAuthenticated checks if the user is authenticated by session and bearer token.
+func IsAuthenticated(
+	sessionStore sessions.Store,
+	sessionName string,
+	rp rp.RelyingParty,
+	rs rs.ResourceServer,
+) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(sessionStore, sessionName, rp, next))
+	}
+}
+
 func isAuthenticatedBySession(
 	sessionStore sessions.Store,
 	sessionName string,
@@ -68,18 +80,6 @@ func isAuthenticateByBearerToken(
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-// IsAuthenticated checks if the user is authenticated by session and bearer token.
-func IsAuthenticated(
-	sessionStore sessions.Store,
-	sessionName string,
-	rp rp.RelyingParty,
-	rs rs.ResourceServer,
-) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(sessionStore, sessionName, rp, next))
-	}
 }
 
 // const authLogout = "/auth/logout"
