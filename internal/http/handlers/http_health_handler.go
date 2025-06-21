@@ -18,7 +18,7 @@ func HandleHealth(
 	parent *mux.Router,
 	ctxRoot string,
 	additionalChecks []health.AdditionalCheckFn,
-) {
+) error {
 	healthRouter := parent.PathPrefix("/health").Subrouter()
 	healthRouter.Use(setJSONResponse)
 
@@ -40,6 +40,8 @@ func HandleHealth(
 
 	readyRouter := healthRouter.PathPrefix("/ready").Subrouter()
 	readyRouter.Methods(http.MethodGet).HandlerFunc(onHealth(readyChecks)).Name("GET " + ctxRoot + "/health/ready")
+
+	return nil
 }
 
 func onHealth(additionalChecks []health.HealthCheckFn) http.HandlerFunc {

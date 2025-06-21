@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -26,7 +27,6 @@ const (
 )
 
 func main() {
-	// Gather startup flags
 
 	trace := flag.Bool("trace", false, "sets log level to trace. Environment: "+envEnableTrace)
 	envTrace, found := os.LookupEnv(envEnableTrace)
@@ -121,13 +121,19 @@ func main() {
 		AIWOptions:     AIWOptions,
 	}
 
-	startServer(
+	err = startServer(
 		serveOptions,
 		sessionOptions,
 		oidcOptions,
 		integrationOptions,
 		trace,
 	)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error starting server")
+		os.Exit(1)
+	}
 }
 
 func startServer(
@@ -136,20 +142,24 @@ func startServer(
 	oidcOptions *auth.OIDCOptions,
 	integrationOptions *options.IntegrationOptions,
 	trace *bool,
-) {
+) error {
 	// manage termination criteria and channels
 	srvErr := make(chan error, 1)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Server application context which provides the feServer instance and log facilities
-	appContext, cancel := createAppContext(
+	appContext, cancel, err := createAppContext(
 		serveOptions,
 		sessionOptions,
 		oidcOptions,
 		integrationOptions,
 		trace,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to create application context: %w", err)
+	}
+
 	bootLogger := logger.GetLogger(appContext, "feServer")
 
 	// Server routes
@@ -166,7 +176,12 @@ func startServer(
 
 	// Start the HTTP server
 	go func() {
-		srvErr <- server.ExtractFEServer(appContext).ListenAndServe(appContext, rootRouter)
+		feServer, err := server.ExtractFEServer(appContext)
+		if err != nil {
+			srvErr <- fmt.Errorf("failed to extract FEServer from context: %w", err)
+			return
+		}
+		srvErr <- feServer.ListenAndServe(appContext, rootRouter)
 	}()
 
 	// Wait for termination signal
@@ -177,12 +192,17 @@ func startServer(
 			cancel()
 		// HTTP server error
 		case err := <-srvErr:
-			bootLogger.Err(err).Msg("Fail to start server")
+			bootLogger.Err(err).Msg("Server error")
 			cancel()
 		// Application context termination, triggered by OS signal or HTTP server error
 		case <-appContext.Done():
-			server.ExtractFEServer(appContext).Shutdown(appContext)
-			return
+			feServer, err := server.ExtractFEServer(appContext)
+			if err != nil {
+				bootLogger.Err(err).Msg("Server termination error")
+				return nil
+			}
+			feServer.Shutdown(appContext)
+			return nil
 		}
 	}
 }
@@ -193,46 +213,19 @@ func createAppContext(
 	oidcOptions *auth.OIDCOptions,
 	integrationOptions *options.IntegrationOptions,
 	trace *bool,
-) (context.Context, context.CancelFunc) {
-	// as server application, the context is enriched with logger and server instance
-	// the logger is structured, attributes are in the structure when resonable
-	/*
-		{
-			"timing": {
-				"timestamp": "",
-				"since_start_ms": ""
-			},
-			"category": "",
-			"owner": {
-				"tenant_id": "",
-				"subscription_id": "",
-				"group_id": "",
-				"system": false
-			},
-			"correlation": {
-				"span_id": "",
-				"trace_id": ""
-			},
-			"request": {
-				"method": "",
-				"path": "",
-				"duration_ns": 0,
-				"code": 200
-			}
-		}
-	*/
+) (context.Context, context.CancelFunc, error) {
 	appContext := logger.InitLogger(context.Background(), trace)
-	// as server application, the context is enriched with server instance
-	// the server instance is the main entry point for the server application
-	// it is used to start the server, register routes, and shutdown the server
-	// it provides the HTTP server, with HTTP session, the OIDC client, and the database client
-	appContext = server.NewFEServer(
+	appContext, err := server.NewFEServer(
 		appContext,
 		serveOpts,
 		sessionOptions,
 		oidcOptions,
 		integrationOptions,
 	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create FEServer: %w", err)
+	}
 
-	return context.WithCancel(appContext)
+	rv, cancelFn := context.WithCancel(appContext)
+	return rv, cancelFn, nil
 }

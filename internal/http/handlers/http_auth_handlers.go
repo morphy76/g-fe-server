@@ -16,7 +16,11 @@ import (
 )
 
 // IAMHandlers registers the IAM authentication handlers
-func IAMHandlers(authRouter *mux.Router, serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) {
+func IAMHandlers(
+	authRouter *mux.Router,
+	serveOptions *options.ServeOptions,
+	relyingParty rp.RelyingParty,
+) error {
 	ctxRoot := serveOptions.ContextRoot
 
 	authRouter.HandleFunc("/login", onLogin(ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
@@ -24,6 +28,8 @@ func IAMHandlers(authRouter *mux.Router, serveOptions *options.ServeOptions, rel
 	authRouter.HandleFunc("/logout", onLogout(serveOptions, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
 	authRouter.HandleFunc("/info", onInfo(ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
 	authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
+
+	return nil
 }
 
 func onLogin(ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
@@ -103,8 +109,13 @@ func onLogout(serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) 
 
 func onInfo(ctxRoot string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session := session.ExtractSession(r.Context())
 		logger := logger.GetLogger(r.Context(), "auth")
+
+		session, ok := session.ExtractSession(r.Context())
+		if !ok {
+			http.Error(w, "Session not found", http.StatusUnauthorized)
+			return
+		}
 
 		logger.Trace().Msg("Info requested")
 
@@ -169,7 +180,12 @@ func marshalUserinfo(
 	// tokens.IDTokenClaims.Subject
 	// tokens.IDTokenClaims.SessionID
 	logger := logger.GetLogger(r.Context(), "auth")
-	feServer := server.ExtractFEServer(r.Context())
+	feServer, err := server.ExtractFEServer(r.Context())
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to extract FEServer from context")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 
 	logger.Debug().
 		Dict("tokens", zerolog.Dict().
@@ -184,32 +200,12 @@ func marshalUserinfo(
 	}
 
 	session.Values["authenticated"] = true
-	session.AddFlash("You are now logged in")
 
 	err = session.Save(r, w)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to save session")
 		onLogout(feServer.ServeOpts, provider)(w, r)
 	}
-	// cookieValue := map[string]string{
-	// 	"session_name": sessionName,
-	// }
-	// encodedCookieValue, err := feServer.CookieStore.Encode(feServer.SessionName, cookieValue)
-	// if err != nil {
-	// 	logger.Error().Err(err).Msg("Failed to encode cookie value")
-	// 	onLogout(feServer.ServeOpts, provider)(w, r)
-	// }
-	// cookie := &http.Cookie{
-	// 	Name:     feServer.SessionOptions.Name,
-	// 	Value:    encodedCookieValue,
-	// 	Path:     feServer.SessionOptions.Path,
-	// 	MaxAge:   feServer.SessionOptions.MaxAge,
-	// 	HttpOnly: feServer.SessionOptions.HttpOnly,
-	// 	Domain:   feServer.SessionOptions.Domain,
-	// 	Secure:   feServer.SessionOptions.SecureCookies,
-	// 	SameSite: feServer.SessionOptions.SameSite,
-	// }
-	// http.SetCookie(w, cookie)
 
 	// session.Put("access_token", tokens.AccessToken)
 	// session.Put("refresh_token", tokens.RefreshToken)

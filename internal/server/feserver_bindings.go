@@ -80,6 +80,7 @@ func bindUnleash(unleashOptions *options.UnleashOptions) error {
 		unleash.WithHttpClient(instrumentUnleashHTTPClient()),
 		// unleash.WithListener(unleash.DebugListener{}),
 		unleash.WithAppName(unleashOptions.AppName),
+		unleash.WithEnvironment(unleashOptions.Environment),
 		unleash.WithUrl(unleashOptions.URL),
 		unleash.WithCustomHeaders(http.Header{"Authorization": {unleashOptions.Token}}),
 	)
@@ -124,16 +125,14 @@ func bindSessionStore(
 	sessionOptions *session.SessionOptions,
 	dbOptions *options.MongoDBOptions,
 ) error {
+	feServer.SessionName = sessionOptions.Name
 	feServer.SessionOptions = sessionOptions
-	if feServer.SessionOptions.Path == "" {
-		feServer.SessionOptions.Path = serveOpts.ContextRoot
-	}
+	feServer.SessionOptions.Path = serveOpts.ContextRoot
 
 	sessionStore, shutdownFn, err := session.CreateSessionStore(sessionOptions, dbOptions, serveOpts.ContextRoot)
 	if err != nil {
 		return err
 	}
-	feServer.SessionName = sessionOptions.Name
 	feServer.SessionStore = sessionStore
 	if shutdownFn != nil {
 		feServer.ShutdownFn = append(feServer.ShutdownFn, shutdownFn)
@@ -159,7 +158,12 @@ func bindOIDC(
 	}
 	feServer.RelayingParty = rp
 
-	rs, err := rs.NewResourceServerClientCredentials(context.Background(), oidcOptions.Issuer, oidcOptions.ClientID, oidcOptions.ClientSecret)
+	rs, err := rs.NewResourceServerClientCredentials(
+		context.Background(),
+		oidcOptions.Issuer,
+		oidcOptions.ClientID,
+		oidcOptions.ClientSecret,
+	)
 	if err != nil {
 		return err
 	}

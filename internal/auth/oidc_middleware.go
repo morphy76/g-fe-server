@@ -16,15 +16,16 @@ func isAuthenticatedBySession(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		useLogger := logger.GetLogger(r.Context(), "auth")
-		useSession := session.ExtractSession(r.Context())
 
 		requestedURLStateFn := func() string {
 			return r.URL.String()
 		}
 
-		flashes := useSession.Flashes()
-		for _, flash := range flashes {
-			useLogger.Debug().Interface("flash", flash).Msg("Flash message")
+		useSession, ok := session.ExtractSession(r.Context())
+		if !ok {
+			useLogger.Error().Msg("Failed to extract session")
+			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
+			return
 		}
 
 		isAuth := useSession.GetOrElse("authenticated", false)
@@ -43,11 +44,11 @@ func isAuthenticateByBearerToken(
 	next http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// token := r.Header.Get("Authorization")
-		// if token == "" {
-		// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		// 	return
-		// }
+		token := r.Header.Get("Authorization")
+		if token == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
 
 		// resp, err := rs.Introspect[*oidc.IntrospectionResponse](context.Background(), resourceServer, accessToken.(string))
 		// if err != nil {

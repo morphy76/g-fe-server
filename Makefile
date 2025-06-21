@@ -10,7 +10,7 @@ NODEMON := nodemon
 GOFLAGS := #-mod=vendor
 LDFLAGS := -ldflags="-s -w"
 GCFLAGS := -gcflags="-m -l"
-TESTFLAGS := -v
+TESTFLAGS := -v -count=1 -timeout=2s
 # DOCKERBUILDFLAGS := --no-cache
 NPMFLAGS := --no-audit --no-fund
 
@@ -26,36 +26,49 @@ SERVER_TAG = $(word 1,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 
 ## Define the runtime args
-SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=3000 -session-key="my secure session key" -session-secure=false
+SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=3000 -session-key="my secure session key" -session-secure=true -session-same-site=Strict
 OTEL_ARGS := -otel-enabled=true --otlp-url=http://localhost:4317
 OIDC_ARGS := -oidc-issuer=http://localhost:8080/realms/gfes -oidc-client-id=ps -oidc-client-secret=tefnJ7pbekZuTV7vPVpI3VHPNto7LlOy -oidc-scopes=openid,profile,email
 MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-url=mongodb://localhost:27017/fe_db?w=1
-UNLEASH_ARGS := -unleash-enabled=true -unleash-url=http://localhost:3063/api -unleash-app-name=fe-server -unleash-token=default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617
+UNLEASH_ARGS := -unleash-enabled=true -unleash-url=http://localhost:3063/api -unleash-app-name=fe-server -unleash-token=default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617 -unleash-environment=production
 AIW_ARGS := -aiw-fqdn=http://localhost:3000/fe
+
+clean:
+	-@rm -f $(SERVER_TARGET)
+	-@rm -rf $(SERVER_TARGET_FE)
+
+test-server:
+	@$(GO) test $(TESTFLAGS) $(shell $(GO) list ./... | grep -vE '/tools/|/web/')
+
+vet:
+	@$(GO) vet $(shell $(GO) list ./... | grep -vE '/tools/|/web/')
+
+build-server:
+	$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVER_TARGET) $(SERVER_SOURCES)
+
+watch-server:
+	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(NO_OIDC_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS)
+
+run-server:
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS)
+
+run-ssl-server:
+	@TMPDIR=$$(mktemp -d)
+	openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+    -keyout $$TMPDIR/server.key -out $$TMPDIR/server.crt \
+    -subj "/CN=localhost"
+	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) \
+    $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS) \
+    -protocol=https -tls-cert=$$TMPDIR/server.crt -tls-key=$$TMPDIR/server.key
 
 build-fe:
 	@$(NPM) $(NPMFLAGS) --prefix ./web/ui i
 	@$(NPM) --prefix ./web/ui test
 	@$(NPM) --prefix ./web/ui run build
 
-build-server:
-	# @$(GO) test $(TESTFLAGS) ./...
-	$(GO) build $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) -o $(SERVER_TARGET) $(SERVER_SOURCES)
-
 watch-fe:
 	@$(NPM) --prefix ./web/ui i
 	@$(NPM) --prefix ./web/ui run watch
-
-watch-server:
-	@$(NODEMON) --watch './**/*.go' --signal SIGTERM --exec $(GO) run $(GOFLAGS) $(LDFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(NO_OIDC_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS)
-
-# run-server: build-fe
-run-server:
-	$(GO) run $(GOFLAGS) $(LDFLAGS) $(GCFLAGS) $(SERVER_SOURCES) $(SERVE_ARGS) $(OTEL_ARGS) $(OIDC_ARGS) $(MONGO_ARGS) $(UNLEASH_ARGS) $(AIW_ARGS)
-
-clean:
-	-@rm -f $(SERVER_TARGET)
-	-@rm -rf $(SERVER_TARGET_FE)
 
 deploy: clean
 	@$(DOCKER) run -d --network host --rm -v /var/run/docker.sock:/var/run/docker.sock --name socat alpine/socat tcp-listen:12345,fork,reuseaddr,ignoreeof unix-connect:/var/run/docker.sock

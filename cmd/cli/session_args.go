@@ -18,14 +18,13 @@ type SessionOptionsBuilderFn func() (*session.SessionOptions, error)
 var ErrInvalidSessionSameSite = errors.New("invalid session same site")
 
 const (
-	envSessionKey      = "SESSION_KEY"
-	envSessionName     = "SESSION_NAME"
-	envSessionPath     = "SESSION_PATH"
-	envSessionMaxAge   = "SESSION_MAX_AGE"
-	envSessionHTTPOnly = "SESSION_HTTP_ONLY"
-	envSessionDomain   = "SESSION_DOMAIN"
-	envSessionSecure   = "SESSION_SECURE"
-	envSessionSameSite = "SESSION_SAME_SITE"
+	envSessionKey         = "SESSION_KEY"
+	envSessionName        = "SESSION_NAME"
+	envSessionMaxAge      = "SESSION_MAX_AGE"
+	envSessionDomain      = "SESSION_DOMAIN"
+	envSessionSecure      = "SESSION_SECURE"
+	envSessionSameSite    = "SESSION_SAME_SITE"
+	envSessionPartitioned = "SESSION_PARTITIONED"
 )
 
 // SessionOptionsBuilder returns a function that builds SessionOptions from the command line arguments and environment variables
@@ -33,12 +32,11 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 
 	sessionKeyArg := flag.String("session-key", "", "session key. Environment: "+envSessionKey)
 	sessionNameArg := flag.String("session-name", "gofe_sid", "session name. Environment: "+envSessionName)
-	sessionPathArg := flag.String("session-path", "", "session path. Environment: "+envSessionPath)
 	sessionMaxAgeArg := flag.Int("session-max-age", 0, "session max age. Environment: "+envSessionMaxAge)
-	sessionHTTPOnlyArg := flag.Bool("session-http-only", true, "session http only. Environment: "+envSessionHTTPOnly)
 	sessionDomainArg := flag.String("session-domain", "", "session domain. Environment: "+envSessionDomain)
 	sessionSecureArg := flag.Bool("session-secure", true, "session secure. Environment: "+envSessionSecure)
 	sessionSameSiteArg := flag.String("session-same-site", "Lax", "session same site: Default, Lax, Strict or None. Environment: "+envSessionSameSite)
+	sessionPartitionedArg := flag.Bool("session-partitioned", false, "session partitioned. Environment: "+envSessionPartitioned)
 
 	return func() (*session.SessionOptions, error) {
 		useSessionKey, found := os.LookupEnv(envSessionKey)
@@ -57,11 +55,6 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 			useSessionName = "gofe_sid"
 		}
 
-		useSessionPath, found := os.LookupEnv(envSessionPath)
-		if !found {
-			useSessionPath = *sessionPathArg
-		}
-
 		var useSessionMaxAge int
 		strSessionMaxAge, found := os.LookupEnv(envSessionMaxAge)
 		if !found {
@@ -72,14 +65,6 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 				return nil, err
 			}
 			useSessionMaxAge = maxAge
-		}
-
-		var useSessionHTTPOnly bool
-		strSessionHTTPOnly, found := os.LookupEnv(envSessionHTTPOnly)
-		if !found {
-			useSessionHTTPOnly = *sessionHTTPOnlyArg
-		} else {
-			useSessionHTTPOnly = strSessionHTTPOnly == "true"
 		}
 
 		useSessionDomain, found := os.LookupEnv(envSessionDomain)
@@ -112,15 +97,22 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 			return nil, ErrInvalidSessionSameSite
 		}
 
+		var useSessionPartitioned bool
+		strSessionPartitioned, found := os.LookupEnv(envSessionPartitioned)
+		if !found {
+			useSessionPartitioned = *sessionPartitionedArg
+		} else {
+			useSessionPartitioned = strSessionPartitioned == "true"
+		}
+
 		return &session.SessionOptions{
 			Key:           useSessionKey,
 			Name:          useSessionName,
-			Path:          useSessionPath,
 			MaxAge:        useSessionMaxAge,
-			HttpOnly:      useSessionHTTPOnly,
 			Domain:        useSessionDomain,
 			SecureCookies: useSessionSecure,
 			SameSite:      useSessionSameSite,
+			Partitioned:   useSessionPartitioned,
 		}, nil
 	}
 }

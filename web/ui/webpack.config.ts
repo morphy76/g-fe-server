@@ -9,7 +9,7 @@ import HtmlWebpackPlugin from "html-webpack-plugin";
 import MiniCssExtractPlugin from "mini-css-extract-plugin";
 import WorkboxWebpackPlugin from "workbox-webpack-plugin";
 import { Configuration as DevServerConfiguration } from "webpack-dev-server";
-import { reactCompilerLoader } from "react-compiler-webpack";
+import { reactCompilerLoader, defineReactCompilerLoaderOption } from "react-compiler-webpack";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +24,8 @@ const config: webpack.Configuration & { devServer: DevServerConfiguration } = {
   output: {
     path: path.resolve(__dirname, "dist"),
     publicPath: "ui",
+    filename: __production ? "[name]-[fullhash].js" : "[name].js",
+    clean: true,
   },
   devServer: {
     open: true,
@@ -35,11 +37,20 @@ const config: webpack.Configuration & { devServer: DevServerConfiguration } = {
   module: {
     rules: [
       {
-        test: /\.(ts|tsx)$/i,
+        test: /\.[mc]?[jt]sx?$/i,
         use: [
-          "ts-loader",
+          {
+            loader: "ts-loader",
+            options: {
+              compilerOptions: {
+                declaration: !__production,
+                declarationMap: !__production
+              }
+            }
+          },
           {
             loader: reactCompilerLoader,
+            options: defineReactCompilerLoaderOption({}),
           },
         ],
         exclude: ["/node_modules/"],
@@ -82,8 +93,27 @@ config.plugins = [
 
 if (__production) {
   config.mode = "production";
-  config.plugins.push(new MiniCssExtractPlugin());
-  config.plugins.push(new WorkboxWebpackPlugin.GenerateSW());
+  config.plugins.push(new MiniCssExtractPlugin({
+    filename: "[name]-[fullhash].css",
+    chunkFilename: "[id]-[fullhash].css",
+  }));
+  config.plugins.push(
+    new WorkboxWebpackPlugin.GenerateSW({
+      clientsClaim: true,
+      skipWaiting: true,
+    })
+  );
+  config.optimization = {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          chunks: 'all',
+        },
+      },
+    },
+  };
 } else {
   config.mode = "development";
   config.devtool = "source-map";

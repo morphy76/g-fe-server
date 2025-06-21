@@ -24,7 +24,7 @@ type ExampleService interface {
 func NewExampleService(requestContext context.Context) ExampleService {
 	useLogger := logger.GetLogger(requestContext, serviceName)
 	span := trace.SpanFromContext(requestContext)
-	feServer := server.ExtractFEServer(requestContext)
+	feServer, _ := server.ExtractFEServer(requestContext)
 
 	return &exampleService{
 		span: span,

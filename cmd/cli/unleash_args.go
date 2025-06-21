@@ -10,10 +10,11 @@ import (
 type UnleashOptionsBuilderFn func() (*options.UnleashOptions, error)
 
 const (
-	unleashEnabled  = "UNLEASH_ENABLED"
-	unleashAppName  = "UNLEASH_APP_NAME"
-	envUnleashURL   = "UNLEASH_URL"
-	envUnleashToken = "UNLEASH_TOKEN"
+	unleashEnabled        = "UNLEASH_ENABLED"
+	unleashAppName        = "UNLEASH_APP_NAME"
+	envUnleashURL         = "UNLEASH_URL"
+	envUnleashToken       = "UNLEASH_TOKEN"
+	envUnleashEnvironment = "UNLEASH_ENVIRONMENT"
 )
 
 func UnleashOptionsBuilder() UnleashOptionsBuilderFn {
@@ -21,6 +22,7 @@ func UnleashOptionsBuilder() UnleashOptionsBuilderFn {
 	unleashAppNameArg := flag.String("unleash-app-name", "gfe", "Unleash App Name. Environment: "+unleashAppName)
 	unleashURLArg := flag.String("unleash-url", "", "Unleash URL. Environment: "+envUnleashURL)
 	unleashTokenArg := flag.String("unleash-token", "", "Unleash Token. Environment: "+envUnleashToken)
+	unleashEnvironmentArg := flag.String("unleash-environment", "production", "Unleash Environment. Environment: "+envUnleashEnvironment)
 
 	return func() (*options.UnleashOptions, error) {
 
@@ -45,11 +47,17 @@ func UnleashOptionsBuilder() UnleashOptionsBuilderFn {
 			token = *unleashTokenArg
 		}
 
+		environment, found := os.LookupEnv(envUnleashEnvironment)
+		if !found {
+			environment = *unleashEnvironmentArg
+		}
+
 		return &options.UnleashOptions{
-			Enabled: enabled,
-			AppName: appName,
-			URL:     url,
-			Token:   token,
+			Enabled:     enabled,
+			AppName:     appName,
+			URL:         url,
+			Token:       token,
+			Environment: environment,
 		}, nil
 	}
 }

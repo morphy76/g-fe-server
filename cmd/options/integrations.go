@@ -1,13 +1,13 @@
 package options
 
-// IntegrationOptions holds the options for the server integrations
+// IntegrationOptions holds the options for the server integrations.
 type IntegrationOptions struct {
-	// MongoDBOptions holds the options for the MongoDB integration
+	// DBOptions holds the options for the database integration.
 	DBOptions *MongoDBOptions
-	// OTelOptions holds the options for the OpenTelemetry integration
+	// OTelOptions holds the options for the OpenTelemetry integration.
 	OTelOptions *OTelOptions
-	// UnleashOptions holds the options for the Unleash integration
+	// UnleashOptions holds the options for the Unleash integration.
 	UnleashOptions *UnleashOptions
-	// AIWOptions holds the options for the AIW integration
+	// AIWOptions holds the options for the AIW integration.
 	AIWOptions *AIWOptions
 }
