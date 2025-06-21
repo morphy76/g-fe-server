@@ -48,8 +48,9 @@ func initializeTheNonFunctionalRouter(
 	routerLog zerolog.Logger,
 ) error {
 	// propagates FEServer and logger to non functional requests
-	// add non functional endopints
+	// add non functional endpints
 	// - health checks
+	// - TODO: metrics
 
 	nfRoot := feServer.HTTPOpts.ServeOptions.NonFunctionalRoot
 
@@ -108,7 +109,9 @@ func initializeTheFunctionalRouter(
 	// - API endpoints at /api
 	// - TODO: HTTP session management for auth, UI, and API
 	// - TODO: auth middleware (check bearer, fallback to HTTP session, inspect and renew)
-	// - TODO: CORS (for API and UI X-Frame-Options)
+	// - TODO: CORS
+	// - TODO: CSRF protection
+	// - TODO: CSP
 	// - TODO: RBAC
 	// - TODO: tenant resolution
 

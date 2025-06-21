@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
+	"github.com/morphy76/g-fe-server/internal/auth"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -20,12 +21,18 @@ var (
 
 // Session represents a session stored in MongoDB.
 type Session struct {
-	// Id is the unique identifier for the session, stored as an ObjectID.
+	// ID is the unique identifier for the session, stored as an ObjectID.
 	ID bson.ObjectID `bson:"_id,omitempty"`
 	// Data is the encoded session data.
 	Data string
 	// Modified is the timestamp when the session was last modified.
 	Modified time.Time
+	// IAMIssuer is the issuer of the session, typically an OIDC issuer.
+	IAMIssuer string `bson:"iam_issuer,omitempty"`
+	// IAMSubject is the subject of the session, typically a user ID.
+	IAMSubject string `bson:"iam_subject,omitempty"`
+	// IAMSessionID is the session ID from the OIDC provider.
+	IAMSessionID string `bson:"iam_session_id,omitempty"`
 }
 
 // MongoStore is a session store that uses MongoDB to store session data.
@@ -50,6 +57,30 @@ func NewMongoStore(
 	}
 
 	store.MaxAge(sessionOptions.MaxAge)
+	for _, codec := range store.Codecs {
+		asSecrureCookie, ok := codec.(*securecookie.SecureCookie)
+		if ok {
+			asSecrureCookie.MaxLength(int(^uint(0) >> 1))
+		}
+	}
+
+	go func() {
+		iamIndexModel := mongo.IndexModel{
+			Keys: bson.D{
+				{Key: "iam_issuer", Value: 1},
+				{Key: "iam_subject", Value: 1},
+				{Key: "iam_session_id", Value: 1},
+			},
+			Options: options.Index().
+				SetName("iam_index"),
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		c.Indexes().DropOne(ctx, "iam_index")
+		c.Indexes().CreateOne(ctx, iamIndexModel)
+	}()
 
 	var ttlInSeconds int
 	if sessionOptions.MaxAge > 0 {
@@ -197,9 +228,12 @@ func (m *MongoStore) upsert(session *sessions.Session) error {
 	}
 
 	s := Session{
-		ID:       objID,
-		Data:     encoded,
-		Modified: modified,
+		ID:           objID,
+		Data:         encoded,
+		Modified:     modified,
+		IAMIssuer:    session.Values[auth.SessionKeyIssuer].(string),
+		IAMSubject:   session.Values[auth.SessionKeySubject].(string),
+		IAMSessionID: session.Values[auth.SessionKeySessionID].(string),
 	}
 
 	opts := options.UpdateOne().SetUpsert(true)

@@ -4,6 +4,37 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
 
+/*
+session.Values[SessionKeyIssuer] = tokens.IDTokenClaims.Issuer
+session.Values[SessionKeySubject] = tokens.IDTokenClaims.Subject
+session.Values[SessionKeySessionID] = tokens.IDTokenClaims.SessionID
+session.Values[SessionKeyIDToken] = tokens.IDToken
+session.Values[SessionKeyUserInfo] = userInfo
+session.Values[SessionKeyAccessToken] = tokens.AccessToken
+session.Values[SessionKeyRefreshToken] = tokens.RefreshToken
+session.Values[SessionKeyExpiresIn] = tokens.ExpiresIn
+*/
+const (
+	// SessionKeyAuthenticated is the key used in the session to indicate if the user is authenticated
+	SessionKeyAuthenticated = "authenticated"
+	// SessionKeyIssuer is the key used in the session to store the OIDC issuer
+	SessionKeyIssuer = "issuer"
+	// SessionKeySubject is the key used in the session to store the OIDC subject
+	SessionKeySubject = "subject"
+	// SessionKeySessionID is the key used in the session to store the OIDC session ID
+	SessionKeySessionID = "session_id"
+	// SessionKeyIDToken is the key used in the session to store the OIDC ID token
+	SessionKeyIDToken = "id_token"
+	// SessionKeyUserInfo is the key used in the session to store the user information
+	SessionKeyUserInfo = "user_info"
+	// SessionKeyAccessToken is the key used in the session to store the OIDC access token
+	SessionKeyAccessToken = "access_token"
+	// SessionKeyRefreshToken is the key used in the session to store the OIDC refresh token
+	SessionKeyRefreshToken = "refresh_token"
+	// SessionKeyExpiresIn is the key used in the session to store the OIDC token expiration time
+	SessionKeyExpiresIn = "expires_in"
+)
+
 // OIDCOptions holds the configuration for the OIDC client
 type OIDCOptions struct {
 	Disabled      bool

@@ -42,7 +42,7 @@ func isAuthenticatedBySession(
 			return
 		}
 
-		isAuth, found := useSession.Values["authenticated"]
+		isAuth, found := useSession.Values[SessionKeyAuthenticated]
 		if found && isAuth.(bool) {
 			next.ServeHTTP(w, r)
 		} else {
@@ -98,13 +98,13 @@ func isAuthenticateByBearerToken(
 // 				return
 // 			}
 
-// 			accessToken := session.Values["access_token"]
+// 			accessToken := session.Values[SessionKeyAccessToken]
 // 			if accessToken == nil {
 // 				logger.Warn().Msg("No access token found")
 // 				http.Redirect(w, r, ctxRoot+authLogout, http.StatusTemporaryRedirect)
 // 				return
 // 			}
-// 			refreshToken := session.Values["refresh_token"]
+// 			refreshToken := session.Values[SessionKeyRefreshToken]
 // 			if refreshToken == nil {
 // 				logger.Warn().Msg("No refresh token found")
 // 				http.Redirect(w, r, ctxRoot+authLogout, http.StatusTemporaryRedirect)
@@ -138,9 +138,9 @@ func isAuthenticateByBearerToken(
 // 				return
 // 			}
 
-// 			session.Values["access_token"] = tokens.AccessToken
-// 			session.Values["id_token"] = tokens.IDToken
-// 			session.Values["refresh_token"] = tokens.RefreshToken
+// 			session.Values[SessionKeyAccessToken] = tokens.AccessToken
+// 			session.Values[SessionKeyIDToken] = tokens.IDToken
+// 			session.Values[SessionKeyRefreshToken] = tokens.RefreshToken
 
 // 			session.Save(r, w)
 
@@ -165,7 +165,7 @@ func isAuthenticateByBearerToken(
 // 				url.QueryEscape(r.URL.String()),
 // 			)
 
-// 			idToken := session.Values["id_token"]
+// 			idToken := session.Values[SessionKeyIDToken]
 // 			if idToken == nil || len(idToken.(string)) == 0 {
 // 				logger.Debug().
 // 					Str("requested_url", r.URL.String()).

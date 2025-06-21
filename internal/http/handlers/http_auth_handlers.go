@@ -3,9 +3,12 @@ package handlers
 import (
 	"encoding/gob"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/cmd/options"
@@ -15,6 +18,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
+)
+
+const (
+	failedToGetSession = "Failed to get session"
+	// AuthQueryArgsRedirectTo is the query argument used to redirect after login
+	AuthQueryArgsRedirectTo = "redirect_to"
 )
 
 // IAMHandlers registers the IAM authentication handlers
@@ -30,9 +39,9 @@ func IAMHandlers(
 
 	authRouter.HandleFunc("/login", onLogin(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
-	authRouter.HandleFunc("/logout", onLogout(sessionStore, httpOptions, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
+	authRouter.HandleFunc("/logout", onLogout(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
 	authRouter.HandleFunc("/info", onInfo(sessionStore, httpOptions, ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
-	// authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
+	authRouter.HandleFunc("/bc_logout", onBackChannelLogout(sessionStore)).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
 
 	return nil
 }
@@ -42,7 +51,7 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 		logger := logger.GetLogger(r.Context(), "auth")
 		logger.Trace().Msg("Logging in")
 
-		requestedURL, err := url.QueryUnescape(r.URL.Query().Get("redirect_to"))
+		requestedURL, err := url.QueryUnescape(r.URL.Query().Get(AuthQueryArgsRedirectTo))
 		if err != nil {
 			requestedURL = ctxRoot + "/ui"
 		}
@@ -53,12 +62,12 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 
 		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
 		if err != nil {
-			logger.Error().Err(err).Msg("Failed to get session")
+			logger.Warn().Err(err).Msg(failedToGetSession)
 			rp.AuthURLHandler(stateFn, relyingParty)(w, r)
 			return
 		}
 
-		isAuth, found := session.Values["authenticated"]
+		isAuth, found := session.Values[auth.SessionKeyAuthenticated]
 		if found && isAuth.(bool) {
 			logger.Debug().Msg("Session is already authenticated")
 			http.Redirect(w, r, requestedURL, http.StatusFound)
@@ -69,22 +78,27 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 	}
 }
 
-func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, relyingParty rp.RelyingParty) http.HandlerFunc {
+func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger := logger.GetLogger(r.Context(), "auth")
 		logger.Trace().Msg("Logging out")
 
+		requestedURL, err := url.QueryUnescape(r.URL.Query().Get(AuthQueryArgsRedirectTo))
+		if err != nil {
+			requestedURL = ctxRoot + "/ui"
+		}
+
 		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
 		if err != nil {
-			logger.Error().Err(err).Msg("Failed to get session")
-			// TODO
+			logger.Error().Err(err).Msg(failedToGetSession)
+			http.Error(w, failedToGetSession, http.StatusInternalServerError)
 			return
 		}
 
-		issuer := session.Values["issuer"]
-		subject := session.Values["subject"]
-		sid := session.Values["session_id"]
-		idToken := session.Values["id_token"]
+		issuer := session.Values[auth.SessionKeyIssuer]
+		subject := session.Values[auth.SessionKeySubject]
+		sid := session.Values[auth.SessionKeySessionID]
+		idToken := session.Values[auth.SessionKeyIDToken]
 		logger.Trace().
 			Interface("issuer", issuer).
 			Interface("subject", subject).
@@ -94,10 +108,10 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, rel
 
 		session.Options.MaxAge = -1
 
-		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), "", "")
+		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), requestedURL, "")
 		if err != nil {
 			logger.Error().Err(err).Msg("End session failed")
-			// TODO
+			http.Error(w, "End session failed", http.StatusInternalServerError)
 			return
 		}
 		logger.Trace().
@@ -114,21 +128,21 @@ func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRo
 
 		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
 		if err != nil {
-			logger.Error().Err(err).Msg("Failed to get session")
-			http.Error(w, "Failed to get session", http.StatusInternalServerError)
+			logger.Error().Err(err).Msg(failedToGetSession)
+			http.Error(w, failedToGetSession, http.StatusInternalServerError)
 			return
 		}
 
 		logger.Trace().Msg("Info requested")
 
-		authenticated, found := session.Values["authenticated"]
+		authenticated, found := session.Values[auth.SessionKeyAuthenticated]
 		if !found || !authenticated.(bool) {
 			logger.Debug().Msg("User is not authenticated")
 			http.Error(w, "User is not authenticated", http.StatusUnauthorized)
 			return
 		}
 
-		rv := session.Values["user_info"]
+		rv := session.Values[auth.SessionKeyUserInfo]
 		responseBody, err := json.Marshal(rv)
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to marshal response")
@@ -142,26 +156,53 @@ func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRo
 	}
 }
 
-// func onBackChannelLogout() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		log := logger.GetLogger(r.Context(), "auth")
+func onBackChannelLogout(sessionStore sessions.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log := logger.GetLogger(r.Context(), "auth")
 
-// 		log.Debug().Msg("Back channel logout")
+		log.Debug().Msg("Back channel logout")
 
-// 		var body map[string]interface{}
-// 		err := json.NewDecoder(r.Body).Decode(&body)
-// 		if err != nil {
-// 			http.Error(w, "Failed to decode request body", http.StatusBadRequest)
-// 			return
-// 		}
-// 		defer r.Body.Close()
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			return
+		}
+		skip := len("logout_token=")
+		if len(bodyBytes) < skip {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		if string(bodyBytes[:skip]) != "logout_token=" {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		if len(bodyBytes) == skip {
+			http.Error(w, "Empty logout token", http.StatusBadRequest)
+			return
+		}
+		bodyStr := string(bodyBytes[skip:])
+		defer r.Body.Close()
 
-// 		log.Trace().Interface("body", body).Msg("Back channel logout")
+		token, err := jwt.ParseSigned(bodyStr, []jose.SignatureAlgorithm{
+			jose.RS256, // TODO: read from realm configuration
+		})
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to parse JWT")
+			http.Error(w, "Invalid logout token", http.StatusBadRequest)
+			return
+		}
+		claims := map[string]interface{}{}
+		if err := token.UnsafeClaimsWithoutVerification(&claims); err != nil {
+			log.Error().Err(err).Msg("Failed to decode JWT claims")
+			http.Error(w, "Failed to decode logout token", http.StatusBadRequest)
+			return
+		}
+		log.Info().Interface("claims", claims).Msg("Decoded logout token")
+		// TODO delete from sessionStore using iss, sub and/or sid
 
-// 		w.WriteHeader(http.StatusOK)
-// 		w.Write([]byte("OK"))
-// 	}
-// }
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
 
 func marshalUserinfo(
 	w http.ResponseWriter,
@@ -192,23 +233,24 @@ func marshalUserinfo(
 	session, err := sessions.GetRegistry(r).Get(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create session")
-		onLogout(feServer.SessionStore, feServer.HTTPOpts, provider)(w, r)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
 	}
 
-	session.Values["authenticated"] = true
-	session.Values["issuer"] = tokens.IDTokenClaims.Issuer
-	session.Values["subject"] = tokens.IDTokenClaims.Subject
-	session.Values["session_id"] = tokens.IDTokenClaims.SessionID
-	session.Values["id_token"] = tokens.IDToken
-	session.Values["user_info"] = userInfo
-	session.Values["access_token"] = tokens.AccessToken
-	session.Values["refresh_token"] = tokens.RefreshToken
-	session.Values["expires_in"] = tokens.ExpiresIn
+	session.Values[auth.SessionKeyAuthenticated] = true
+	session.Values[auth.SessionKeyIssuer] = tokens.IDTokenClaims.Issuer
+	session.Values[auth.SessionKeySubject] = tokens.IDTokenClaims.Subject
+	session.Values[auth.SessionKeySessionID] = tokens.IDTokenClaims.SessionID
+	session.Values[auth.SessionKeyIDToken] = tokens.IDToken
+	session.Values[auth.SessionKeyUserInfo] = userInfo
+	session.Values[auth.SessionKeyAccessToken] = tokens.AccessToken
+	session.Values[auth.SessionKeyRefreshToken] = tokens.RefreshToken
+	session.Values[auth.SessionKeyExpiresIn] = tokens.ExpiresIn
 
 	err = session.Save(r, w)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to save session")
-		onLogout(feServer.SessionStore, feServer.HTTPOpts, provider)(w, r)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 
 	logger.Trace().Msg("Auth session saved")

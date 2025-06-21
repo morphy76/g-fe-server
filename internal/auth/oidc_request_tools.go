@@ -35,7 +35,7 @@ func BuildOIDCTools(
 		if err != nil {
 			return nil, err
 		}
-		rv, found := session.Values["user_info"]
+		rv, found := session.Values[SessionKeyUserInfo]
 		if !found {
 			return nil, fmt.Errorf("user info not found in session")
 		}
@@ -51,7 +51,7 @@ func BuildOIDCTools(
 		if err != nil {
 			return "", err
 		}
-		rv, found := session.Values["access_token"]
+		rv, found := session.Values[SessionKeyAccessToken]
 		if !found {
 			return "", fmt.Errorf("access token not found in session")
 		}
@@ -67,7 +67,7 @@ func BuildOIDCTools(
 		if err != nil {
 			return "", err
 		}
-		rv, found := session.Values["refresh_token"]
+		rv, found := session.Values[SessionKeyRefreshToken]
 		if !found {
 			return "", fmt.Errorf("refresh token not found in session")
 		}
@@ -83,7 +83,7 @@ func BuildOIDCTools(
 		if err != nil {
 			return 0, err
 		}
-		rv, found := session.Values["expires_in"]
+		rv, found := session.Values[SessionKeyExpiresIn]
 		if !found {
 			return 0, fmt.Errorf("expires_in not found in session")
 		}
