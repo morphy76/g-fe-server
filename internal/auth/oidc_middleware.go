@@ -44,11 +44,11 @@ func isAuthenticateByBearerToken(
 	next http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// token := r.Header.Get("Authorization")
-		// if token == "" {
-		// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		// 	return
-		// }
+		token := r.Header.Get("Authorization")
+		if token == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
 
 		// resp, err := rs.Introspect[*oidc.IntrospectionResponse](context.Background(), resourceServer, accessToken.(string))
 		// if err != nil {

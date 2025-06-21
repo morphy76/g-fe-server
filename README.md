@@ -12,17 +12,17 @@
 In summary:
 
 - With HTTP session management
-- With Unleash integration <- reviewing
-  - Feature gateway for FE flags
-- With OIDC integration
+- With Health endpoint
+  - Testing HTTP serving
+  - Testing Mongo connection
+- With OIDC integration <- reviewing
 - With Mongo integration
+- With Unleash integration
+  - Feature gateway for FE flags
 - With AIW logging
 - With AIW tracing
 - With AIW audit
 - With OpenAPI endpoint
-- With Health endpoint
-  - Testing HTTP serving
-  - Testing Mongo connection
 - No business logic included
 
 ## What happened
