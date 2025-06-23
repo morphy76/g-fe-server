@@ -28,7 +28,7 @@ SERVER_VERSION = $(word 2,$(subst :, ,$(SERVER_DEPLOY_TAG)))
 ## Define the runtime args
 SERVE_ARGS := -ctx=/fe -static=$(SERVER_TARGET_FE) -host=localhost -port=3000 -session-key="my secure session key" -session-secure=true -session-same-site=Strict
 OTEL_ARGS := -otel-enabled=true --otlp-url=http://localhost:4317
-OIDC_ARGS := -oidc-issuer=http://localhost:8080/realms/gfes -oidc-client-id=ps -oidc-client-secret=tefnJ7pbekZuTV7vPVpI3VHPNto7LlOy -oidc-scopes=openid,profile,email
+OIDC_ARGS := -oidc-issuer=http://localhost:8080/realms/gfes -oidc-client-id=ps -oidc-client-secret=DTntfqG8c9Hn77zBEQkIfuPQbdOvsWcw -oidc-scopes=openid,profile,email
 MONGO_ARGS := -db-mongo-password=fe_password -db-mongo-user=fe_user -db-mongo-url=mongodb://localhost:27017/fe_db?w=1
 UNLEASH_ARGS := -unleash-enabled=true -unleash-url=http://localhost:3063/api -unleash-app-name=fe-server -unleash-token=default:development.f9e56e74a070c76b577840b2adb2ca195d394a2c3bd8915a93e6d617 -unleash-environment=production
 AIW_ARGS := -aiw-fqdn=http://localhost:3000/fe

@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-jose/go-jose/v4"
-	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/cmd/options"
@@ -21,7 +19,8 @@ import (
 )
 
 const (
-	failedToGetSession = "Failed to get session"
+	failedToGetSession  = "Failed to get session"
+	internalServerError = "Internal server error"
 	// AuthQueryArgsRedirectTo is the query argument used to redirect after login
 	AuthQueryArgsRedirectTo = "redirect_to"
 )
@@ -40,8 +39,8 @@ func IAMHandlers(
 	authRouter.HandleFunc("/login", onLogin(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
 	authRouter.HandleFunc("/logout", onLogout(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
-	authRouter.HandleFunc("/info", onInfo(sessionStore, httpOptions, ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
-	authRouter.HandleFunc("/bc_logout", onBackChannelLogout(sessionStore)).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
+	authRouter.HandleFunc("/info", onInfo(sessionStore, httpOptions)).Name("GET " + ctxRoot + "/auth/info")
+	authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
 
 	return nil
 }
@@ -104,6 +103,7 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 			Interface("subject", subject).
 			Interface("session_id", sid).
 			Interface("id_token", idToken).
+			Interface("requestedURL", requestedURL).
 			Msg("Start logging out")
 
 		session.Options.MaxAge = -1
@@ -114,6 +114,7 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 			http.Error(w, "End session failed", http.StatusInternalServerError)
 			return
 		}
+		session.Save(r, w)
 		logger.Trace().
 			Any("to url", url).
 			Msg("Auth session deleted")
@@ -122,7 +123,7 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 	}
 }
 
-func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRoot string) http.HandlerFunc {
+func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger := logger.GetLogger(r.Context(), "auth")
 
@@ -156,7 +157,7 @@ func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRo
 	}
 }
 
-func onBackChannelLogout(sessionStore sessions.Store) http.HandlerFunc {
+func onBackChannelLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logger.GetLogger(r.Context(), "auth")
 
@@ -167,6 +168,8 @@ func onBackChannelLogout(sessionStore sessions.Store) http.HandlerFunc {
 			http.Error(w, "Failed to read request body", http.StatusBadRequest)
 			return
 		}
+		defer r.Body.Close()
+
 		skip := len("logout_token=")
 		if len(bodyBytes) < skip {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -180,25 +183,7 @@ func onBackChannelLogout(sessionStore sessions.Store) http.HandlerFunc {
 			http.Error(w, "Empty logout token", http.StatusBadRequest)
 			return
 		}
-		bodyStr := string(bodyBytes[skip:])
-		defer r.Body.Close()
-
-		token, err := jwt.ParseSigned(bodyStr, []jose.SignatureAlgorithm{
-			jose.RS256, // TODO: read from realm configuration
-		})
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to parse JWT")
-			http.Error(w, "Invalid logout token", http.StatusBadRequest)
-			return
-		}
-		claims := map[string]interface{}{}
-		if err := token.UnsafeClaimsWithoutVerification(&claims); err != nil {
-			log.Error().Err(err).Msg("Failed to decode JWT claims")
-			http.Error(w, "Failed to decode logout token", http.StatusBadRequest)
-			return
-		}
-		log.Info().Interface("claims", claims).Msg("Decoded logout token")
-		// TODO delete from sessionStore using iss, sub and/or sid
+		// backChannelLogoutToken := string(bodyBytes[skip:])
 
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -216,7 +201,7 @@ func marshalUserinfo(
 	feServer, err := server.ExtractFEServer(r.Context())
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to extract FEServer from context")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		http.Error(w, internalServerError, http.StatusInternalServerError)
 		return
 	}
 
@@ -233,7 +218,7 @@ func marshalUserinfo(
 	session, err := sessions.GetRegistry(r).Get(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create session")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		http.Error(w, internalServerError, http.StatusInternalServerError)
 		return
 	}
 
@@ -250,7 +235,7 @@ func marshalUserinfo(
 	err = session.Save(r, w)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to save session")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		http.Error(w, internalServerError, http.StatusInternalServerError)
 	}
 
 	logger.Trace().Msg("Auth session saved")
