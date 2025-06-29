@@ -1,11 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"encoding/gob"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -83,7 +84,7 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 		logger.Trace().Msg("Logging out")
 
 		requestedURL, err := url.QueryUnescape(r.URL.Query().Get(AuthQueryArgsRedirectTo))
-		if err != nil {
+		if err != nil || requestedURL == "" {
 			requestedURL = ctxRoot + "/ui"
 		}
 
@@ -98,7 +99,7 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 		subject := session.Values[auth.SessionKeySubject]
 		sid := session.Values[auth.SessionKeySessionID]
 		idToken := session.Values[auth.SessionKeyIDToken]
-		logger.Trace().
+		logger.Debug().
 			Interface("issuer", issuer).
 			Interface("subject", subject).
 			Interface("session_id", sid).
@@ -106,14 +107,14 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 			Interface("requestedURL", requestedURL).
 			Msg("Start logging out")
 
-		session.Options.MaxAge = -1
-
 		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), requestedURL, "")
 		if err != nil {
 			logger.Error().Err(err).Msg("End session failed")
 			http.Error(w, "End session failed", http.StatusInternalServerError)
 			return
 		}
+
+		session.Options.MaxAge = -1
 		session.Save(r, w)
 		logger.Trace().
 			Any("to url", url).
@@ -163,27 +164,27 @@ func onBackChannelLogout() http.HandlerFunc {
 
 		log.Debug().Msg("Back channel logout")
 
-		bodyBytes, err := io.ReadAll(r.Body)
+		feServer, err := server.ExtractFEServer(r.Context())
 		if err != nil {
-			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			log.Error().Err(err).Msg("Failed to extract FEServer from context")
+			http.Error(w, internalServerError, http.StatusInternalServerError)
 			return
 		}
-		defer r.Body.Close()
 
-		skip := len("logout_token=")
-		if len(bodyBytes) < skip {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-		if string(bodyBytes[:skip]) != "logout_token=" {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-		if len(bodyBytes) == skip {
-			http.Error(w, "Empty logout token", http.StatusBadRequest)
-			return
-		}
-		// backChannelLogoutToken := string(bodyBytes[skip:])
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			res, err := feServer.DB.Collection("http_sessions").DeleteMany(ctx, map[string]interface{}{})
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to delete sessions in back channel logout")
+				return
+			} else {
+				log.Debug().
+					Int64("deleted_count", res.DeletedCount).
+					Msg("Deleted sessions in back channel logout")
+			}
+		}()
 
 		w.WriteHeader(http.StatusNoContent)
 	}

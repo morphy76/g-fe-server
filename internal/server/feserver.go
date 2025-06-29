@@ -41,6 +41,8 @@ type FEServer struct {
 
 	// MongoClient is the MongoDB client used for database operations
 	MongoClient *mongo.Client
+	// DB is the MongoDB database instance used for operations
+	DB *mongo.Database
 
 	// RelyingParty is the OIDC relying party client used for authentication
 	RelayingParty rp.RelyingParty

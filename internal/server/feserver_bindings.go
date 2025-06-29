@@ -93,7 +93,7 @@ func bindUnleash(unleashOptions *options.UnleashOptions) error {
 func addHealthChecks(feServer *FEServer, dbOptions *options.MongoDBOptions) error {
 	feServer.HealthChecksFn = make([]health.AdditionalCheckFn, 0)
 
-	healthClient, err := db.NewClient(dbOptions, false)
+	healthClient, _, err := db.NewClient(dbOptions, false)
 	if err != nil {
 		return err
 	}
@@ -105,11 +105,12 @@ func addHealthChecks(feServer *FEServer, dbOptions *options.MongoDBOptions) erro
 }
 
 func bindMongoDB(feServer *FEServer, err error, dbOptions *options.MongoDBOptions, withMonitor bool) error {
-	client, err := db.NewClient(dbOptions, withMonitor)
+	client, dbName, err := db.NewClient(dbOptions, withMonitor)
 	if err != nil {
 		return err
 	}
 	feServer.MongoClient = client
+	feServer.DB = client.Database(dbName)
 	shutdownFn := func() error {
 		return client.Disconnect(context.Background())
 	}

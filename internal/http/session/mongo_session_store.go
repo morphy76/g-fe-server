@@ -26,12 +26,7 @@ func CreateSessionStore(
 		useCredentials := url.UserPassword(dbOptions.User, dbOptions.Password)
 		useURL.User = useCredentials
 	}
-	client, err := db.NewClient(dbOptions, false)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	dbName, err := extractDBNameFromURL(useURL)
+	client, dbName, err := db.NewClient(dbOptions, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -57,12 +52,4 @@ func CreateSessionStore(
 	}
 
 	return store, shutdownFunc, nil
-}
-
-func extractDBNameFromURL(useURL *url.URL) (string, error) {
-	dbName := useURL.Path
-	if len(dbName) > 1 {
-		dbName = dbName[1:]
-	}
-	return dbName, nil
 }

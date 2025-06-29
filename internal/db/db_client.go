@@ -15,15 +15,20 @@ import (
 var ErrMissingDBOptions = errors.New("missing db options")
 
 // NewClient creates a new db client based on the db options
-func NewClient(dbOptions *options.MongoDBOptions, withMonitor bool) (*mongo.Client, error) {
+func NewClient(dbOptions *options.MongoDBOptions, withMonitor bool) (*mongo.Client, string, error) {
 	if dbOptions == nil {
-		return nil, ErrMissingDBOptions
+		return nil, "", ErrMissingDBOptions
 	} else {
 		serverAPI := mongo_opts.ServerAPI(mongo_opts.ServerAPIVersion1)
 
 		useURL, err := url.Parse(dbOptions.URL)
 		if err != nil {
-			return nil, err
+			return nil, "", err
+		}
+
+		dbName, err := extractDBNameFromURL(useURL)
+		if err != nil {
+			return nil, "", err
 		}
 
 		if useURL.User == nil {
@@ -42,11 +47,19 @@ func NewClient(dbOptions *options.MongoDBOptions, withMonitor bool) (*mongo.Clie
 
 		mongoClient, err := mongo.Connect(clientOpts)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 
-		return mongoClient, nil
+		return mongoClient, dbName, nil
 	}
+}
+
+func extractDBNameFromURL(useURL *url.URL) (string, error) {
+	dbName := useURL.Path
+	if len(dbName) > 1 {
+		dbName = dbName[1:]
+	}
+	return dbName, nil
 }
 
 func instrumentNewHTTPClient() *http.Client {
