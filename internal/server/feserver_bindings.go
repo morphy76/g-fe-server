@@ -19,9 +19,8 @@ import (
 
 func bindInfrastructuralDependencies(
 	feServer *FEServer,
-	serveOpts *options.ServeOptions,
+	httpOpts *options.HTTPOptions,
 	oidcOptions *auth.OIDCOptions,
-	sessionOptions *session.SessionOptions,
 	integrationsOptions *options.IntegrationOptions,
 ) error {
 
@@ -33,12 +32,12 @@ func bindInfrastructuralDependencies(
 		feServer.ShutdownFn = append(feServer.ShutdownFn, otelShutdown)
 	}
 
-	err = bindOIDC(feServer, serveOpts, oidcOptions)
+	err = bindOIDC(feServer, httpOpts.ServeOptions, oidcOptions)
 	if err != nil {
 		return fmt.Errorf("failed to bind OIDC: %w", err)
 	}
 
-	err = bindSessionStore(feServer, serveOpts, sessionOptions, integrationsOptions.DBOptions)
+	err = bindSessionStore(feServer, httpOpts, integrationsOptions.DBOptions)
 	if err != nil {
 		return fmt.Errorf("failed to bind session store: %w", err)
 	}
@@ -94,7 +93,7 @@ func bindUnleash(unleashOptions *options.UnleashOptions) error {
 func addHealthChecks(feServer *FEServer, dbOptions *options.MongoDBOptions) error {
 	feServer.HealthChecksFn = make([]health.AdditionalCheckFn, 0)
 
-	healthClient, err := db.NewClient(dbOptions, false)
+	healthClient, _, err := db.NewClient(dbOptions, false)
 	if err != nil {
 		return err
 	}
@@ -106,11 +105,12 @@ func addHealthChecks(feServer *FEServer, dbOptions *options.MongoDBOptions) erro
 }
 
 func bindMongoDB(feServer *FEServer, err error, dbOptions *options.MongoDBOptions, withMonitor bool) error {
-	client, err := db.NewClient(dbOptions, withMonitor)
+	client, dbName, err := db.NewClient(dbOptions, withMonitor)
 	if err != nil {
 		return err
 	}
 	feServer.MongoClient = client
+	feServer.DB = client.Database(dbName)
 	shutdownFn := func() error {
 		return client.Disconnect(context.Background())
 	}
@@ -121,15 +121,10 @@ func bindMongoDB(feServer *FEServer, err error, dbOptions *options.MongoDBOption
 
 func bindSessionStore(
 	feServer *FEServer,
-	serveOpts *options.ServeOptions,
-	sessionOptions *session.SessionOptions,
+	httpOpts *options.HTTPOptions,
 	dbOptions *options.MongoDBOptions,
 ) error {
-	feServer.SessionName = sessionOptions.Name
-	feServer.SessionOptions = sessionOptions
-	feServer.SessionOptions.Path = serveOpts.ContextRoot
-
-	sessionStore, shutdownFn, err := session.CreateSessionStore(sessionOptions, dbOptions, serveOpts.ContextRoot)
+	sessionStore, shutdownFn, err := session.CreateSessionStore(httpOpts.SessionOptions, dbOptions, httpOpts.ServeOptions.ContextRoot)
 	if err != nil {
 		return err
 	}

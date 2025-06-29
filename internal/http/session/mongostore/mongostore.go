@@ -8,21 +8,40 @@ import (
 
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
+	"github.com/morphy76/g-fe-server/internal/auth"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var (
-	ErrInvalidId = errors.New("mongostore: invalid session id")
+	// ErrInvalidID is returned when an invalid session ID is encountered.
+	ErrInvalidID = errors.New("mongostore: invalid session id")
 )
 
+// Session represents a session stored in MongoDB.
 type Session struct {
-	Id       bson.ObjectID `bson:"_id,omitempty"`
-	Data     string
+	// ID is the unique identifier for the session, stored as an ObjectID.
+	ID bson.ObjectID `bson:"_id,omitempty"`
+	// Data is the encoded session data.
+	Data string
+	// Modified is the timestamp when the session was last modified.
 	Modified time.Time
+	// IAMIssuer is the issuer of the session, typically an OIDC issuer.
+	IAMIssuer string `bson:"iam_issuer,omitempty"`
+	// IAMSubject is the subject of the session, typically a user ID.
+	IAMSubject string `bson:"iam_subject,omitempty"`
+	// IAMSessionID is the session ID from the OIDC provider.
+	IAMSessionID string `bson:"iam_session_id,omitempty"`
+	// JTI is the JWT ID, used to prevent replay attacks.
+	JTI string `bson:"jti,omitempty"`
+	// ExpiresAt is the expiration time of the session.
+	ExpiresAt time.Time `bson:"expires_at,omitempty"`
+	// CreatedAt is the timestamp when the session was created.
+	CreatedAt time.Time `bson:"created_at,omitempty"`
 }
 
+// MongoStore is a session store that uses MongoDB to store session data.
 type MongoStore struct {
 	Codecs  []securecookie.Codec
 	Options *sessions.Options
@@ -30,10 +49,10 @@ type MongoStore struct {
 	coll    *mongo.Collection
 }
 
+// NewMongoStore creates a new MongoStore instance with the provided MongoDB collection and session options.
 func NewMongoStore(
 	c *mongo.Collection,
 	sessionOptions *sessions.Options,
-	ensureTTL bool,
 	keyPairs ...[]byte,
 ) *MongoStore {
 	store := &MongoStore{
@@ -44,29 +63,46 @@ func NewMongoStore(
 	}
 
 	store.MaxAge(sessionOptions.MaxAge)
+	for _, codec := range store.Codecs {
+		asSecrureCookie, ok := codec.(*securecookie.SecureCookie)
+		if ok {
+			asSecrureCookie.MaxLength(int(^uint(0) >> 1))
+		}
+	}
 
-	if ensureTTL {
-		expireAfter := time.Duration(sessionOptions.MaxAge) * time.Second
+	go func() {
+		// TODO: this operation should be executed by just the leader of the replicaset
+		ttlInSeconds := evalTTL(sessionOptions.MaxAge)
+		expireAfter := int32(ttlInSeconds.Seconds())
 
-		indexModel := mongo.IndexModel{
-			Keys:    bson.M{"modified": 1},
-			Options: options.Index().SetExpireAfterSeconds(int32(expireAfter.Seconds())),
+		expirationIndexModel := mongo.IndexModel{
+			Keys: bson.M{"modified": 1},
+			Options: options.Index().
+				SetExpireAfterSeconds(expireAfter).
+				SetName("session_expire_index"),
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		c.Indexes().CreateOne(ctx, indexModel)
-	}
+		c.Indexes().DropOne(context.Background(), "session_expire_index")
+		c.Indexes().CreateOne(context.Background(), expirationIndexModel)
+	}()
 
 	return store
 }
 
+func evalTTL(maxAge int) time.Duration {
+	if maxAge <= 0 {
+		return 24 * time.Hour
+	}
+	return time.Duration(maxAge) * time.Second
+}
+
+// Get retrieves a session by name from the request.
 func (m *MongoStore) Get(r *http.Request, name string) (
 	*sessions.Session, error) {
 	return sessions.GetRegistry(r).Get(m, name)
 }
 
+// New creates a new session with the given name. If a session already exists
 func (m *MongoStore) New(r *http.Request, name string) (
 	*sessions.Session, error) {
 	session := sessions.NewSession(m, name)
@@ -95,6 +131,7 @@ func (m *MongoStore) New(r *http.Request, name string) (
 	return session, err
 }
 
+// Save saves the session to the MongoDB collection and sets the session cookie in the response.
 func (m *MongoStore) Save(r *http.Request, w http.ResponseWriter,
 	session *sessions.Session) error {
 	if session.Options.MaxAge < 0 {
@@ -123,6 +160,7 @@ func (m *MongoStore) Save(r *http.Request, w http.ResponseWriter,
 	return nil
 }
 
+// MaxAge sets the maximum age for the session cookies and updates the codecs accordingly.
 func (m *MongoStore) MaxAge(age int) {
 	m.Options.MaxAge = age
 
@@ -176,13 +214,19 @@ func (m *MongoStore) upsert(session *sessions.Session) error {
 	}
 
 	s := Session{
-		Id:       objID,
-		Data:     encoded,
-		Modified: modified,
+		ID:           objID,
+		Data:         encoded,
+		Modified:     modified,
+		IAMIssuer:    session.Values[auth.SessionKeyIssuer].(string),
+		IAMSubject:   session.Values[auth.SessionKeySubject].(string),
+		IAMSessionID: session.Values[auth.SessionKeySessionID].(string),
+		JTI:          session.Values[auth.SessionKeyJTI].(string),
+		ExpiresAt:    session.Values[auth.SessionKeyExpiresAt].(time.Time),
+		CreatedAt:    time.Now(),
 	}
 
 	opts := options.UpdateOne().SetUpsert(true)
-	filter := bson.M{"_id": s.Id}
+	filter := bson.M{"_id": s.ID}
 	updateData := bson.M{"$set": s}
 
 	if _, err = m.coll.UpdateOne(context.Background(), filter, updateData, opts); err != nil {

@@ -15,9 +15,9 @@ In summary:
 - With Health endpoint
   - Testing HTTP serving
   - Testing Mongo connection
-- With OIDC integration <- reviewing
+- With OIDC integration
 - With Mongo integration
-- With Unleash integration
+- With Unleash integration <- reviewwing
   - Feature gateway for FE flags
 - With AIW logging
 - With AIW tracing

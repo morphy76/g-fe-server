@@ -11,7 +11,6 @@ import (
 
 	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/business/example"
-	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
 )
@@ -49,11 +48,14 @@ func initializeTheNonFunctionalRouter(
 	routerLog zerolog.Logger,
 ) error {
 	// propagates FEServer and logger to non functional requests
-	// add non functional endopints
+	// add non functional endpints
 	// - health checks
+	// - TODO: metrics
 
-	nonFunctionalRouter := rootRouter.PathPrefix(feServer.ServeOpts.NonFunctionalRoot).Subrouter()
-	err := enrichNonFunctionalRequestContext(nonFunctionalRouter, appContext)
+	nfRoot := feServer.HTTPOpts.ServeOptions.NonFunctionalRoot
+
+	nonFunctionalRouter := rootRouter.PathPrefix(nfRoot).Subrouter()
+	err := enrichNonFunctionalRequestContext(appContext, nonFunctionalRouter)
 	if err != nil {
 		return fmt.Errorf("failed to enrich non-functional request context: %w", err)
 	}
@@ -62,7 +64,7 @@ func initializeTheNonFunctionalRouter(
 			Msg("Non functional router registered")
 	}
 
-	err = HandleHealth(appContext, nonFunctionalRouter, feServer.ServeOpts.NonFunctionalRoot, feServer.HealthChecksFn)
+	err = HandleHealth(appContext, nonFunctionalRouter, nfRoot, feServer.HealthChecksFn)
 	if err != nil {
 		return fmt.Errorf("failed to register health handler: %w", err)
 	}
@@ -75,7 +77,7 @@ func initializeTheNonFunctionalRouter(
 	return nil
 }
 
-func enrichNonFunctionalRequestContext(router *mux.Router, appContext context.Context) error {
+func enrichNonFunctionalRequestContext(appContext context.Context, router *mux.Router) error {
 
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -107,12 +109,16 @@ func initializeTheFunctionalRouter(
 	// - API endpoints at /api
 	// - TODO: HTTP session management for auth, UI, and API
 	// - TODO: auth middleware (check bearer, fallback to HTTP session, inspect and renew)
-	// - TODO: CORS (for API and UI X-Frame-Options)
+	// - TODO: CORS
+	// - TODO: CSRF protection
+	// - TODO: CSP
 	// - TODO: RBAC
 	// - TODO: tenant resolution
 
-	contextRouter := rootRouter.PathPrefix(feServer.ServeOpts.ContextRoot).Subrouter()
-	err := enrichFunctionalRequestContext(contextRouter, appContext)
+	ctxRoot := feServer.HTTPOpts.ServeOptions.ContextRoot
+
+	contextRouter := rootRouter.PathPrefix(ctxRoot).Subrouter()
+	err := enrichFunctionalRequestContext(appContext, contextRouter)
 	if err != nil {
 		return fmt.Errorf("failed to enrich functional request context: %w", err)
 	}
@@ -121,7 +127,7 @@ func initializeTheFunctionalRouter(
 			Msg("Context router registered")
 	}
 
-	err = HandleOpenAPI(contextRouter, feServer.ServeOpts.ContextRoot)
+	err = HandleOpenAPI(contextRouter, ctxRoot)
 	if err != nil {
 		return fmt.Errorf("failed to register OpenAPI handler: %w", err)
 	}
@@ -142,8 +148,8 @@ func initializeTheFunctionalRouter(
 }
 
 func enrichFunctionalRequestContext(
-	router *mux.Router,
 	appContext context.Context,
+	router *mux.Router,
 ) error {
 
 	router.Use(func(next http.Handler) http.Handler {
@@ -175,7 +181,7 @@ func addAuthHandlers(
 		routerLog.Trace().
 			Msg("Auth router registered")
 	}
-	err := IAMHandlers(authRouter, feServer.ServeOpts, feServer.RelayingParty)
+	err := IAMHandlers(authRouter, feServer.HTTPOpts, feServer.SessionStore, feServer.RelayingParty)
 	if err != nil {
 		return fmt.Errorf("failed to register IAM handlers: %w", err)
 	}
@@ -196,14 +202,18 @@ func addUIHandlers(
 	// - TODO: static content of MFEs
 
 	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
-	staticRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
-	staticRouter.Use(auth.IsAuthenticated(feServer.RelayingParty, feServer.ResourceServer))
+	staticRouter.Use(auth.IsAuthenticated(
+		feServer.SessionStore,
+		feServer.HTTPOpts.SessionOptions.Name,
+		feServer.RelayingParty,
+		feServer.ResourceServer,
+	))
 
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
 			Msg("Static router registered")
 	}
-	err := HandleStatic(staticRouter, feServer.ServeOpts.ContextRoot, feServer.ServeOpts.StaticPath)
+	err := HandleStatic(staticRouter, feServer.HTTPOpts.ServeOptions.ContextRoot, feServer.HTTPOpts.ServeOptions.StaticPath)
 	if err != nil {
 		return fmt.Errorf("failed to register static handler: %w", err)
 	}
@@ -223,8 +233,12 @@ func addAPIHandlers(
 	// - Resource modules bindings
 
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
-	apiRouter.Use(session.BindHTTPSessionToRequests(feServer.SessionStore, feServer.SessionName))
-	apiRouter.Use(auth.IsAuthenticated(feServer.RelayingParty, feServer.ResourceServer))
+	apiRouter.Use(auth.IsAuthenticated(
+		feServer.SessionStore,
+		feServer.HTTPOpts.SessionOptions.Name,
+		feServer.RelayingParty,
+		feServer.ResourceServer,
+	))
 	apiRouter.Use(setJSONResponse)
 
 	err := bindModules(apiRouter, feServer, routerLog)

@@ -3,13 +3,27 @@ package auth
 import (
 	"net/http"
 
-	"github.com/morphy76/g-fe-server/internal/http/session"
+	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
 )
 
+// IsAuthenticated checks if the user is authenticated by session and bearer token.
+func IsAuthenticated(
+	sessionStore sessions.Store,
+	sessionName string,
+	rp rp.RelyingParty,
+	rs rs.ResourceServer,
+) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(sessionStore, sessionName, rp, next))
+	}
+}
+
 func isAuthenticatedBySession(
+	sessionStore sessions.Store,
+	sessionName string,
 	relyingParty rp.RelyingParty,
 	next http.Handler,
 ) http.Handler {
@@ -21,15 +35,15 @@ func isAuthenticatedBySession(
 			return r.URL.String()
 		}
 
-		useSession, ok := session.ExtractSession(r.Context())
-		if !ok {
+		useSession, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
+		if err != nil {
 			useLogger.Error().Msg("Failed to extract session")
 			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
 			return
 		}
 
-		isAuth := useSession.GetOrElse("authenticated", false)
-		if isAuth.(bool) {
+		isAuth, found := useSession.Values[SessionKeyAuthenticated]
+		if found && isAuth.(bool) {
 			next.ServeHTTP(w, r)
 		} else {
 			useLogger.Debug().Msg("Session is not authenticated")
@@ -68,15 +82,6 @@ func isAuthenticateByBearerToken(
 	})
 }
 
-func IsAuthenticated(
-	rp rp.RelyingParty,
-	rs rs.ResourceServer,
-) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(rp, next))
-	}
-}
-
 // const authLogout = "/auth/logout"
 
 // // HTTPSessionInspectAndRenew checks the session for an active token and renews it if necessary
@@ -93,13 +98,13 @@ func IsAuthenticated(
 // 				return
 // 			}
 
-// 			accessToken := session.Values["access_token"]
+// 			accessToken := session.Values[SessionKeyAccessToken]
 // 			if accessToken == nil {
 // 				logger.Warn().Msg("No access token found")
 // 				http.Redirect(w, r, ctxRoot+authLogout, http.StatusTemporaryRedirect)
 // 				return
 // 			}
-// 			refreshToken := session.Values["refresh_token"]
+// 			refreshToken := session.Values[SessionKeyRefreshToken]
 // 			if refreshToken == nil {
 // 				logger.Warn().Msg("No refresh token found")
 // 				http.Redirect(w, r, ctxRoot+authLogout, http.StatusTemporaryRedirect)
@@ -133,9 +138,9 @@ func IsAuthenticated(
 // 				return
 // 			}
 
-// 			session.Values["access_token"] = tokens.AccessToken
-// 			session.Values["id_token"] = tokens.IDToken
-// 			session.Values["refresh_token"] = tokens.RefreshToken
+// 			session.Values[SessionKeyAccessToken] = tokens.AccessToken
+// 			session.Values[SessionKeyIDToken] = tokens.IDToken
+// 			session.Values[SessionKeyRefreshToken] = tokens.RefreshToken
 
 // 			session.Save(r, w)
 
@@ -160,7 +165,7 @@ func IsAuthenticated(
 // 				url.QueryEscape(r.URL.String()),
 // 			)
 
-// 			idToken := session.Values["id_token"]
+// 			idToken := session.Values[SessionKeyIDToken]
 // 			if idToken == nil || len(idToken.(string)) == 0 {
 // 				logger.Debug().
 // 					Str("requested_url", r.URL.String()).

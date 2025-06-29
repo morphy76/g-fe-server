@@ -3,8 +3,8 @@ services:
   # Databases
 
   go_db:
-    image: mongo:7.0
-    platform: linux/arm64/v8
+    image: mongo:8
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: go_root
@@ -19,8 +19,8 @@ services:
       - fe-private-network
 
   relational-db:
-    image: postgres:17.4
-    platform: linux/amd64
+    image: postgres:17
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     environment:
       POSTGRES_USER: admin
@@ -35,8 +35,8 @@ services:
   # Infrastructural services
 
   iam:
-    image: quay.io/keycloak/keycloak:26.0
-    platform: linux/arm64
+    image: quay.io/keycloak/keycloak:26.2
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     command:
       - start-dev
@@ -44,14 +44,13 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-      JAVA_OPTS_APPEND: "-XX:UseSVE=0"
     volumes:
       - ./imports/realm:/opt/keycloak/data/import
     network_mode: "host"
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.120.0
-    platform: linux/arm64
+    image: otel/opentelemetry-collector-contrib:latest
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     volumes:
       - ./imports/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
     ports:
@@ -60,8 +59,8 @@ services:
       - fe-private-network
 
   unleash-edge:
-    image: unleashorg/unleash-edge:v19.7
-    platform: linux/amd64
+    image: unleashorg/unleash-edge:v19.11
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     command: ["edge"]
     restart: unless-stopped
     ports:
@@ -79,7 +78,7 @@ services:
 
   zipkin:
     image: openzipkin/zipkin-slim:3
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     ports:
       - "9411:9411"
@@ -89,8 +88,8 @@ services:
       - fe-private-network
 
   prometheus:
-    image: prom/prometheus:v3.2.1
-    platform: linux/amd64
+    image: prom/prometheus:v3.4.1
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     volumes:
       - ./imports/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
@@ -105,8 +104,8 @@ services:
   # Development tools
 
   unleash:
-    image: unleashorg/unleash-server:6.7
-    platform: linux/amd64
+    image: unleashorg/unleash-server:7
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     ports:
       - "4242:4242"
@@ -123,8 +122,8 @@ services:
       - fe-private-network
 
   pgcli:
-    image: dpage/pgadmin4:9.1
-    platform: linux/amd64
+    image: dpage/pgadmin4:latest
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     depends_on:
       - "relational-db"
@@ -141,7 +140,7 @@ services:
 
   mongo-express:
     image: mongo-express:latest
-    platform: linux/arm64/v8
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     ports:
       - 8081:8081

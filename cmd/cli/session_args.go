@@ -8,11 +8,11 @@ import (
 	"strconv"
 
 	"github.com/gorilla/securecookie"
-	"github.com/morphy76/g-fe-server/internal/http/session"
+	"github.com/morphy76/g-fe-server/cmd/options"
 )
 
 // SessionOptionsBuilderFn is a function that returns SessionOptions
-type SessionOptionsBuilderFn func() (*session.SessionOptions, error)
+type SessionOptionsBuilderFn func() (*options.SessionOptions, error)
 
 // ErrInvalidSessionSameSite is an invalid session same site error
 var ErrInvalidSessionSameSite = errors.New("invalid session same site")
@@ -38,7 +38,7 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 	sessionSameSiteArg := flag.String("session-same-site", "Lax", "session same site: Default, Lax, Strict or None. Environment: "+envSessionSameSite)
 	sessionPartitionedArg := flag.Bool("session-partitioned", false, "session partitioned. Environment: "+envSessionPartitioned)
 
-	return func() (*session.SessionOptions, error) {
+	return func() (*options.SessionOptions, error) {
 		useSessionKey, found := os.LookupEnv(envSessionKey)
 		if !found {
 			useSessionKey = *sessionKeyArg
@@ -85,15 +85,16 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 		if !found {
 			strSessionSameSite = *sessionSameSiteArg
 		}
-		if strSessionSameSite == "Lax" {
+		switch strSessionSameSite {
+		case "Lax":
 			useSessionSameSite = http.SameSiteLaxMode
-		} else if strSessionSameSite == "Strict" {
+		case "Strict":
 			useSessionSameSite = http.SameSiteStrictMode
-		} else if strSessionSameSite == "None" {
+		case "None":
 			useSessionSameSite = http.SameSiteNoneMode
-		} else if strSessionSameSite == "Default" {
+		case "Default":
 			useSessionSameSite = http.SameSiteDefaultMode
-		} else {
+		default:
 			return nil, ErrInvalidSessionSameSite
 		}
 
@@ -105,7 +106,7 @@ func SessionOptionsBuilder() SessionOptionsBuilderFn {
 			useSessionPartitioned = strSessionPartitioned == "true"
 		}
 
-		return &session.SessionOptions{
+		return &options.SessionOptions{
 			Key:           useSessionKey,
 			Name:          useSessionName,
 			MaxAge:        useSessionMaxAge,

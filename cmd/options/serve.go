@@ -8,6 +8,8 @@ type ServeOptions struct {
 	PathOptions
 	// URLOptions holds the options for the serving URL configuration.
 	URLOptions
+	// TODO CORS Options
+	// TODO CSPOptions
 }
 
 // PathOptions holds the options for the paths used in the application.

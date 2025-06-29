@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 
 const contentTypeHTTPHeader = "Content-Type"
 
+// HandleStatic registers a static file server for the given static path.
 func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) error {
 
 	defaultFile := filepath.Join(staticPath, "index.html")
@@ -35,25 +37,12 @@ func HandleStatic(staticRouter *mux.Router, ctxRoot string, staticPath string) e
 			w.Header().Set(contentTypeHTTPHeader, "text/html")
 			http.ServeFile(w, r, defaultFile)
 		} else {
-			ext := strings.ToLower(filepath.Ext(requestedFile))
-			switch ext {
-			case ".css":
-				w.Header().Set(contentTypeHTTPHeader, "text/css")
-			case ".js":
-				w.Header().Set(contentTypeHTTPHeader, "application/javascript")
-			case ".html":
-				w.Header().Set(contentTypeHTTPHeader, "text/html")
-			case ".png":
-				w.Header().Set(contentTypeHTTPHeader, "image/png")
-			case ".jpg", ".jpeg":
-				w.Header().Set(contentTypeHTTPHeader, "image/jpeg")
-			case ".gif":
-				w.Header().Set(contentTypeHTTPHeader, "image/gif")
-			case ".svg":
-				w.Header().Set(contentTypeHTTPHeader, "image/svg+xml")
-			default:
-				w.Header().Set(contentTypeHTTPHeader, "application/octet-stream")
+			ext := filepath.Ext(requestedFile)
+			contentType := mime.TypeByExtension(ext)
+			if contentType == "" {
+				contentType = "application/octet-stream"
 			}
+			w.Header().Set(contentTypeHTTPHeader, contentType)
 			http.ServeFile(w, r, requestedFile)
 		}
 	}

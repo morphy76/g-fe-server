@@ -14,7 +14,6 @@ import (
 	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/common"
 	"github.com/morphy76/g-fe-server/internal/common/health"
-	"github.com/morphy76/g-fe-server/internal/http/session"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/rs/zerolog"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
@@ -34,18 +33,16 @@ type FEServer struct {
 	// UID is a unique identifier for the server instance
 	UID string
 
-	// ServeOpts contains options for serving the application
-	ServeOpts *options.ServeOptions
+	// HTTPOpts contains options for the HTTP server
+	HTTPOpts *options.HTTPOptions
 
-	// SessionName is the name of the session used for storing user data
-	SessionName string
 	// SessionStore is the session store used for managing user sessions
 	SessionStore sessions.Store
-	// SessionOptions contains options for session management
-	SessionOptions *session.SessionOptions
 
 	// MongoClient is the MongoDB client used for database operations
 	MongoClient *mongo.Client
+	// DB is the MongoDB database instance used for operations
+	DB *mongo.Database
 
 	// RelyingParty is the OIDC relying party client used for authentication
 	RelayingParty rp.RelyingParty
@@ -88,15 +85,14 @@ func InjectFEServer(ctx context.Context, appContext context.Context) (context.Co
 // NewFEServer creates a Context with a new EventBus
 func NewFEServer(
 	appContext context.Context,
-	serveOpts *options.ServeOptions,
-	sessionOptions *session.SessionOptions,
+	httpOpts *options.HTTPOptions,
 	oidcOptions *auth.OIDCOptions,
 	integrationsOptions *options.IntegrationOptions,
 ) (context.Context, error) {
 
 	feServer := &FEServer{
 		UID:         uuid.New().String(),
-		ServeOpts:   serveOpts,
+		HTTPOpts:    httpOpts,
 		ServiceName: integrationsOptions.OTelOptions.ServiceName,
 		ShutdownFn:  make([]func() error, 0),
 
@@ -105,9 +101,8 @@ func NewFEServer(
 
 	err := bindInfrastructuralDependencies(
 		feServer,
-		serveOpts,
+		httpOpts,
 		oidcOptions,
-		sessionOptions,
 		integrationsOptions,
 	)
 	if err != nil {
@@ -126,30 +121,32 @@ func NewFEServer(
 func (feServer *FEServer) ListenAndServe(ctx context.Context, rootRouter *mux.Router) error {
 	feLogger := logger.GetLogger(ctx, "feServer")
 
+	serveOpts := feServer.HTTPOpts.ServeOptions
+
 	feLogger.Info().
 		Dict("serve_opts", zerolog.Dict().
-			Str("protocol", feServer.ServeOpts.Protocol).
-			Str("host", feServer.ServeOpts.Host).
-			Str("port", feServer.ServeOpts.Port).
-			Str("ctx", feServer.ServeOpts.ContextRoot).
-			Str("serving", feServer.ServeOpts.StaticPath)).
+			Str("protocol", serveOpts.Protocol).
+			Str("host", serveOpts.Host).
+			Str("port", serveOpts.Port).
+			Str("ctx", serveOpts.ContextRoot).
+			Str("serving", serveOpts.StaticPath)).
 		Dict("aiw", zerolog.Dict().
 			Str("fqdn", feServer.AIWfacade.AIWOptions.FQDN)).
 		Msg("Server started")
 
-	if feServer.ServeOpts.Protocol == "https" {
+	if serveOpts.Protocol == "https" {
 		return http.ListenAndServeTLS(
-			feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port,
-			feServer.ServeOpts.CertFile,
-			feServer.ServeOpts.KeyFile,
-			rootRouter,
-		)
-	} else {
-		return http.ListenAndServe(
-			feServer.ServeOpts.Host+":"+feServer.ServeOpts.Port,
+			serveOpts.Host+":"+serveOpts.Port,
+			serveOpts.CertFile,
+			serveOpts.KeyFile,
 			rootRouter,
 		)
 	}
+
+	return http.ListenAndServe(
+		serveOpts.Host+":"+serveOpts.Port,
+		rootRouter,
+	)
 
 }
 

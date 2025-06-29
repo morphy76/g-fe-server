@@ -1,13 +1,19 @@
 package handlers
 
 import (
+	"context"
+	"encoding/gob"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/cmd/options"
-	"github.com/morphy76/g-fe-server/internal/http/session"
+	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
 	"github.com/rs/zerolog"
@@ -15,26 +21,48 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
 
+const (
+	// AuthQueryArgsRedirectTo is the query argument used to redirect after login
+	AuthQueryArgsRedirectTo = "redirect_to"
+
+	failedToGetSession        = "Failed to get session"
+	internalServerError       = "Internal server error"
+	logoutTokenParam          = "logout_token="
+	backChannelLogoutEvent    = "http://schemas.openid.net/event/backchannel-logout"
+	sessionCleanupTimeout     = 5 * time.Second
+	jtiCheckTimeout           = 2 * time.Second
+	jtiReplayCheckWindow      = 5 * time.Minute
+	httpSessionsCollection    = "http_sessions"
+	logoutTokenJtisCollection = "logout_token_jtis"
+)
+
 // IAMHandlers registers the IAM authentication handlers
 func IAMHandlers(
 	authRouter *mux.Router,
-	serveOptions *options.ServeOptions,
+	httpOptions *options.HTTPOptions,
+	sessionStore sessions.Store,
 	relyingParty rp.RelyingParty,
 ) error {
-	ctxRoot := serveOptions.ContextRoot
+	ctxRoot := httpOptions.ServeOptions.ContextRoot
 
-	authRouter.HandleFunc("/login", onLogin(ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
+	gob.Register(auth.UserInfo{})
+	gob.Register(time.Time{})
+
+	authRouter.HandleFunc("/login", onLogin(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
-	authRouter.HandleFunc("/logout", onLogout(serveOptions, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
-	authRouter.HandleFunc("/info", onInfo(ctxRoot)).Name("GET " + ctxRoot + "/auth/info")
+	authRouter.HandleFunc("/logout", onLogout(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
+	authRouter.HandleFunc("/info", onInfo(sessionStore, httpOptions)).Name("GET " + ctxRoot + "/auth/info")
 	authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
 
 	return nil
 }
 
-func onLogin(ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
+func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		requestedURL, err := url.QueryUnescape(r.URL.Query().Get("requested_url"))
+		log := logger.GetLogger(r.Context(), "auth")
+		log.Trace().Msg("Logging in")
+
+		requestedURL, err := url.QueryUnescape(r.URL.Query().Get(AuthQueryArgsRedirectTo))
 		if err != nil {
 			requestedURL = ctxRoot + "/ui"
 		}
@@ -43,99 +71,94 @@ func onLogin(ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
 			return requestedURL
 		}
 
+		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
+		if err != nil {
+			log.Warn().Err(err).Msg(failedToGetSession)
+			rp.AuthURLHandler(stateFn, relyingParty)(w, r)
+			return
+		}
+
+		isAuth, found := session.Values[auth.SessionKeyAuthenticated]
+		if found && isAuth.(bool) {
+			log.Debug().Msg("Session is already authenticated")
+			http.Redirect(w, r, requestedURL, http.StatusFound)
+			return
+		}
+
 		rp.AuthURLHandler(stateFn, relyingParty)(w, r)
 	}
 }
 
-func onLogout(serveOptions *options.ServeOptions, relyingParty rp.RelyingParty) http.HandlerFunc {
+func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// logger := logger.GetLogger(r.Context(), "auth")
-		// logger.Trace().Msg("Logging out")
+		log := logger.GetLogger(r.Context(), "auth")
+		log.Trace().Msg("Logging out")
 
-		// session := session.ExtractSession(r.Context())
+		requestedURL, err := url.QueryUnescape(r.URL.Query().Get(AuthQueryArgsRedirectTo))
+		if err != nil || requestedURL == "" {
+			requestedURL = ctxRoot + "/ui"
+		}
 
-		// logger.Trace().Msg("Start logging out")
+		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
+		if err != nil {
+			log.Error().Err(err).Msg(failedToGetSession)
+			http.Error(w, failedToGetSession, http.StatusInternalServerError)
+			return
+		}
 
-		// backTo := fmt.Sprintf(
-		// 	"%s://%s:%s/%s/ui/",
-		// 	serveOptions.Protocol,
-		// 	serveOptions.Host,
-		// 	serveOptions.Port,
-		// 	serveOptions.ContextRoot,
-		// )
+		issuer := session.Values[auth.SessionKeyIssuer]
+		subject := session.Values[auth.SessionKeySubject]
+		sid := session.Values[auth.SessionKeySessionID]
+		idToken := session.Values[auth.SessionKeyIDToken]
+		log.Debug().
+			Interface("issuer", issuer).
+			Interface("subject", subject).
+			Interface("session_id", sid).
+			Interface("id_token", idToken).
+			Interface("requestedURL", requestedURL).
+			Msg("Start logging out")
 
-		// idToken, _ := session.Get("id_token")
-		// if idToken == nil {
-		// 	authURL := fmt.Sprintf(
-		// 		"%s://%s:%s/%s/auth/login",
-		// 		serveOptions.Protocol,
-		// 		serveOptions.Host,
-		// 		serveOptions.Port,
-		// 		serveOptions.ContextRoot,
-		// 	)
+		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), requestedURL, "")
+		if err != nil {
+			log.Error().Err(err).Msg("End session failed")
+			http.Error(w, "End session failed", http.StatusInternalServerError)
+			return
+		}
 
-		// 	w.Header().Set("Cache-Control", "no-cache")
-		// 	http.Redirect(w, r, authURL, http.StatusFound)
-		// 	return
-		// }
+		session.Options.MaxAge = -1
+		session.Save(r, w)
+		log.Trace().
+			Any("to url", url).
+			Msg("Auth session deleted")
 
-		// // session.Options.MaxAge = -1
-		// // delete(session.Values, "id_token")
-		// // session.Save(r, w)
-		// // sessionState, found := session.Values["session_state"]
-
-		// var url *url.URL
-		// var err error
-		// // if found {
-		// // 	url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, sessionState.(string))
-		// // } else {
-		// url, err = rp.EndSession(context.Background(), relyingParty, idToken.(string), backTo, "")
-		// // }
-		// if err != nil {
-		// 	logger.Error().Err(err).Msg("End session failed")
-		// 	http.Error(w, "End session failed", http.StatusInternalServerError)
-		// 	return
-		// }
-		// logger.Trace().
-		// 	Any("to url", url).
-		// 	Msg("Auth session deleted")
-
-		// w.Header().Set("Cache-Control", "no-cache")
-		// http.Redirect(w, r, url.String(), http.StatusFound)
-
-		w.Write([]byte("OK"))
+		http.Redirect(w, r, url.String(), http.StatusFound)
 	}
 }
 
-func onInfo(ctxRoot string) http.HandlerFunc {
+func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := logger.GetLogger(r.Context(), "auth")
+		log := logger.GetLogger(r.Context(), "auth")
 
-		session, ok := session.ExtractSession(r.Context())
-		if !ok {
-			http.Error(w, "Session not found", http.StatusUnauthorized)
+		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
+		if err != nil {
+			log.Error().Err(err).Msg(failedToGetSession)
+			http.Error(w, failedToGetSession, http.StatusInternalServerError)
 			return
 		}
 
-		logger.Trace().Msg("Info requested")
+		log.Trace().Msg("Info requested")
 
-		_, found := session.Get("id_token")
-		if !found {
-			http.Error(w, "Auth session not found", http.StatusUnauthorized)
+		authenticated, found := session.Values[auth.SessionKeyAuthenticated]
+		if !found || !authenticated.(bool) {
+			log.Debug().Msg("User is not authenticated")
+			http.Error(w, "User is not authenticated", http.StatusUnauthorized)
 			return
 		}
 
-		rv := &map[string]string{
-			"email":              session.GetOrElse("email", "").(string),
-			"family_name":        session.GetOrElse("family_name", "").(string),
-			"given_name":         session.GetOrElse("given_name", "").(string),
-			"name":               session.GetOrElse("name", "").(string),
-			"preferred_username": session.GetOrElse("preferred_username", "").(string),
-			"logout_url":         ctxRoot + "/auth/logout",
-		}
+		rv := session.Values[auth.SessionKeyUserInfo]
 		responseBody, err := json.Marshal(rv)
 		if err != nil {
-			logger.Error().Err(err).Msg("Failed to marshal response")
+			log.Error().Err(err).Msg("Failed to marshal response")
 			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
 			return
 		}
@@ -149,22 +172,196 @@ func onInfo(ctxRoot string) http.HandlerFunc {
 func onBackChannelLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logger.GetLogger(r.Context(), "auth")
-
 		log.Debug().Msg("Back channel logout")
 
-		var body map[string]interface{}
-		err := json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Cache-Control", "no-store")
+
+		logoutToken, err := extractLogoutToken(r, log)
 		if err != nil {
-			http.Error(w, "Failed to decode request body", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		defer r.Body.Close()
 
-		log.Trace().Interface("body", body).Msg("Back channel logout")
+		claims, err := parseLogoutToken(logoutToken, log)
+		if err != nil {
+			http.Error(w, "Invalid logout_token", http.StatusBadRequest)
+			return
+		}
 
+		feServer, err := server.ExtractFEServer(r.Context())
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to extract FEServer from context")
+			http.Error(w, internalServerError, http.StatusInternalServerError)
+			return
+		}
+
+		if err := validateLogoutToken(claims, log, feServer); err != nil {
+			log.Error().Err(err).Msg("Logout token validation failed")
+			http.Error(w, "Invalid logout_token", http.StatusBadRequest)
+			return
+		}
+
+		log.Debug().
+			Str("subject", claims.Subject).
+			Str("issuer", claims.Issuer).
+			Str("session_id", claims.SessionID).
+			Str("jti", claims.JWTID).
+			Msg("Decoded logout_token")
+
+		go cleanupUserSessions(claims, feServer, log)
+
+		// Return HTTP 200 OK as required by section 2.8 of the spec
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
 	}
+}
+
+func validateLogoutToken(claims *oidc.LogoutTokenClaims, log zerolog.Logger, feServer *server.FEServer) error {
+	// 1. JWT signature validation is handled by oidc.ParseToken
+
+	// 2-4. Validate required claims and expiration
+	if err := validateBasicClaims(claims); err != nil {
+		return err
+	}
+
+	// 5. Verify events claim - CRITICAL for compliance
+	if err := validateEventsClaim(claims); err != nil {
+		return err
+	}
+
+	// 6. Verify nonce claim is not present (LogoutTokenClaims doesn't have Nonce field, so this is automatically satisfied)
+
+	// 7. Verify JWTID is present (required for logout tokens)
+	if claims.JWTID == "" {
+		return fmt.Errorf("missing required 'jti' claim")
+	}
+
+	// 8. Optional: verify issuer matches expected issuer
+	if err := validateIssuer(claims, feServer, log); err != nil {
+		return err
+	}
+
+	// 9. Optional: verify JTI uniqueness to prevent replay attacks
+	if err := validateJTIUniqueness(claims, feServer, log); err != nil {
+		return err
+	}
+
+	// 10. Optional: verify subject and session ID match existing sessions
+	// This could be implemented to cross-reference with your session store
+
+	return nil
+}
+
+// validateBasicClaims validates required claims and expiration
+func validateBasicClaims(claims *oidc.LogoutTokenClaims) error {
+	if claims.Issuer == "" {
+		return fmt.Errorf("missing required 'iss' claim")
+	}
+	if len(claims.Audience) == 0 {
+		return fmt.Errorf("missing required 'aud' claim")
+	}
+	if claims.IssuedAt == 0 {
+		return fmt.Errorf("missing required 'iat' claim")
+	}
+	if claims.Expiration == 0 {
+		return fmt.Errorf("missing required 'exp' claim")
+	}
+
+	// Validate expiration
+	if time.Now().After(claims.Expiration.AsTime()) {
+		return fmt.Errorf("logout token has expired")
+	}
+
+	// Verify that token contains sub or sid claim
+	if claims.Subject == "" && claims.SessionID == "" {
+		return fmt.Errorf("logout token must contain either 'sub' or 'sid' claim")
+	}
+
+	return nil
+}
+
+// validateEventsClaim validates the events claim for back-channel logout
+func validateEventsClaim(claims *oidc.LogoutTokenClaims) error {
+	if claims.Events == nil {
+		return fmt.Errorf("missing required 'events' claim")
+	}
+
+	if _, exists := claims.Events[backChannelLogoutEvent]; !exists {
+		return fmt.Errorf("missing required back-channel logout event in 'events' claim")
+	}
+
+	return nil
+}
+
+// validateIssuer validates the issuer against the expected issuer from configuration
+func validateIssuer(claims *oidc.LogoutTokenClaims, feServer *server.FEServer, log zerolog.Logger) error {
+	if feServer == nil || feServer.RelayingParty == nil {
+		return nil // Skip validation if no server context
+	}
+
+	expectedIssuer := feServer.RelayingParty.Issuer()
+	if claims.Issuer != expectedIssuer {
+		log.Warn().
+			Str("expected_issuer", expectedIssuer).
+			Str("token_issuer", claims.Issuer).
+			Msg("Issuer mismatch in logout token")
+		return fmt.Errorf("issuer mismatch: expected %s, got %s", expectedIssuer, claims.Issuer)
+	}
+
+	return nil
+}
+
+// validateJTIUniqueness validates JTI uniqueness to prevent replay attacks
+func validateJTIUniqueness(claims *oidc.LogoutTokenClaims, feServer *server.FEServer, log zerolog.Logger) error {
+	if feServer == nil || claims.JWTID == "" {
+		return nil // Skip validation if no server context or JTI
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), jtiCheckTimeout)
+	defer cancel()
+
+	jtiFilter := map[string]interface{}{
+		"jti": claims.JWTID,
+		"created_at": map[string]interface{}{
+			"$gte": time.Now().Add(-jtiReplayCheckWindow),
+		},
+	}
+
+	count, err := feServer.DB.Collection(logoutTokenJtisCollection).CountDocuments(ctx, jtiFilter)
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to check JTI uniqueness")
+		// Continue processing - don't fail on database errors for this optional check
+		return nil
+	}
+
+	if count > 0 {
+		return fmt.Errorf("logout token replay detected: JTI %s already used", claims.JWTID)
+	}
+
+	// Store the JTI for future checks
+	storeJTIForReplayProtection(claims, feServer, log)
+	return nil
+}
+
+// storeJTIForReplayProtection stores the JTI asynchronously for future replay checks
+func storeJTIForReplayProtection(claims *oidc.LogoutTokenClaims, feServer *server.FEServer, log zerolog.Logger) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), sessionCleanupTimeout)
+		defer cancel()
+
+		jtiDoc := map[string]interface{}{
+			"jti":        claims.JWTID,
+			"issuer":     claims.Issuer,
+			"subject":    claims.Subject,
+			"session_id": claims.SessionID,
+			"created_at": time.Now(),
+			"expires_at": claims.Expiration.AsTime(),
+		}
+
+		_, err := feServer.DB.Collection(logoutTokenJtisCollection).InsertOne(ctx, jtiDoc)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to store JTI for replay protection")
+		}
+	}()
 }
 
 func marshalUserinfo(
@@ -175,48 +372,125 @@ func marshalUserinfo(
 	provider rp.RelyingParty,
 	info *oidc.UserInfo,
 ) {
+	log := logger.GetLogger(r.Context(), "auth")
 
-	// tokens.IDTokenClaims.Issuer
-	// tokens.IDTokenClaims.Subject
-	// tokens.IDTokenClaims.SessionID
-	logger := logger.GetLogger(r.Context(), "auth")
 	feServer, err := server.ExtractFEServer(r.Context())
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to extract FEServer from context")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		log.Error().Err(err).Msg("Failed to extract FEServer from context")
+		http.Error(w, internalServerError, http.StatusInternalServerError)
 		return
 	}
 
-	logger.Debug().
+	userInfo := auth.Convert(info)
+	logAuthCallback(tokens, state, userInfo, log)
+
+	session, err := createOrGetSession(feServer, r, log)
+	if err != nil {
+		http.Error(w, internalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	populateSessionValues(session, tokens, userInfo)
+
+	if err := session.Save(r, w); err != nil {
+		log.Error().Err(err).Msg("Failed to save session")
+		http.Error(w, internalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	log.Trace().Msg("Auth session saved")
+	http.Redirect(w, r, state, http.StatusFound)
+}
+
+// logAuthCallback logs the authentication callback information
+func logAuthCallback(tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, userInfo *auth.UserInfo, log zerolog.Logger) {
+	log.Debug().
 		Dict("tokens", zerolog.Dict().
 			Str("issuer", tokens.IDTokenClaims.Issuer).
 			Str("subject", tokens.IDTokenClaims.Subject).
 			Str("session_id", tokens.IDTokenClaims.SessionID)).
+		Str("state", state).
+		Any("user_info", userInfo).
 		Msg("On auth callback")
-	session, err := feServer.SessionStore.New(r, feServer.SessionName)
+}
+
+// createOrGetSession creates or retrieves a session from the session store
+func createOrGetSession(feServer *server.FEServer, r *http.Request, log zerolog.Logger) (*sessions.Session, error) {
+	session, err := sessions.GetRegistry(r).Get(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to create session")
-		onLogout(feServer.ServeOpts, provider)(w, r)
+		log.Error().Err(err).Msg("Failed to create session")
+		return nil, err
+	}
+	return session, nil
+}
+
+// populateSessionValues populates the session with authentication data
+func populateSessionValues(session *sessions.Session, tokens *oidc.Tokens[*oidc.IDTokenClaims], userInfo *auth.UserInfo) {
+	session.Values[auth.SessionKeyAuthenticated] = true
+	session.Values[auth.SessionKeyIssuer] = tokens.IDTokenClaims.Issuer
+	session.Values[auth.SessionKeySubject] = tokens.IDTokenClaims.Subject
+	session.Values[auth.SessionKeySessionID] = tokens.IDTokenClaims.SessionID
+	session.Values[auth.SessionKeyIDToken] = tokens.IDToken
+	session.Values[auth.SessionKeyUserInfo] = userInfo
+	session.Values[auth.SessionKeyAccessToken] = tokens.AccessToken
+	session.Values[auth.SessionKeyRefreshToken] = tokens.RefreshToken
+	session.Values[auth.SessionKeyExpiresIn] = tokens.ExpiresIn
+	session.Values[auth.SessionKeyJTI] = tokens.IDTokenClaims.JWTID
+	session.Values[auth.SessionKeyExpiresAt] = tokens.IDTokenClaims.Expiration.AsTime()
+}
+
+// extractLogoutToken extracts and validates the logout token from the request body
+func extractLogoutToken(r *http.Request, log zerolog.Logger) (string, error) {
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to read request body")
+		return "", fmt.Errorf("failed to read request body")
+	}
+	defer r.Body.Close()
+
+	skip := len(logoutTokenParam)
+	if len(bodyBytes) < skip {
+		return "", fmt.Errorf("invalid request body")
+	}
+	if string(bodyBytes[:skip]) != logoutTokenParam {
+		return "", fmt.Errorf("invalid request body")
+	}
+	if len(bodyBytes) == skip {
+		return "", fmt.Errorf("empty logout token")
 	}
 
-	session.Values["authenticated"] = true
+	return string(bodyBytes[skip:]), nil
+}
 
-	err = session.Save(r, w)
+// parseLogoutToken parses the JWT logout token using OIDC library
+func parseLogoutToken(tokenStr string, log zerolog.Logger) (*oidc.LogoutTokenClaims, error) {
+	claims := &oidc.LogoutTokenClaims{}
+	_, err := oidc.ParseToken(tokenStr, claims)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to save session")
-		onLogout(feServer.ServeOpts, provider)(w, r)
+		log.Error().Err(err).Msg("Failed to parse logout_token JWT")
+		return nil, err
+	}
+	return claims, nil
+}
+
+// cleanupUserSessions asynchronously deletes user sessions from the database
+func cleanupUserSessions(claims *oidc.LogoutTokenClaims, feServer *server.FEServer, log zerolog.Logger) {
+	ctx, cancel := context.WithTimeout(context.Background(), sessionCleanupTimeout)
+	defer cancel()
+
+	filter := map[string]interface{}{
+		"iam_issuer":     claims.Issuer,
+		"iam_subject":    claims.Subject,
+		"iam_session_id": claims.SessionID,
 	}
 
-	// session.Put("access_token", tokens.AccessToken)
-	// session.Put("refresh_token", tokens.RefreshToken)
-	// session.Put("id_token", tokens.IDToken)
-	// session.Put("email", info.Email)
-	// session.Put("family_name", info.FamilyName)
-	// session.Put("given_name", info.GivenName)
-	// session.Put("name", info.Name)
-	// session.Put("preferred_username", info.PreferredUsername)
+	res, err := feServer.DB.Collection(httpSessionsCollection).DeleteMany(ctx, filter)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to delete sessions in back channel logout")
+		return
+	}
 
-	logger.Trace().Msg("Auth session saved")
-
-	http.Redirect(w, r, state, http.StatusFound)
+	log.Debug().
+		Int64("deleted_count", res.DeletedCount).
+		Msg("Deleted sessions in back channel logout")
 }

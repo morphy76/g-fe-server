@@ -10,8 +10,9 @@ import (
 	"github.com/morphy76/g-fe-server/internal/http/session/mongostore"
 )
 
+// CreateSessionStore initializes a MongoDB session store with the provided options and returns it along with a shutdown function.
 func CreateSessionStore(
-	sessionOptions *SessionOptions,
+	sessionOptions *options.SessionOptions,
 	dbOptions *options.MongoDBOptions,
 	contextRoot string,
 ) (sessions.Store, func() error, error) {
@@ -25,12 +26,7 @@ func CreateSessionStore(
 		useCredentials := url.UserPassword(dbOptions.User, dbOptions.Password)
 		useURL.User = useCredentials
 	}
-	client, err := db.NewClient(dbOptions, false)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	dbName, err := extractDBNameFromURL(useURL)
+	client, dbName, err := db.NewClient(dbOptions, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -48,7 +44,6 @@ func CreateSessionStore(
 	store := mongostore.NewMongoStore(
 		client.Database(dbName).Collection("http_sessions"),
 		useOptions,
-		true,
 		[]byte(sessionOptions.Key),
 	)
 
@@ -57,12 +52,4 @@ func CreateSessionStore(
 	}
 
 	return store, shutdownFunc, nil
-}
-
-func extractDBNameFromURL(useURL *url.URL) (string, error) {
-	dbName := useURL.Path
-	if len(dbName) > 1 {
-		dbName = dbName[1:]
-	}
-	return dbName, nil
 }
