@@ -33,6 +33,12 @@ type Session struct {
 	IAMSubject string `bson:"iam_subject,omitempty"`
 	// IAMSessionID is the session ID from the OIDC provider.
 	IAMSessionID string `bson:"iam_session_id,omitempty"`
+	// JTI is the JWT ID, used to prevent replay attacks.
+	JTI string `bson:"jti,omitempty"`
+	// ExpiresAt is the expiration time of the session.
+	ExpiresAt time.Time `bson:"expires_at,omitempty"`
+	// CreatedAt is the timestamp when the session was created.
+	CreatedAt time.Time `bson:"created_at,omitempty"`
 }
 
 // MongoStore is a session store that uses MongoDB to store session data.
@@ -214,6 +220,9 @@ func (m *MongoStore) upsert(session *sessions.Session) error {
 		IAMIssuer:    session.Values[auth.SessionKeyIssuer].(string),
 		IAMSubject:   session.Values[auth.SessionKeySubject].(string),
 		IAMSessionID: session.Values[auth.SessionKeySessionID].(string),
+		JTI:          session.Values[auth.SessionKeyJTI].(string),
+		ExpiresAt:    session.Values[auth.SessionKeyExpiresAt].(time.Time),
+		CreatedAt:    time.Now(),
 	}
 
 	opts := options.UpdateOne().SetUpsert(true)

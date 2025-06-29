@@ -22,10 +22,18 @@ import (
 )
 
 const (
-	failedToGetSession  = "Failed to get session"
-	internalServerError = "Internal server error"
 	// AuthQueryArgsRedirectTo is the query argument used to redirect after login
 	AuthQueryArgsRedirectTo = "redirect_to"
+
+	failedToGetSession        = "Failed to get session"
+	internalServerError       = "Internal server error"
+	logoutTokenParam          = "logout_token="
+	backChannelLogoutEvent    = "http://schemas.openid.net/event/backchannel-logout"
+	sessionCleanupTimeout     = 5 * time.Second
+	jtiCheckTimeout           = 2 * time.Second
+	jtiReplayCheckWindow      = 5 * time.Minute
+	httpSessionsCollection    = "http_sessions"
+	logoutTokenJtisCollection = "logout_token_jtis"
 )
 
 // IAMHandlers registers the IAM authentication handlers
@@ -37,7 +45,8 @@ func IAMHandlers(
 ) error {
 	ctxRoot := httpOptions.ServeOptions.ContextRoot
 
-	gob.Register(auth.UserInfo{}) // Register UserInfo type for session storage
+	gob.Register(auth.UserInfo{})
+	gob.Register(time.Time{})
 
 	authRouter.HandleFunc("/login", onLogin(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
 	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
@@ -50,8 +59,8 @@ func IAMHandlers(
 
 func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := logger.GetLogger(r.Context(), "auth")
-		logger.Trace().Msg("Logging in")
+		log := logger.GetLogger(r.Context(), "auth")
+		log.Trace().Msg("Logging in")
 
 		requestedURL, err := url.QueryUnescape(r.URL.Query().Get(AuthQueryArgsRedirectTo))
 		if err != nil {
@@ -64,14 +73,14 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 
 		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
 		if err != nil {
-			logger.Warn().Err(err).Msg(failedToGetSession)
+			log.Warn().Err(err).Msg(failedToGetSession)
 			rp.AuthURLHandler(stateFn, relyingParty)(w, r)
 			return
 		}
 
 		isAuth, found := session.Values[auth.SessionKeyAuthenticated]
 		if found && isAuth.(bool) {
-			logger.Debug().Msg("Session is already authenticated")
+			log.Debug().Msg("Session is already authenticated")
 			http.Redirect(w, r, requestedURL, http.StatusFound)
 			return
 		}
@@ -82,8 +91,8 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 
 func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxRoot string, relyingParty rp.RelyingParty) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := logger.GetLogger(r.Context(), "auth")
-		logger.Trace().Msg("Logging out")
+		log := logger.GetLogger(r.Context(), "auth")
+		log.Trace().Msg("Logging out")
 
 		requestedURL, err := url.QueryUnescape(r.URL.Query().Get(AuthQueryArgsRedirectTo))
 		if err != nil || requestedURL == "" {
@@ -92,7 +101,7 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 
 		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
 		if err != nil {
-			logger.Error().Err(err).Msg(failedToGetSession)
+			log.Error().Err(err).Msg(failedToGetSession)
 			http.Error(w, failedToGetSession, http.StatusInternalServerError)
 			return
 		}
@@ -101,7 +110,7 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 		subject := session.Values[auth.SessionKeySubject]
 		sid := session.Values[auth.SessionKeySessionID]
 		idToken := session.Values[auth.SessionKeyIDToken]
-		logger.Debug().
+		log.Debug().
 			Interface("issuer", issuer).
 			Interface("subject", subject).
 			Interface("session_id", sid).
@@ -111,14 +120,14 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 
 		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), requestedURL, "")
 		if err != nil {
-			logger.Error().Err(err).Msg("End session failed")
+			log.Error().Err(err).Msg("End session failed")
 			http.Error(w, "End session failed", http.StatusInternalServerError)
 			return
 		}
 
 		session.Options.MaxAge = -1
 		session.Save(r, w)
-		logger.Trace().
+		log.Trace().
 			Any("to url", url).
 			Msg("Auth session deleted")
 
@@ -128,20 +137,20 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 
 func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := logger.GetLogger(r.Context(), "auth")
+		log := logger.GetLogger(r.Context(), "auth")
 
 		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
 		if err != nil {
-			logger.Error().Err(err).Msg(failedToGetSession)
+			log.Error().Err(err).Msg(failedToGetSession)
 			http.Error(w, failedToGetSession, http.StatusInternalServerError)
 			return
 		}
 
-		logger.Trace().Msg("Info requested")
+		log.Trace().Msg("Info requested")
 
 		authenticated, found := session.Values[auth.SessionKeyAuthenticated]
 		if !found || !authenticated.(bool) {
-			logger.Debug().Msg("User is not authenticated")
+			log.Debug().Msg("User is not authenticated")
 			http.Error(w, "User is not authenticated", http.StatusUnauthorized)
 			return
 		}
@@ -149,7 +158,7 @@ func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions) http.
 		rv := session.Values[auth.SessionKeyUserInfo]
 		responseBody, err := json.Marshal(rv)
 		if err != nil {
-			logger.Error().Err(err).Msg("Failed to marshal response")
+			log.Error().Err(err).Msg("Failed to marshal response")
 			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
 			return
 		}
@@ -163,42 +172,18 @@ func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions) http.
 func onBackChannelLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logger.GetLogger(r.Context(), "auth")
-
 		log.Debug().Msg("Back channel logout")
 
-		// OIDC Back-Channel Logout 1.0 compliant implementation
-		// Implements all required validations per RFC section 2.6 and 2.8
-
-		// Set Cache-Control header as per section 2.8 of the spec
 		w.Header().Set("Cache-Control", "no-store")
 
-		bodyBytes, err := io.ReadAll(r.Body)
+		logoutToken, err := extractLogoutToken(r, log)
 		if err != nil {
-			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		defer r.Body.Close()
 
-		skip := len("logout_token=")
-		if len(bodyBytes) < skip {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-		if string(bodyBytes[:skip]) != "logout_token=" {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-		if len(bodyBytes) == skip {
-			http.Error(w, "Empty logout token", http.StatusBadRequest)
-			return
-		}
-		bodyStr := string(bodyBytes[skip:])
-
-		// Decode the JWT logout_token using zitadel/oidc with proper LogoutTokenClaims
-		claims := &oidc.LogoutTokenClaims{}
-		_, err = oidc.ParseToken(bodyStr, claims)
+		claims, err := parseLogoutToken(logoutToken, log)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to parse logout_token JWT")
 			http.Error(w, "Invalid logout_token", http.StatusBadRequest)
 			return
 		}
@@ -210,60 +195,64 @@ func onBackChannelLogout() http.HandlerFunc {
 			return
 		}
 
-		// Validate logout token as per section 2.6 of the spec
 		if err := validateLogoutToken(claims, log, feServer); err != nil {
 			log.Error().Err(err).Msg("Logout token validation failed")
 			http.Error(w, "Invalid logout_token", http.StatusBadRequest)
 			return
 		}
 
-		subject := claims.Subject
-		issuer := claims.Issuer
-		sessionID := claims.SessionID
-
 		log.Debug().
-			Str("subject", subject).
-			Str("issuer", issuer).
-			Str("session_id", sessionID).
+			Str("subject", claims.Subject).
+			Str("issuer", claims.Issuer).
+			Str("session_id", claims.SessionID).
 			Str("jti", claims.JWTID).
 			Msg("Decoded logout_token")
 
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			filter := map[string]interface{}{
-				"iam_issuer":     issuer,
-				"iam_subject":    subject,
-				"iam_session_id": sessionID,
-			}
-
-			res, err := feServer.DB.Collection("http_sessions").DeleteMany(ctx, filter)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to delete sessions in back channel logout")
-				return
-			} else {
-				log.Debug().
-					Int64("deleted_count", res.DeletedCount).
-					Msg("Deleted sessions in back channel logout")
-			}
-		}()
+		go cleanupUserSessions(claims, feServer, log)
 
 		// Return HTTP 200 OK as required by section 2.8 of the spec
 		w.WriteHeader(http.StatusOK)
 	}
 }
 
-// NOTE: For production deployment, consider creating the following MongoDB indexes:
-// 1. db.logout_token_jtis.createIndex({"jti": 1}, {"unique": true})
-// 2. db.logout_token_jtis.createIndex({"expires_at": 1}, {"expireAfterSeconds": 0})
-// 3. db.logout_token_jtis.createIndex({"created_at": 1})
-
-// validateLogoutToken validates the logout token according to section 2.6 of the OIDC Back-Channel Logout spec
 func validateLogoutToken(claims *oidc.LogoutTokenClaims, log zerolog.Logger, feServer *server.FEServer) error {
 	// 1. JWT signature validation is handled by oidc.ParseToken
 
-	// 2. Validate required claims exist
+	// 2-4. Validate required claims and expiration
+	if err := validateBasicClaims(claims); err != nil {
+		return err
+	}
+
+	// 5. Verify events claim - CRITICAL for compliance
+	if err := validateEventsClaim(claims); err != nil {
+		return err
+	}
+
+	// 6. Verify nonce claim is not present (LogoutTokenClaims doesn't have Nonce field, so this is automatically satisfied)
+
+	// 7. Verify JWTID is present (required for logout tokens)
+	if claims.JWTID == "" {
+		return fmt.Errorf("missing required 'jti' claim")
+	}
+
+	// 8. Optional: verify issuer matches expected issuer
+	if err := validateIssuer(claims, feServer, log); err != nil {
+		return err
+	}
+
+	// 9. Optional: verify JTI uniqueness to prevent replay attacks
+	if err := validateJTIUniqueness(claims, feServer, log); err != nil {
+		return err
+	}
+
+	// 10. Optional: verify subject and session ID match existing sessions
+	// This could be implemented to cross-reference with your session store
+
+	return nil
+}
+
+// validateBasicClaims validates required claims and expiration
+func validateBasicClaims(claims *oidc.LogoutTokenClaims) error {
 	if claims.Issuer == "" {
 		return fmt.Errorf("missing required 'iss' claim")
 	}
@@ -277,95 +266,102 @@ func validateLogoutToken(claims *oidc.LogoutTokenClaims, log zerolog.Logger, feS
 		return fmt.Errorf("missing required 'exp' claim")
 	}
 
-	// 3. Validate expiration
+	// Validate expiration
 	if time.Now().After(claims.Expiration.AsTime()) {
 		return fmt.Errorf("logout token has expired")
 	}
 
-	// 4. Verify that token contains sub or sid claim
+	// Verify that token contains sub or sid claim
 	if claims.Subject == "" && claims.SessionID == "" {
 		return fmt.Errorf("logout token must contain either 'sub' or 'sid' claim")
 	}
 
-	// 5. Verify events claim - CRITICAL for compliance
+	return nil
+}
+
+// validateEventsClaim validates the events claim for back-channel logout
+func validateEventsClaim(claims *oidc.LogoutTokenClaims) error {
 	if claims.Events == nil {
 		return fmt.Errorf("missing required 'events' claim")
 	}
 
-	// Check for the specific back-channel logout event
-	backChannelLogoutEvent := "http://schemas.openid.net/event/backchannel-logout"
 	if _, exists := claims.Events[backChannelLogoutEvent]; !exists {
 		return fmt.Errorf("missing required back-channel logout event in 'events' claim")
 	}
 
-	// 6. Verify nonce claim is not present (LogoutTokenClaims doesn't have Nonce field, so this is automatically satisfied)
+	return nil
+}
 
-	// 7. Verify JWTID is present (required for logout tokens)
-	if claims.JWTID == "" {
-		return fmt.Errorf("missing required 'jti' claim")
+// validateIssuer validates the issuer against the expected issuer from configuration
+func validateIssuer(claims *oidc.LogoutTokenClaims, feServer *server.FEServer, log zerolog.Logger) error {
+	if feServer == nil || feServer.RelayingParty == nil {
+		return nil // Skip validation if no server context
 	}
 
-	// 8. Optional: verify issuer matches expected issuer from the relying party configuration
-	if feServer != nil && feServer.RelayingParty != nil {
-		expectedIssuer := feServer.RelayingParty.Issuer()
-		if claims.Issuer != expectedIssuer {
-			log.Warn().
-				Str("expected_issuer", expectedIssuer).
-				Str("token_issuer", claims.Issuer).
-				Msg("Issuer mismatch in logout token")
-			return fmt.Errorf("issuer mismatch: expected %s, got %s", expectedIssuer, claims.Issuer)
-		}
+	expectedIssuer := feServer.RelayingParty.Issuer()
+	if claims.Issuer != expectedIssuer {
+		log.Warn().
+			Str("expected_issuer", expectedIssuer).
+			Str("token_issuer", claims.Issuer).
+			Msg("Issuer mismatch in logout token")
+		return fmt.Errorf("issuer mismatch: expected %s, got %s", expectedIssuer, claims.Issuer)
 	}
-
-	// 9. Optional: verify JTI uniqueness to prevent replay attacks
-	// This is a simplified implementation - in production you'd want to store JTIs in a cache/database
-	// with appropriate TTL based on the token expiration
-	if feServer != nil && claims.JWTID != "" {
-		// Check if this JTI was recently used (implement based on your caching strategy)
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-
-		// Using a simple collection check - in production consider using Redis or similar
-		jtiFilter := map[string]interface{}{
-			"jti": claims.JWTID,
-			"created_at": map[string]interface{}{
-				"$gte": time.Now().Add(-5 * time.Minute), // Check last 5 minutes
-			},
-		}
-
-		count, err := feServer.DB.Collection("logout_token_jtis").CountDocuments(ctx, jtiFilter)
-		if err != nil {
-			log.Warn().Err(err).Msg("Failed to check JTI uniqueness")
-			// Continue processing - don't fail on database errors for this optional check
-		} else if count > 0 {
-			return fmt.Errorf("logout token replay detected: JTI %s already used", claims.JWTID)
-		}
-
-		// Store the JTI for future checks
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			jtiDoc := map[string]interface{}{
-				"jti":        claims.JWTID,
-				"issuer":     claims.Issuer,
-				"subject":    claims.Subject,
-				"session_id": claims.SessionID,
-				"created_at": time.Now(),
-				"expires_at": claims.Expiration.AsTime(),
-			}
-
-			_, err := feServer.DB.Collection("logout_token_jtis").InsertOne(ctx, jtiDoc)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to store JTI for replay protection")
-			}
-		}()
-	}
-
-	// 10. Optional: verify subject and session ID match existing sessions
-	// This could be implemented to cross-reference with your session store
 
 	return nil
+}
+
+// validateJTIUniqueness validates JTI uniqueness to prevent replay attacks
+func validateJTIUniqueness(claims *oidc.LogoutTokenClaims, feServer *server.FEServer, log zerolog.Logger) error {
+	if feServer == nil || claims.JWTID == "" {
+		return nil // Skip validation if no server context or JTI
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), jtiCheckTimeout)
+	defer cancel()
+
+	jtiFilter := map[string]interface{}{
+		"jti": claims.JWTID,
+		"created_at": map[string]interface{}{
+			"$gte": time.Now().Add(-jtiReplayCheckWindow),
+		},
+	}
+
+	count, err := feServer.DB.Collection(logoutTokenJtisCollection).CountDocuments(ctx, jtiFilter)
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to check JTI uniqueness")
+		// Continue processing - don't fail on database errors for this optional check
+		return nil
+	}
+
+	if count > 0 {
+		return fmt.Errorf("logout token replay detected: JTI %s already used", claims.JWTID)
+	}
+
+	// Store the JTI for future checks
+	storeJTIForReplayProtection(claims, feServer, log)
+	return nil
+}
+
+// storeJTIForReplayProtection stores the JTI asynchronously for future replay checks
+func storeJTIForReplayProtection(claims *oidc.LogoutTokenClaims, feServer *server.FEServer, log zerolog.Logger) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), sessionCleanupTimeout)
+		defer cancel()
+
+		jtiDoc := map[string]interface{}{
+			"jti":        claims.JWTID,
+			"issuer":     claims.Issuer,
+			"subject":    claims.Subject,
+			"session_id": claims.SessionID,
+			"created_at": time.Now(),
+			"expires_at": claims.Expiration.AsTime(),
+		}
+
+		_, err := feServer.DB.Collection(logoutTokenJtisCollection).InsertOne(ctx, jtiDoc)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to store JTI for replay protection")
+		}
+	}()
 }
 
 func marshalUserinfo(
@@ -376,16 +372,39 @@ func marshalUserinfo(
 	provider rp.RelyingParty,
 	info *oidc.UserInfo,
 ) {
-	logger := logger.GetLogger(r.Context(), "auth")
+	log := logger.GetLogger(r.Context(), "auth")
+
 	feServer, err := server.ExtractFEServer(r.Context())
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to extract FEServer from context")
+		log.Error().Err(err).Msg("Failed to extract FEServer from context")
 		http.Error(w, internalServerError, http.StatusInternalServerError)
 		return
 	}
 
 	userInfo := auth.Convert(info)
-	logger.Debug().
+	logAuthCallback(tokens, state, userInfo, log)
+
+	session, err := createOrGetSession(feServer, r, log)
+	if err != nil {
+		http.Error(w, internalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	populateSessionValues(session, tokens, userInfo)
+
+	if err := session.Save(r, w); err != nil {
+		log.Error().Err(err).Msg("Failed to save session")
+		http.Error(w, internalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	log.Trace().Msg("Auth session saved")
+	http.Redirect(w, r, state, http.StatusFound)
+}
+
+// logAuthCallback logs the authentication callback information
+func logAuthCallback(tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, userInfo *auth.UserInfo, log zerolog.Logger) {
+	log.Debug().
 		Dict("tokens", zerolog.Dict().
 			Str("issuer", tokens.IDTokenClaims.Issuer).
 			Str("subject", tokens.IDTokenClaims.Subject).
@@ -393,14 +412,20 @@ func marshalUserinfo(
 		Str("state", state).
 		Any("user_info", userInfo).
 		Msg("On auth callback")
+}
 
+// createOrGetSession creates or retrieves a session from the session store
+func createOrGetSession(feServer *server.FEServer, r *http.Request, log zerolog.Logger) (*sessions.Session, error) {
 	session, err := sessions.GetRegistry(r).Get(feServer.SessionStore, feServer.HTTPOpts.SessionOptions.Name)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to create session")
-		http.Error(w, internalServerError, http.StatusInternalServerError)
-		return
+		log.Error().Err(err).Msg("Failed to create session")
+		return nil, err
 	}
+	return session, nil
+}
 
+// populateSessionValues populates the session with authentication data
+func populateSessionValues(session *sessions.Session, tokens *oidc.Tokens[*oidc.IDTokenClaims], userInfo *auth.UserInfo) {
 	session.Values[auth.SessionKeyAuthenticated] = true
 	session.Values[auth.SessionKeyIssuer] = tokens.IDTokenClaims.Issuer
 	session.Values[auth.SessionKeySubject] = tokens.IDTokenClaims.Subject
@@ -410,14 +435,62 @@ func marshalUserinfo(
 	session.Values[auth.SessionKeyAccessToken] = tokens.AccessToken
 	session.Values[auth.SessionKeyRefreshToken] = tokens.RefreshToken
 	session.Values[auth.SessionKeyExpiresIn] = tokens.ExpiresIn
+	session.Values[auth.SessionKeyJTI] = tokens.IDTokenClaims.JWTID
+	session.Values[auth.SessionKeyExpiresAt] = tokens.IDTokenClaims.Expiration.AsTime()
+}
 
-	err = session.Save(r, w)
+// extractLogoutToken extracts and validates the logout token from the request body
+func extractLogoutToken(r *http.Request, log zerolog.Logger) (string, error) {
+	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to save session")
-		http.Error(w, internalServerError, http.StatusInternalServerError)
+		log.Error().Err(err).Msg("Failed to read request body")
+		return "", fmt.Errorf("failed to read request body")
+	}
+	defer r.Body.Close()
+
+	skip := len(logoutTokenParam)
+	if len(bodyBytes) < skip {
+		return "", fmt.Errorf("invalid request body")
+	}
+	if string(bodyBytes[:skip]) != logoutTokenParam {
+		return "", fmt.Errorf("invalid request body")
+	}
+	if len(bodyBytes) == skip {
+		return "", fmt.Errorf("empty logout token")
 	}
 
-	logger.Trace().Msg("Auth session saved")
+	return string(bodyBytes[skip:]), nil
+}
 
-	http.Redirect(w, r, state, http.StatusFound)
+// parseLogoutToken parses the JWT logout token using OIDC library
+func parseLogoutToken(tokenStr string, log zerolog.Logger) (*oidc.LogoutTokenClaims, error) {
+	claims := &oidc.LogoutTokenClaims{}
+	_, err := oidc.ParseToken(tokenStr, claims)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to parse logout_token JWT")
+		return nil, err
+	}
+	return claims, nil
+}
+
+// cleanupUserSessions asynchronously deletes user sessions from the database
+func cleanupUserSessions(claims *oidc.LogoutTokenClaims, feServer *server.FEServer, log zerolog.Logger) {
+	ctx, cancel := context.WithTimeout(context.Background(), sessionCleanupTimeout)
+	defer cancel()
+
+	filter := map[string]interface{}{
+		"iam_issuer":     claims.Issuer,
+		"iam_subject":    claims.Subject,
+		"iam_session_id": claims.SessionID,
+	}
+
+	res, err := feServer.DB.Collection(httpSessionsCollection).DeleteMany(ctx, filter)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to delete sessions in back channel logout")
+		return
+	}
+
+	log.Debug().
+		Int64("deleted_count", res.DeletedCount).
+		Msg("Deleted sessions in back channel logout")
 }
