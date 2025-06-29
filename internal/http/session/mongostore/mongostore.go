@@ -64,6 +64,8 @@ func NewMongoStore(
 		}
 	}
 
+	c.Indexes().DropAll(context.Background())
+
 	go func() {
 		iamIndexModel := mongo.IndexModel{
 			Keys: bson.D{
@@ -78,36 +80,35 @@ func NewMongoStore(
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		c.Indexes().DropOne(ctx, "iam_index")
 		c.Indexes().CreateOne(ctx, iamIndexModel)
 	}()
 
-	var ttlInSeconds int
-	if sessionOptions.MaxAge > 0 {
-		ttlInSeconds = sessionOptions.MaxAge
-	} else {
-		ttlInSeconds = 24 * 60 * 60
-	}
-	if ttlInSeconds > 0 {
-		go func() {
-			expireAfter := time.Duration(ttlInSeconds) * time.Second
+	ttlInSeconds := evalTTL(sessionOptions.MaxAge)
+	go func() {
+		expireAfter := int32(ttlInSeconds.Seconds())
 
-			expirationIndexModel := mongo.IndexModel{
-				Keys: bson.M{"modified": 1},
-				Options: options.Index().
-					SetExpireAfterSeconds(int32(expireAfter.Seconds())).
-					SetName("session_expire_index"),
-			}
+		expirationIndexModel := mongo.IndexModel{
+			Keys: bson.M{"modified": 1},
+			Options: options.Index().
+				SetExpireAfterSeconds(expireAfter).
+				SetName("session_expire_index"),
+		}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-			c.Indexes().DropOne(ctx, "session_expire_index")
-			c.Indexes().CreateOne(ctx, expirationIndexModel)
-		}()
-	}
+		c.Indexes().DropOne(ctx, "session_expire_index")
+		c.Indexes().CreateOne(ctx, expirationIndexModel)
+	}()
 
 	return store
+}
+
+func evalTTL(maxAge int) time.Duration {
+	if maxAge <= 0 {
+		return 24 * time.Hour
+	}
+	return time.Duration(maxAge) * time.Second
 }
 
 // Get retrieves a session by name from the request.

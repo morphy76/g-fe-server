@@ -4,7 +4,7 @@ services:
 
   go_db:
     image: mongo:8
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: go_root
@@ -20,7 +20,7 @@ services:
 
   relational-db:
     image: postgres:17
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     environment:
       POSTGRES_USER: admin
@@ -36,7 +36,7 @@ services:
 
   iam:
     image: quay.io/keycloak/keycloak:26.2
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     command:
       - start-dev
@@ -50,7 +50,7 @@ services:
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     volumes:
       - ./imports/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
     ports:
@@ -60,7 +60,7 @@ services:
 
   unleash-edge:
     image: unleashorg/unleash-edge:v19.11
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     command: ["edge"]
     restart: unless-stopped
     ports:
@@ -78,7 +78,7 @@ services:
 
   zipkin:
     image: openzipkin/zipkin-slim:3
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     ports:
       - "9411:9411"
@@ -89,7 +89,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.4.1
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     volumes:
       - ./imports/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
@@ -105,7 +105,7 @@ services:
 
   unleash:
     image: unleashorg/unleash-server:7
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     ports:
       - "4242:4242"
@@ -123,7 +123,7 @@ services:
 
   pgcli:
     image: dpage/pgadmin4:latest
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     depends_on:
       - "relational-db"
@@ -140,7 +140,7 @@ services:
 
   mongo-express:
     image: mongo-express:latest
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     restart: unless-stopped
     ports:
       - 8081:8081
