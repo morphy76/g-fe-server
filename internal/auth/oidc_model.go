@@ -27,6 +27,8 @@ const (
 	SessionKeyJTI = "jti"
 	// SessionKeyExpiresAt is the key used in the session to store the token expiration time
 	SessionKeyExpiresAt = "expires_at"
+	// SessionKeySessionState is the key used in the session to store the OIDC session state
+	SessionKeySessionState = "session_state"
 )
 
 // OIDCOptions holds the configuration for the OIDC client

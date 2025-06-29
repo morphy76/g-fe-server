@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/internal/logger"
@@ -9,19 +10,26 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
 )
 
+const (
+	// AuthQueryArgsRedirectTo is the query argument used to redirect after login
+	AuthQueryArgsRedirectTo = "redirect_to"
+)
+
 // IsAuthenticated checks if the user is authenticated by session and bearer token.
 func IsAuthenticated(
+	ctxRoot string,
 	sessionStore sessions.Store,
 	sessionName string,
 	rp rp.RelyingParty,
 	rs rs.ResourceServer,
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(sessionStore, sessionName, rp, next))
+		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(ctxRoot, sessionStore, sessionName, rp, next))
 	}
 }
 
 func isAuthenticatedBySession(
+	ctxRoot string,
 	sessionStore sessions.Store,
 	sessionName string,
 	relyingParty rp.RelyingParty,
@@ -31,14 +39,10 @@ func isAuthenticatedBySession(
 
 		useLogger := logger.GetLogger(r.Context(), "auth")
 
-		requestedURLStateFn := func() string {
-			return r.URL.String()
-		}
-
 		useSession, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
 		if err != nil {
-			useLogger.Error().Msg("Failed to extract session")
-			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
+			useLogger.Error().Err(err).Msg("Start session failed")
+			http.Error(w, "Start session failed", http.StatusInternalServerError)
 			return
 		}
 
@@ -47,7 +51,10 @@ func isAuthenticatedBySession(
 			next.ServeHTTP(w, r)
 		} else {
 			useLogger.Debug().Msg("Session is not authenticated")
-			rp.AuthURLHandler(requestedURLStateFn, relyingParty)(w, r)
+			http.Redirect(w, r,
+				ctxRoot+"/auth/login?"+AuthQueryArgsRedirectTo+"="+url.QueryEscape(r.URL.String()),
+				http.StatusTemporaryRedirect,
+			)
 		}
 	})
 }

@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 
 	"go.mongodb.org/mongo-driver/v2/event"
 	"go.opentelemetry.io/otel"
@@ -59,14 +58,14 @@ func NewPoolMonitor() *event.PoolMonitor {
 
 func newCommandStartedEvent() startedSignature {
 	return func(ctx context.Context, newEvent *event.CommandStartedEvent) {
-		fmt.Printf("sssssssssssstaaaaaart Event: %+v\n", newEvent)
+		// fmt.Printf("sssssssssssstaaaaaart Event: %+v\n", newEvent)
 		trace.SpanFromContext(ctx).TracerProvider().Tracer("mongo").Start(ctx, newEvent.CommandName)
 	}
 }
 
 func newCommandSucceededEvent() succeededSignature {
 	return func(ctx context.Context, newEvent *event.CommandSucceededEvent) {
-		fmt.Printf("sssssssuuuuucccccceeeeeesssss Event: %+v\n", newEvent)
+		// fmt.Printf("sssssssuuuuucccccceeeeeesssss Event: %+v\n", newEvent)
 		_, span := trace.SpanFromContext(ctx).TracerProvider().Tracer("mongo").Start(ctx, newEvent.CommandName)
 		span.End()
 	}
@@ -74,7 +73,7 @@ func newCommandSucceededEvent() succeededSignature {
 
 func newCommandFailedEvent() failedSignature {
 	return func(ctx context.Context, newEvent *event.CommandFailedEvent) {
-		fmt.Printf("ssssssfaaaaaiiiillllll Event: %+v\n", newEvent)
+		// fmt.Printf("ssssssfaaaaaiiiillllll Event: %+v\n", newEvent)
 		_, span := trace.SpanFromContext(ctx).TracerProvider().Tracer("mongo").Start(ctx, newEvent.CommandName)
 		span.RecordError(newEvent.Failure)
 		span.End()
