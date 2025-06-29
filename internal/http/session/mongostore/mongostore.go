@@ -64,27 +64,9 @@ func NewMongoStore(
 		}
 	}
 
-	c.Indexes().DropAll(context.Background())
-
 	go func() {
-		iamIndexModel := mongo.IndexModel{
-			Keys: bson.D{
-				{Key: "iam_issuer", Value: 1},
-				{Key: "iam_subject", Value: 1},
-				{Key: "iam_session_id", Value: 1},
-			},
-			Options: options.Index().
-				SetName("iam_index"),
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		c.Indexes().CreateOne(ctx, iamIndexModel)
-	}()
-
-	ttlInSeconds := evalTTL(sessionOptions.MaxAge)
-	go func() {
+		// TODO: this operation should be executed by just the leader of the replicaset
+		ttlInSeconds := evalTTL(sessionOptions.MaxAge)
 		expireAfter := int32(ttlInSeconds.Seconds())
 
 		expirationIndexModel := mongo.IndexModel{
@@ -94,11 +76,8 @@ func NewMongoStore(
 				SetName("session_expire_index"),
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		c.Indexes().DropOne(ctx, "session_expire_index")
-		c.Indexes().CreateOne(ctx, expirationIndexModel)
+		c.Indexes().DropOne(context.Background(), "session_expire_index")
+		c.Indexes().CreateOne(context.Background(), expirationIndexModel)
 	}()
 
 	return store
