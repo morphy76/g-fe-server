@@ -469,12 +469,7 @@ func cleanupUserSessions(claims *oidc.LogoutTokenClaims, feServer *server.FEServ
 		Interface("claims", claims).
 		Msg("Cleaning up user sessions in back channel logout")
 
-	filter := map[string]interface{}{
-		"iam_issuer":     claims.Issuer,
-		"iam_subject":    claims.Subject,
-		"iam_session_id": claims.SessionID,
-	}
-
+	filter := createFilterForLogout(claims.Issuer, claims.Subject, claims.SessionID)
 	res, err := feServer.DB.Collection(httpSessionsCollection).DeleteMany(ctx, filter)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to delete sessions in back channel logout")
@@ -484,4 +479,18 @@ func cleanupUserSessions(claims *oidc.LogoutTokenClaims, feServer *server.FEServ
 	log.Debug().
 		Int64("deleted_count", res.DeletedCount).
 		Msg("Deleted sessions in back channel logout")
+}
+
+func createFilterForLogout(issuer string, subject string, sessionID string) map[string]interface{} {
+	filter := make(map[string]interface{})
+	if issuer != "" {
+		filter["iam_issuer"] = issuer
+	}
+	if subject != "" {
+		filter["iam_subject"] = subject
+	}
+	if sessionID != "" {
+		filter["iam_session_id"] = sessionID
+	}
+	return filter
 }
