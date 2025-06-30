@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -32,6 +33,31 @@ const (
 	httpSessionsCollection    = "http_sessions"
 	logoutTokenJtisCollection = "logout_token_jtis"
 )
+
+func validateRedirectURL(redirectURL string, ctxRoot string) string {
+	if redirectURL == "" {
+		return ctxRoot + "/ui"
+	}
+
+	parsedURL, err := url.Parse(redirectURL)
+	if err != nil {
+		return ctxRoot + "/ui"
+	}
+
+	if parsedURL.Scheme != "" || parsedURL.Host != "" {
+		return ctxRoot + "/ui"
+	}
+
+	if !strings.HasPrefix(redirectURL, ctxRoot) && !strings.HasPrefix(redirectURL, "/") {
+		redirectURL = ctxRoot + "/" + strings.TrimPrefix(redirectURL, "/")
+	}
+
+	if strings.Contains(redirectURL, "://") || strings.Contains(redirectURL, "javascript:") || strings.Contains(redirectURL, "data:") {
+		return ctxRoot + "/ui"
+	}
+
+	return redirectURL
+}
 
 // IAMHandlers registers the IAM authentication handlers
 func IAMHandlers(
@@ -63,6 +89,8 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 		if err != nil {
 			requestedURL = ctxRoot + "/ui"
 		}
+
+		requestedURL = validateRedirectURL(requestedURL, ctxRoot)
 
 		session, err := sessions.GetRegistry(r).Get(sessionStore, httpOptions.SessionOptions.Name)
 		if err != nil {
@@ -118,6 +146,8 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 				requestedURL = ctxRoot + "/ui"
 			}
 		}
+
+		requestedURL = validateRedirectURL(requestedURL, ctxRoot)
 
 		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), requestedURL, sessionState.(string))
 		if err != nil {
@@ -402,6 +432,14 @@ func marshalUserinfo(
 	if session.ID != "" && len(sessionState) > len(session.ID) && sessionState[:len(session.ID)] == session.ID {
 		redirectTo = sessionState[len(session.ID):]
 	}
+
+	ctxRoot := "/ui"
+	if feServer != nil && feServer.HTTPOpts != nil {
+		ctxRoot = feServer.HTTPOpts.ServeOptions.ContextRoot + "/ui"
+	}
+
+	redirectTo = validateRedirectURL(redirectTo, ctxRoot)
+
 	http.Redirect(w, r, redirectTo, http.StatusFound)
 }
 
