@@ -28,6 +28,17 @@ func IsAuthenticated(
 	}
 }
 
+// InspectAndRenew is a middleware that inspects the session and renews it if necessary.
+// TODO
+func InspectAndRenew() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// touch the http session for modified and idlesince
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func isAuthenticatedBySession(
 	ctxRoot string,
 	sessionStore sessions.Store,
