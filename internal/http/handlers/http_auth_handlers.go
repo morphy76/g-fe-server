@@ -48,6 +48,10 @@ func validateRedirectURL(redirectURL string, ctxRoot string) string {
 		return ctxRoot + "/ui"
 	}
 
+	if strings.HasPrefix(redirectURL, "/") && len(redirectURL) > 1 && (redirectURL[1] == '/' || redirectURL[1] == '\\') {
+		return ctxRoot + "/ui"
+	}
+
 	if !strings.HasPrefix(redirectURL, ctxRoot) && !strings.HasPrefix(redirectURL, "/") {
 		redirectURL = ctxRoot + "/" + strings.TrimPrefix(redirectURL, "/")
 	}
