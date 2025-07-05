@@ -465,6 +465,7 @@ func populateSessionValues(session *sessions.Session, tokens *oidc.Tokens[*oidc.
 	session.Values[auth.SessionKeyJTI] = tokens.IDTokenClaims.JWTID
 	session.Values[auth.SessionKeyExpiresAt] = tokens.IDTokenClaims.Expiration.AsTime()
 	session.Values[auth.SessionKeySessionState] = session_state
+	session.Values[auth.SessionKeyTokenIssuedAt] = time.Now()
 }
 
 func extractLogoutToken(r *http.Request, log zerolog.Logger) (string, error) {

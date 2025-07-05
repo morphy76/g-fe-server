@@ -3,11 +3,13 @@ package auth
 import (
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
+	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
 
 const (
@@ -20,20 +22,58 @@ func IsAuthenticated(
 	ctxRoot string,
 	sessionStore sessions.Store,
 	sessionName string,
-	rp rp.RelyingParty,
-	rs rs.ResourceServer,
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return isAuthenticateByBearerToken(rp, rs, isAuthenticatedBySession(ctxRoot, sessionStore, sessionName, rp, next))
+		return isAuthenticateByBearerToken(isAuthenticatedBySession(ctxRoot, sessionStore, sessionName, next))
 	}
 }
 
 // InspectAndRenew is a middleware that inspects the session and renews it if necessary.
-// TODO
-func InspectAndRenew() func(http.Handler) http.Handler {
+func InspectAndRenew(
+	sessionStore sessions.Store,
+	sessionName string,
+	rp rp.RelyingParty,
+	rs rs.ResourceServer,
+) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// touch the http session for modified and idlesince
+			session, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
+			if err != nil {
+				// TODO: handle session retrieval error
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			accessToken, ok := session.Values[SessionKeyAccessToken].(string)
+			if !ok || accessToken == "" {
+				setSessionNotAuthenticated(session, r, w)
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			if isTokenRecent(session) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			if isAccessTokenValid(r, rs, accessToken) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			refreshToken, ok := session.Values[SessionKeyRefreshToken].(string)
+			if !ok || refreshToken == "" {
+				setSessionNotAuthenticated(session, r, w)
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			if renewTokensAndStore(session, r, w, rp, refreshToken, accessToken) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			setSessionNotAuthenticated(session, r, w)
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -43,7 +83,6 @@ func isAuthenticatedBySession(
 	ctxRoot string,
 	sessionStore sessions.Store,
 	sessionName string,
-	relyingParty rp.RelyingParty,
 	next http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,8 +110,6 @@ func isAuthenticatedBySession(
 }
 
 func isAuthenticateByBearerToken(
-	rp rp.RelyingParty,
-	rs rs.ResourceServer,
 	next http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -100,100 +137,52 @@ func isAuthenticateByBearerToken(
 	})
 }
 
-// const authLogout = "/auth/logout"
+func isTokenRecent(session *sessions.Session) bool {
+	const maxAge = 5 * time.Minute // adjust as needed
+	issuedAtRaw, ok := session.Values[SessionKeyTokenIssuedAt]
+	if !ok {
+		return false
+	}
+	issuedAt, ok := issuedAtRaw.(int64)
+	if !ok {
+		return false
+	}
+	return time.Now().Unix()-issuedAt < int64(maxAge.Seconds())
+}
 
-// // HTTPSessionInspectAndRenew checks the session for an active token and renews it if necessary
-// func HTTPSessionInspectAndRenew(resourceServer rs.ResourceServer, relyingParty rp.RelyingParty, serveOpts *options.ServeOptions) func(http.Handler) http.Handler {
-// 	return func(next http.Handler) http.Handler {
-// 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 			session := app_http.ExtractSession(r.Context())
-// 			logger := logger.GetLogger(r.Context(), "auth")
+func isAccessTokenValid(r *http.Request, resourceServer rs.ResourceServer, accessToken string) bool {
+	ctx := r.Context()
 
-// 			ctxRoot := serveOpts.ContextRoot
-// 			requestedFile := filepath.Join(serveOpts.StaticPath, strings.TrimPrefix(r.URL.Path, ctxRoot+"/ui"))
-// 			if strings.HasSuffix(requestedFile, ".js") {
-// 				next.ServeHTTP(w, r)
-// 				return
-// 			}
+	resp, err := rs.Introspect[*oidc.IntrospectionResponse](ctx, resourceServer, accessToken)
+	if err != nil {
+		return false
+	}
+	return resp.Active
+}
 
-// 			accessToken := session.Values[SessionKeyAccessToken]
-// 			if accessToken == nil {
-// 				logger.Warn().Msg("No access token found")
-// 				http.Redirect(w, r, ctxRoot+authLogout, http.StatusTemporaryRedirect)
-// 				return
-// 			}
-// 			refreshToken := session.Values[SessionKeyRefreshToken]
-// 			if refreshToken == nil {
-// 				logger.Warn().Msg("No refresh token found")
-// 				http.Redirect(w, r, ctxRoot+authLogout, http.StatusTemporaryRedirect)
-// 				return
-// 			}
+func renewTokensAndStore(session *sessions.Session, r *http.Request, w http.ResponseWriter, relyingParty rp.RelyingParty, refreshToken, accessToken string) bool {
+	logger := logger.GetLogger(r.Context(), "auth")
+	logger.Debug().Msg("Attempting to renew tokens using refresh token")
 
-// 			resp, err := rs.Introspect[*oidc.IntrospectionResponse](context.Background(), resourceServer, accessToken.(string))
-// 			if err != nil {
-// 				logger.Warn().Err(err).Msg("Failed to refresh tokens")
-// 				http.Redirect(w, r, ctxRoot+authLogout, http.StatusTemporaryRedirect)
-// 				return
-// 			}
-// 			if resp.Active {
-// 				logger.Debug().Msg("Token is active")
-// 				next.ServeHTTP(w, r)
-// 				return
-// 			} else {
-// 				logger.Debug().Msg("Token is not active")
-// 			}
+	ctx := r.Context()
+	tokens, err := rp.RefreshTokens[*oidc.IDTokenClaims](ctx, relyingParty, refreshToken, "urn:ietf:params:oauth:client-assertion-type:jwt-bearer", "")
+	if err != nil {
+		logger.Debug().Err(err).Msg("Token renewal failed")
+		return false
+	}
 
-// 			tokens, err := rp.RefreshTokens[*oidc.IDTokenClaims](
-// 				context.Background(),
-// 				relyingParty,
-// 				refreshToken.(string),
-// 				accessToken.(string),
-// 				"urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-// 			)
-// 			if err != nil {
-// 				logger.Error().Err(err).Msg("Failed to refresh tokens")
-// 				http.Redirect(w, r, ctxRoot+authLogout, http.StatusTemporaryRedirect)
-// 				return
-// 			}
+	session.Values[SessionKeyAccessToken] = tokens.AccessToken
+	session.Values[SessionKeyIDToken] = tokens.IDToken
+	session.Values[SessionKeyRefreshToken] = tokens.RefreshToken
+	session.Values[SessionKeyTokenIssuedAt] = time.Now()
+	session.Values[SessionKeyAuthenticated] = true
+	session.Save(r, w)
 
-// 			session.Values[SessionKeyAccessToken] = tokens.AccessToken
-// 			session.Values[SessionKeyIDToken] = tokens.IDToken
-// 			session.Values[SessionKeyRefreshToken] = tokens.RefreshToken
+	logger.Debug().Msg("Token renewal successful and session updated")
+	return true
+}
 
-// 			session.Save(r, w)
-
-// 			next.ServeHTTP(w, r)
-// 		})
-// 	}
-// }
-
-// // HTTPSessionAuthenticationRequired checks the session for an active token and redirects to the login page if necessary
-// func HTTPSessionAuthenticationRequired(serveOpts *options.ServeOptions) func(http.Handler) http.Handler {
-// 	return func(next http.Handler) http.Handler {
-// 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 			session := app_http.ExtractSession(r.Context())
-// 			logger := logger.GetLogger(r.Context(), "auth")
-
-// 			authURL := fmt.Sprintf(
-// 				"%s://%s:%s/%s/auth/login?requested_url=%s",
-// 				serveOpts.Protocol,
-// 				serveOpts.Host,
-// 				serveOpts.Port,
-// 				serveOpts.ContextRoot,
-// 				url.QueryEscape(r.URL.String()),
-// 			)
-
-// 			idToken := session.Values[SessionKeyIDToken]
-// 			if idToken == nil || len(idToken.(string)) == 0 {
-// 				logger.Debug().
-// 					Str("requested_url", r.URL.String()).
-// 					Msg("Redirecting to login")
-// 				w.Header().Set("Cache-Control", "no-cache")
-// 				http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
-// 				return
-// 			}
-
-// 			next.ServeHTTP(w, r)
-// 		})
-// 	}
-// }
+func setSessionNotAuthenticated(session *sessions.Session, r *http.Request, w http.ResponseWriter) {
+	session.Values[SessionKeyAuthenticated] = false
+	session.Save(r, w)
+}

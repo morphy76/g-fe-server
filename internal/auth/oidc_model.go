@@ -29,6 +29,8 @@ const (
 	SessionKeyExpiresAt = "expires_at"
 	// SessionKeySessionState is the key used in the session to store the OIDC session state
 	SessionKeySessionState = "session_state"
+	// SessionKeyTokenIssuedAt is the key used in the session to store the token issued at time
+	SessionKeyTokenIssuedAt = "token_issued_at"
 )
 
 // OIDCOptions holds the configuration for the OIDC client
