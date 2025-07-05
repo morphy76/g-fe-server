@@ -6,6 +6,10 @@ db.http_sessions.createIndex(
   { "modified": 1 },
   { expireAfterSeconds: 3600, name: "session_expire_index" }
 );
+db.http_sessions.createIndex(
+  { "idle_since": 1 },
+  { expireAfterSeconds: 1800, name: "iam_session_expire_index" }
+);
 db.logout_token_jtis.createIndex(
   { "jti": 1 },
   { unique: true, name: "jti_unique_index" }
