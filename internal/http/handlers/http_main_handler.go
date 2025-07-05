@@ -203,6 +203,11 @@ func addUIHandlers(
 
 	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
 	staticRouter.Use(auth.IsAuthenticated(
+		feServer.HTTPOpts.ServeOptions.ContextRoot,
+		feServer.SessionStore,
+		feServer.HTTPOpts.SessionOptions.Name,
+	))
+	staticRouter.Use(auth.InspectAndRenew(
 		feServer.SessionStore,
 		feServer.HTTPOpts.SessionOptions.Name,
 		feServer.RelayingParty,
@@ -234,6 +239,11 @@ func addAPIHandlers(
 
 	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
 	apiRouter.Use(auth.IsAuthenticated(
+		feServer.HTTPOpts.ServeOptions.ContextRoot,
+		feServer.SessionStore,
+		feServer.HTTPOpts.SessionOptions.Name,
+	))
+	apiRouter.Use(auth.InspectAndRenew(
 		feServer.SessionStore,
 		feServer.HTTPOpts.SessionOptions.Name,
 		feServer.RelayingParty,

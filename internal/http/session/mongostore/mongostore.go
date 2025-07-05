@@ -35,10 +35,8 @@ type Session struct {
 	IAMSessionID string `bson:"iam_session_id,omitempty"`
 	// JTI is the JWT ID, used to prevent replay attacks.
 	JTI string `bson:"jti,omitempty"`
-	// ExpiresAt is the expiration time of the session.
-	ExpiresAt time.Time `bson:"expires_at,omitempty"`
-	// CreatedAt is the timestamp when the session was created.
-	CreatedAt time.Time `bson:"created_at,omitempty"`
+	// IdleSince is the timestamp when the session was last idle.
+	IdleSince time.Time `bson:"idle_since,omitempty"`
 }
 
 // MongoStore is a session store that uses MongoDB to store session data.
@@ -71,7 +69,9 @@ func NewMongoStore(
 	}
 
 	go func() {
-		// TODO: this operation should be executed by just the leader of the replicaset
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
 		ttlInSeconds := evalTTL(sessionOptions.MaxAge)
 		expireAfter := int32(ttlInSeconds.Seconds())
 
@@ -82,11 +82,30 @@ func NewMongoStore(
 				SetName("session_expire_index"),
 		}
 
-		c.Indexes().DropOne(context.Background(), "session_expire_index")
-		c.Indexes().CreateOne(context.Background(), expirationIndexModel)
+		if !sessionExpirationIndexHasExpectedxpirationTime(ctx, c, expireAfter) {
+			c.Indexes().DropOne(ctx, "session_expire_index")
+			c.Indexes().CreateOne(ctx, expirationIndexModel)
+		}
 	}()
 
 	return store
+}
+
+func sessionExpirationIndexHasExpectedxpirationTime(ctx context.Context, c *mongo.Collection, expireAfter int32) bool {
+	indexes, err := c.Indexes().List(ctx)
+	if err == nil {
+		for indexes.Next(ctx) {
+			var idx bson.M
+			if err := indexes.Decode(&idx); err == nil {
+				if name, ok := idx["name"].(string); ok && name == "session_expire_index" {
+					if opts, ok := idx["expireAfterSeconds"].(int32); ok {
+						return opts == expireAfter
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 func evalTTL(maxAge int) time.Duration {
@@ -221,8 +240,7 @@ func (m *MongoStore) upsert(session *sessions.Session) error {
 		IAMSubject:   session.Values[auth.SessionKeySubject].(string),
 		IAMSessionID: session.Values[auth.SessionKeySessionID].(string),
 		JTI:          session.Values[auth.SessionKeyJTI].(string),
-		ExpiresAt:    session.Values[auth.SessionKeyExpiresAt].(time.Time),
-		CreatedAt:    time.Now(),
+		IdleSince:    time.Now(),
 	}
 
 	opts := options.UpdateOne().SetUpsert(true)
