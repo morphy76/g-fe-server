@@ -2,31 +2,41 @@
 
 ## Known TODO
 
-- Fix mongo monitoring (see `internal/db/monitor.go`)
-- Observability fallback to Opentracing/Jaeger using build flags
-- Observability enrich outgoing HTTP requests
-- Framework/standard to build the business request model: how logger, feserver, clients reaches the business module (*)
-- A React 19 case study with MFEs
-- KC onLogout:
-  - 2025-07-06 20:35:17,521 WARN  [org.keycloak.events] (executor-thread-87) type="LOGOUT_ERROR", realmId="c304140e-bede-4b44-b5be-8ce28e637bea", realmName="gfes", clientId="ps", userId="null", ipAddress="0:0:0:0:0:0:0:1", error="invalid_redirect_uri", redirect_uri="/fe/ui"
-
 In summary:
 
 - [x] With HTTP session management
 - [x] With Health endpoint
   - Testing HTTP serving
   - Testing Mongo connection
-- CORS options
-- CSP options
+- [ ] RBAC and resource server
+- [ ] CORS options
+  - Admin APIs with RBAC
+- [ ] CSP options
+  - Admin APIs with RBAC
 - [x] With OIDC integration
 - [x] With Mongo integration
-- With Unleash integration <- reviewwing
+- [ ] With Unleash integration
   - Feature gateway for FE flags
-- With AIW logging
-- With AIW tracing
-- With AIW audit
+- [ ] Review monitoring (http clients)
+  - MongoDB monitoring (Fix mongo monitoring (see `internal/db/monitor.go`))
+  - OIDC monitoring
+  - Unleash monitoring
+  - add business events and errors to spans
+- (With AIW logging)
+- (With AIW tracing)
+- (With AIW audit)
 - With OpenAPI endpoint
-- No business logic included
+- [x] No business logic included
+
+Openpoints:
+
+- Observability fallback to Opentracing/Jaeger using build flags
+- Middleare and processing for tenant attribution
+- Framework/standard to build the business request model: how logger, feserver, clients reaches the business module (*)
+- A React 19 case study with MFEs
+- TBV If Unleash is not enabled, we assume the feature is enabled by default
+- KC onLogout:
+  - 2025-07-06 20:35:17,521 WARN  [org.keycloak.events] (executor-thread-87) type="LOGOUT_ERROR", realmId="c304140e-bede-4b44-b5be-8ce28e637bea", realmName="gfes", clientId="ps", userId="null", ipAddress="0:0:0:0:0:0:0:1", error="invalid_redirect_uri", redirect_uri="/fe/ui"
 
 ## What happened
 
@@ -44,7 +54,8 @@ It uses the following third party dependencies:
 - Zerolog for logging, see later;
 - The official MongoDB go driver to bind MongoDb 7 (go.mongodb.org/mongo-driver/v2);
 - The official OpenTelemetry SDK for observability (go.opentelemetry.io/otel);
-- Zitadel OIDC to bind the IAM (github.com/zitadel/oidc/v3).
+- Zitadel OIDC to bind the IAM (github.com/zitadel/oidc/v3);
+- The official Unleash client for feature flags (github.com/Unleash/unleash-client-go);
 
 #### flags
 
@@ -55,14 +66,14 @@ I tried to figure out a sort of internal framework to avoid huge files, SRP infr
 - The `cmd/cli` package provides builders per configurable integration, e.g. binding to the database and HTTP serving;
 - It tests the environment which has the priority;
 - Performs validation;
-- Returns a factory method to convert the flags into option types (package `cmd/options`) to use to set up `context.Context` contextes to use downstream;
+- Returns a factory method to convert the flags into option types (package `cmd/options`) to use to set up the FEServer;
 - It contains just the overall bindings, not domain specific items.
 
 #### Observability
 
 The simplified-fe-server is integrated with the OpenTelemetry official SDK (`go.opentelemetry.io/otel`).
 
-Additional integrations to observe third party dependencies like MongoDB enriches the spans providing instrumented HTTP clients to the OIDC RelyingParty and to the MongDB Client.
+Additional integrations to observe third party dependencies enrich the spans providing instrumented HTTP clients to infrastructural dependencies.
 
 The server also provides an enriched HTTP Client to propagate to the downstream (backend) services the trace context.
 
@@ -81,26 +92,32 @@ Logging is enriched by contextual information:
 - an _ownership_ dictionary to trace the attribution of the operation, in particular logical user organizations like tenants, subscriptions and stuff like that;
 - a _correlation_ dictionary to trace the operation correlation, using the OTEL SDK, across decoupled or hierarchical operations: the log is enriched with the span_id and the trace_id;
 - a _timing_ dictionary to trace the operation duration, in particular the time spent in the HTTP stack and in the business logic;
-- a _routing_ dictionary to trace the GO runtime information.
+- a _routing_ dictionary to trace the GO runtime information;
+- a _routine_ dictionary to trace the goroutine information, in particular the goroutine id.
 
 #### Routing
 
-Routing is hierarchical, `cmd/serve.go` prepares the server context and moves on to `internal/http/handlers/main_handler.go` to build the hierarchy.
+Routing is hierarchical, `cmd/serve.go` prepares the server context and moves on to `internal/http/handlers/http_main_handler.go` to build the hierarchy.
 
 Core handlers are in the `internal/http/handlers` package:
 
-- `auth` for authentication routes: login, login callback, front-channel logout and back-channel logout;
+- `auth` for authentication routes: login, login callback, RP initiated logout logout and back-channel logout;
 - `health` for health probes;
 - `openapi` to serve the OpenAPI specification which is statically documented in the `api` package;
 - `static` to serve the static content of the front end application.
 
 #### Infrastructural dependencies, functional modules and dependency injection
 
-The FEServer struct provides:
+The FEServer struct is in the `internal/server` package and it provides:
 
-- the OIDC RelyingParty to authenticate the users;
-- the MongoDB Client to access the database;
-- the HTTP Client to propagate the trace context to the backend services.
+- HTTP serving options;
+- Bindings to MongoDB for:
+  - session store,
+  - mongo client,
+  - mongo database;
+- the OIDC RelyingParty and ResourceServer;
+- a facade to backend (AIW) services;
+- a master switch to bind the feature server.
 
 A functional module will be added under the `internal/business` package to provide business logic, It can inject dependencies extracting the FEServer from the request context, hence it should be structured in the following way:
 

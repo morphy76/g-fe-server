@@ -8,6 +8,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/server"
 )
 
+// ModuleVerifier is a middleware that checks if a specific module is enabled
 func ModuleVerifier(moduleName string, opts ...unleash.FeatureOption) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -18,7 +19,7 @@ func ModuleVerifier(moduleName string, opts ...unleash.FeatureOption) mux.Middle
 			}
 			moduleEnabled := feServer.IsFeatureEnabled(moduleName, opts...)
 			if !moduleEnabled {
-				http.Error(w, "", http.StatusNotImplemented)
+				http.Error(w, "", http.StatusNotFound)
 				return
 			}
 			next.ServeHTTP(w, r)

@@ -164,6 +164,7 @@ func (feServer *FEServer) Shutdown(ctx context.Context) {
 // IsFeatureEnabled checks if a feature is enabled using Unleash
 func (feServer *FEServer) IsFeatureEnabled(feature string, opts ...unleash.FeatureOption) bool {
 	if !feServer.featureEnabled {
+		// TODO If Unleash is not enabled, we assume the feature is enabled by default
 		return true
 	}
 	return unleash.IsEnabled(feature, opts...)

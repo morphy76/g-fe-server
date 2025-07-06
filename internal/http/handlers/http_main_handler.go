@@ -11,6 +11,7 @@ import (
 
 	"github.com/morphy76/g-fe-server/internal/auth"
 	"github.com/morphy76/g-fe-server/internal/business/example"
+	"github.com/morphy76/g-fe-server/internal/common"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/morphy76/g-fe-server/internal/server"
 )
@@ -249,7 +250,7 @@ func addAPIHandlers(
 		feServer.RelayingParty,
 		feServer.ResourceServer,
 	))
-	apiRouter.Use(setJSONResponse)
+	apiRouter.Use(common.JSONResponse)
 
 	err := bindModules(apiRouter, feServer, routerLog)
 	if err != nil {
