@@ -182,7 +182,7 @@ func addAuthHandlers(
 		routerLog.Trace().
 			Msg("Auth router registered")
 	}
-	err := IAMHandlers(authRouter, feServer.HTTPOpts, feServer.SessionStore, feServer.RelayingParty)
+	err := IAMHandlers(authRouter, feServer.HTTPOpts, feServer.SessionStore, feServer.RelayingParty, feServer.ResourceServer)
 	if err != nil {
 		return fmt.Errorf("failed to register IAM handlers: %w", err)
 	}
@@ -202,18 +202,17 @@ func addUIHandlers(
 	// - static content of the container application
 	// - TODO: static content of MFEs
 
-	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
-	staticRouter.Use(auth.IsAuthenticated(
+	oidcMid := auth.NewOIDCMiddleWare(
 		feServer.HTTPOpts.ServeOptions.ContextRoot,
-		feServer.SessionStore,
-		feServer.HTTPOpts.SessionOptions.Name,
-	))
-	staticRouter.Use(auth.InspectAndRenew(
 		feServer.SessionStore,
 		feServer.HTTPOpts.SessionOptions.Name,
 		feServer.RelayingParty,
 		feServer.ResourceServer,
-	))
+	)
+
+	staticRouter := contextRouter.PathPrefix("/ui").Subrouter()
+	staticRouter.Use(oidcMid.IsAuthenticated())
+	staticRouter.Use(oidcMid.InspectAndRenew())
 
 	if routerLog.Trace().Enabled() {
 		routerLog.Trace().
@@ -238,18 +237,17 @@ func addAPIHandlers(
 	// Add API endpoints
 	// - Resource modules bindings
 
-	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
-	apiRouter.Use(auth.IsAuthenticated(
+	oidcMid := auth.NewOIDCMiddleWare(
 		feServer.HTTPOpts.ServeOptions.ContextRoot,
-		feServer.SessionStore,
-		feServer.HTTPOpts.SessionOptions.Name,
-	))
-	apiRouter.Use(auth.InspectAndRenew(
 		feServer.SessionStore,
 		feServer.HTTPOpts.SessionOptions.Name,
 		feServer.RelayingParty,
 		feServer.ResourceServer,
-	))
+	)
+
+	apiRouter := contextRouter.PathPrefix("/api").Subrouter()
+	apiRouter.Use(oidcMid.IsAuthenticated())
+	apiRouter.Use(oidcMid.InspectAndRenew())
 	apiRouter.Use(common.JSONResponse)
 
 	err := bindModules(apiRouter, feServer, routerLog)

@@ -1,4 +1,4 @@
-# Go-based presentation server for a react application
+# Go-based presentation server with an demo react application
 
 ## Known TODO
 
@@ -105,6 +105,18 @@ Core handlers are in the `internal/http/handlers` package:
 - `health` for health probes;
 - `openapi` to serve the OpenAPI specification which is statically documented in the `api` package;
 - `static` to serve the static content of the front end application.
+
+#### OIDC middlewares
+
+The OIDC middlewares, from `internal/auth`, provide authentication and authorization capabilities using the OpenID Connect protocol. The builder function (`NewOIDCMiddleWare`) creates a set of middleware functions for use in the HTTP stack, each handling a specific aspect of authentication or authorization:
+
+- **IsAuthenticated**: ensures the user is authenticated, checking for a valid session or bearer token before allowing access to protected routes.
+- **InspectAndRenew**: inspects the current session and access token, renewing tokens if needed, and ensures the user remains authenticated during their session.
+- **UserInRoles**: checks if the authenticated user possesses the required roles, supporting both "all roles" (AND) and "any role" (OR) logic for fine-grained access control.
+- **HasAuthorizationByURI**: verifies if the user has access to a specific resource identified by its URI and required scope.
+- **HasAuthorizationByType**: verifies if the user has access to a resource by its type and required scope.
+
+The builder function centralizes the creation and configuration of these middleware functions, wiring in the necessary dependencies (session store, OIDC relying party, resource server, etc.) for consistent and secure authentication flows.
 
 #### Infrastructural dependencies, functional modules and dependency injection
 

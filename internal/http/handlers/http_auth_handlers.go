@@ -20,6 +20,7 @@ import (
 	"github.com/morphy76/g-fe-server/internal/server"
 	"github.com/rs/zerolog"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	"github.com/zitadel/oidc/v3/pkg/client/rs"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
 
@@ -75,6 +76,7 @@ func IAMHandlers(
 	httpOptions *options.HTTPOptions,
 	sessionStore sessions.Store,
 	relyingParty rp.RelyingParty,
+	resourceServer rs.ResourceServer,
 ) error {
 	ctxRoot := httpOptions.ServeOptions.ContextRoot
 
@@ -82,7 +84,7 @@ func IAMHandlers(
 	gob.Register(time.Time{})
 
 	authRouter.HandleFunc("/login", onLogin(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
-	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
+	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(buildUserInfoCallback(resourceServer)), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
 	authRouter.HandleFunc("/logout", onLogout(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
 	authRouter.HandleFunc("/info", onInfo(sessionStore, httpOptions)).Name("GET " + ctxRoot + "/auth/info")
 	authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
@@ -392,56 +394,64 @@ func storeJTIForReplayProtection(claims *oidc.LogoutTokenClaims, feServer *serve
 	}()
 }
 
-func marshalUserinfo(
-	w http.ResponseWriter,
-	r *http.Request,
-	tokens *oidc.Tokens[*oidc.IDTokenClaims],
-	sessionState string,
-	provider rp.RelyingParty,
-	info *oidc.UserInfo,
-) {
-	log := logger.GetLogger(r.Context(), "auth")
+func buildUserInfoCallback(resourceServer rs.ResourceServer) rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims, *oidc.UserInfo] {
+	return func(
+		w http.ResponseWriter,
+		r *http.Request,
+		tokens *oidc.Tokens[*oidc.IDTokenClaims],
+		sessionState string,
+		provider rp.RelyingParty,
+		info *oidc.UserInfo,
+	) {
+		log := logger.GetLogger(r.Context(), "auth")
 
-	feServer, err := server.ExtractFEServer(r.Context())
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to extract FEServer from context")
-		http.Error(w, internalServerError, http.StatusInternalServerError)
-		return
+		feServer, err := server.ExtractFEServer(r.Context())
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to extract FEServer from context")
+			http.Error(w, internalServerError, http.StatusInternalServerError)
+			return
+		}
+
+		resp, err := rs.Introspect[*oidc.IntrospectionResponse](r.Context(), resourceServer, tokens.AccessToken)
+		if err != nil {
+			http.Error(w, internalServerError, http.StatusInternalServerError)
+			return
+		}
+
+		userInfo := auth.Convert(info, resp.Claims["resource_access"].(map[string][]string))
+		sessionStateBytes, _ := base64.URLEncoding.DecodeString(sessionState)
+		sessionState = string(sessionStateBytes)
+		log.Debug().
+			Dict("tokens", zerolog.Dict().
+				Str("issuer", tokens.IDTokenClaims.Issuer).
+				Str("subject", tokens.IDTokenClaims.Subject).
+				Str("session_id", tokens.IDTokenClaims.SessionID)).
+			Str("session_state", sessionState).
+			Any("user_info", userInfo).
+			Msg("On auth callback")
+
+		session, err := createOrGetSession(feServer, r, log)
+		if err != nil {
+			http.Error(w, internalServerError, http.StatusInternalServerError)
+			return
+		}
+
+		populateSessionValues(session, tokens, userInfo, sessionState)
+
+		if err := session.Save(r, w); err != nil {
+			log.Error().Err(err).Msg("Failed to save session")
+			http.Error(w, internalServerError, http.StatusInternalServerError)
+			return
+		}
+
+		log.Trace().Msg("Auth session saved")
+
+		useSessionState := &sessionStateStruct{}
+		json.Unmarshal([]byte(sessionState), useSessionState)
+		redirectTo := validateRedirectURL(useSessionState.RedirectTo, feServer.HTTPOpts.ServeOptions.ContextRoot)
+
+		http.Redirect(w, r, redirectTo, http.StatusFound)
 	}
-
-	userInfo := auth.Convert(info)
-	sessionStateBytes, _ := base64.URLEncoding.DecodeString(sessionState)
-	sessionState = string(sessionStateBytes)
-	log.Debug().
-		Dict("tokens", zerolog.Dict().
-			Str("issuer", tokens.IDTokenClaims.Issuer).
-			Str("subject", tokens.IDTokenClaims.Subject).
-			Str("session_id", tokens.IDTokenClaims.SessionID)).
-		Str("session_state", sessionState).
-		Any("user_info", userInfo).
-		Msg("On auth callback")
-
-	session, err := createOrGetSession(feServer, r, log)
-	if err != nil {
-		http.Error(w, internalServerError, http.StatusInternalServerError)
-		return
-	}
-
-	populateSessionValues(session, tokens, userInfo, sessionState)
-
-	if err := session.Save(r, w); err != nil {
-		log.Error().Err(err).Msg("Failed to save session")
-		http.Error(w, internalServerError, http.StatusInternalServerError)
-		return
-	}
-
-	log.Trace().Msg("Auth session saved")
-
-	useSessionState := &sessionStateStruct{}
-	json.Unmarshal([]byte(sessionState), useSessionState)
-	redirectTo := validateRedirectURL(useSessionState.RedirectTo, feServer.HTTPOpts.ServeOptions.ContextRoot)
-
-	http.Redirect(w, r, redirectTo, http.StatusFound)
 }
 
 func createOrGetSession(feServer *server.FEServer, r *http.Request, log zerolog.Logger) (*sessions.Session, error) {

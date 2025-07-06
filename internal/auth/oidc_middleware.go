@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/morphy76/g-fe-server/internal/logger"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
@@ -17,24 +18,82 @@ const (
 	AuthQueryArgsRedirectTo = "redirect_to"
 )
 
-// IsAuthenticated checks if the user is authenticated by session and bearer token.
-func IsAuthenticated(
+// RoleCheckType defines the type for role checking logic.
+type RoleCheckType bool
+
+// RoleCheckTypeAnd is a constant for role checking type that requires all roles to match.
+var RoleCheckTypeAnd RoleCheckType = true
+
+// RoleCheckTypeOr is a constant for role checking type that allows any role match.
+var RoleCheckTypeOr RoleCheckType = false
+
+// IsAuthenticatedFn defines a function type for authentication middleware.
+type IsAuthenticatedFn func() mux.MiddlewareFunc
+
+// InspectAndRenewFn defines a function type for inspecting and renewing sessions.
+type InspectAndRenewFn func() mux.MiddlewareFunc
+
+// UserInRolesFn defines a function type for checking if a user is in specified roles.
+type UserInRolesFn func(roles []string, checkType RoleCheckType) mux.MiddlewareFunc
+
+// HasAuthorizationByURIFn defines a function type for checking if a user has access to a UMA resource by its URI.
+type HasAuthorizationByURIFn func(resourceURI string, scope string) mux.MiddlewareFunc
+
+// HasAuthorizationByTypeFn defines a function type for checking if a user has access to a UMA resource by its type.
+type HasAuthorizationByTypeFn func(resourceType string, scope string) mux.MiddlewareFunc
+
+// OIDCMiddleWare holds the authentication middleware functions.
+type OIDCMiddleWare struct {
+	IsAuthenticated        IsAuthenticatedFn
+	InspectAndRenew        InspectAndRenewFn
+	UserInRoles            UserInRolesFn
+	HasAuthorizationByURI  HasAuthorizationByURIFn
+	HasAuthorizationByType HasAuthorizationByTypeFn
+}
+
+// NewOIDCMiddleWare creates a new OIDCMiddleWare instance with the provided parameters.
+func NewOIDCMiddleWare(
 	ctxRoot string,
 	sessionStore sessions.Store,
 	sessionName string,
-) func(http.Handler) http.Handler {
+	relyingParty rp.RelyingParty,
+	resourceServer rs.ResourceServer,
+) OIDCMiddleWare {
+	return OIDCMiddleWare{
+		IsAuthenticated: func() mux.MiddlewareFunc {
+			return isAuthenticated(ctxRoot, sessionStore, sessionName)
+		},
+		InspectAndRenew: func() mux.MiddlewareFunc {
+			return inspectAndRenew(sessionStore, sessionName, relyingParty, resourceServer)
+		},
+		UserInRoles: func(roles []string, checkType RoleCheckType) mux.MiddlewareFunc {
+			return userInRoles(roles, checkType, sessionStore, sessionName)
+		},
+		HasAuthorizationByURI: func(resourceURI string, scope string) mux.MiddlewareFunc {
+			return hasAuthorizationByURI(resourceURI, scope, sessionStore, sessionName, relyingParty, resourceServer)
+		},
+		HasAuthorizationByType: func(resourceType string, scope string) mux.MiddlewareFunc {
+			return hasAuthorizationByType(resourceType, scope, sessionStore, sessionName, relyingParty, resourceServer)
+		},
+	}
+}
+
+func isAuthenticated(
+	ctxRoot string,
+	sessionStore sessions.Store,
+	sessionName string,
+) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return isAuthenticateByBearerToken(isAuthenticatedBySession(ctxRoot, sessionStore, sessionName, next))
 	}
 }
 
-// InspectAndRenew is a middleware that inspects the session and renews it if necessary.
-func InspectAndRenew(
+func inspectAndRenew(
 	sessionStore sessions.Store,
 	sessionName string,
-	rp rp.RelyingParty,
-	rs rs.ResourceServer,
-) func(http.Handler) http.Handler {
+	relyingParty rp.RelyingParty,
+	resourceServer rs.ResourceServer,
+) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			useLogger := logger.GetLogger(r.Context(), "auth")
@@ -59,7 +118,7 @@ func InspectAndRenew(
 				return
 			}
 
-			if isAccessTokenValid(r, rs, accessToken) {
+			if isAccessTokenValid(r, resourceServer, accessToken) {
 				useLogger.Trace().Msg("Access token is valid, proceeding with request")
 				next.ServeHTTP(w, r)
 				return
@@ -72,13 +131,161 @@ func InspectAndRenew(
 				return
 			}
 
-			if renewTokensAndStore(session, r, w, rp, refreshToken, accessToken) {
+			if renewTokensAndStore(session, r, w, relyingParty, refreshToken, accessToken) {
 				next.ServeHTTP(w, r)
 				return
 			}
 
 			useLogger.Error().Msg("Failed to renew tokens, redirecting to login")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		})
+	}
+}
+
+func userInRoles(
+	roles []string,
+	checkType RoleCheckType,
+	sessionStore sessions.Store,
+	sessionName string,
+) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+			useLogger := logger.GetLogger(r.Context(), "auth")
+
+			useSession, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
+			if err != nil {
+				useLogger.Error().Err(err).Msg("Start session failed")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			userInfo, ok := useSession.Values[SessionKeyUserInfo].(*UserInfo)
+			if !ok || userInfo == nil {
+				useLogger.Debug().Msg("Session does not contain user info")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			if len(roles) > 0 {
+				userRoles := userInfo.ResourceAccess
+				if userRoles == nil {
+					http.Error(w, "Forbidden", http.StatusForbidden)
+					return
+				}
+
+				roleFound := false
+				for _, role := range roles {
+					if checkType == RoleCheckTypeAnd {
+						if _, exists := userRoles[role]; !exists {
+							http.Error(w, "Forbidden", http.StatusForbidden)
+							return
+						}
+					} else if checkType == RoleCheckTypeOr {
+						if _, exists := userRoles[role]; exists {
+							roleFound = true
+							break
+						}
+					}
+				}
+
+				if checkType == RoleCheckTypeOr && !roleFound {
+					http.Error(w, "Forbidden", http.StatusForbidden)
+					return
+				}
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func hasAuthorizationByURI(
+	resourceURI string,
+	scope string,
+	sessionStore sessions.Store,
+	sessionName string,
+	relyingParty rp.RelyingParty,
+	resourceServer rs.ResourceServer,
+) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			useLogger := logger.GetLogger(r.Context(), "auth")
+
+			useSession, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
+			if err != nil {
+				useLogger.Error().Err(err).Msg("Start session failed")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			accessToken, ok := useSession.Values[SessionKeyAccessToken].(string)
+			if !ok || accessToken == "" {
+				useLogger.Error().Msg("Access token not found in session")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			if !isAccessTokenValid(r, resourceServer, accessToken) {
+				useLogger.Error().Msg("Access token is not valid")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			// TODO
+			// resp, err := rs.HasAuthorizationByURI(r.Context(), resourceServer, accessToken, resourceURI, scope)
+			// if err != nil || !resp {
+			// 	useLogger.Error().Err(err).Msg("Failed to check UMA resource by URI")
+			// 	http.Error(w, "Forbidden", http.StatusForbidden)
+			// 	return
+			// }
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func hasAuthorizationByType(
+	resourceType string,
+	scope string,
+	sessionStore sessions.Store,
+	sessionName string,
+	relyingParty rp.RelyingParty,
+	resourceServer rs.ResourceServer,
+) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			useLogger := logger.GetLogger(r.Context(), "auth")
+
+			useSession, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
+			if err != nil {
+				useLogger.Error().Err(err).Msg("Start session failed")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			accessToken, ok := useSession.Values[SessionKeyAccessToken].(string)
+			if !ok || accessToken == "" {
+				useLogger.Error().Msg("Access token not found in session")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			if !isAccessTokenValid(r, resourceServer, accessToken) {
+				useLogger.Error().Msg("Access token is not valid")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			// TODO
+			// resp, err := rs.HasAuthorizationByType(r.Context(), resourceServer, accessToken, resourceType, scope)
+			// if err != nil || !resp {
+			// 	useLogger.Error().Err(err).Msg("Failed to check UMA resource by type")
+			// 	http.Error(w, "Forbidden", http.StatusForbidden)
+			// 	return
+			// }
+
+			next.ServeHTTP(w, r)
 		})
 	}
 }
@@ -171,6 +378,7 @@ func isAccessTokenValid(r *http.Request, resourceServer rs.ResourceServer, acces
 	if err != nil {
 		return false
 	}
+
 	return resp.Active
 }
 
@@ -194,9 +402,4 @@ func renewTokensAndStore(session *sessions.Session, r *http.Request, w http.Resp
 
 	logger.Trace().Msg("Token renewal successful and session updated")
 	return true
-}
-
-func setSessionNotAuthenticated(session *sessions.Session, r *http.Request, w http.ResponseWriter) {
-	session.Values[SessionKeyAuthenticated] = false
-	session.Save(r, w)
 }
