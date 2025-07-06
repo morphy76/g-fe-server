@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
@@ -33,6 +34,11 @@ const (
 	httpSessionsCollection    = "http_sessions"
 	logoutTokenJtisCollection = "logout_token_jtis"
 )
+
+type sessionStateStruct struct {
+	RedirectTo string `json:"redirect_to"`
+	SID        string `json:"sid"`
+}
 
 func validateRedirectURL(redirectURL string, ctxRoot string) string {
 	if redirectURL == "" {
@@ -111,7 +117,12 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 		}
 
 		rp.AuthURLHandler(func() string {
-			return session.ID + requestedURL
+			state, _ := json.Marshal(sessionStateStruct{
+				RedirectTo: requestedURL,
+				SID:        session.ID,
+			})
+			// Base64 encode the state for safe transport
+			return base64.URLEncoding.EncodeToString(state)
 		}, relyingParty)(w, r)
 	}
 }
@@ -132,28 +143,20 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 		subject := session.Values[auth.SessionKeySubject]
 		sid := session.Values[auth.SessionKeySessionID]
 		idToken := session.Values[auth.SessionKeyIDToken]
-		sessionState := session.Values[auth.SessionKeySessionState]
+		useSessionState := &sessionStateStruct{}
+		json.Unmarshal([]byte(session.Values[auth.SessionKeySessionState].(string)), useSessionState)
+		requestedURL := validateRedirectURL(useSessionState.RedirectTo, ctxRoot)
+
 		log.Debug().
 			Interface("issuer", issuer).
 			Interface("subject", subject).
 			Interface("session_id", sid).
 			Interface("id_token", idToken).
-			Interface("session_state", sessionState).
+			Str("redirect_to", requestedURL).
 			Msg("Start logging out")
 
-		requestedURL, err := url.QueryUnescape(r.URL.Query().Get(auth.AuthQueryArgsRedirectTo))
-		if err != nil || requestedURL == "" {
-			requestedURL := sessionState.(string)
-			if session.ID != "" && len(requestedURL) > len(session.ID) && requestedURL[:len(session.ID)] == session.ID {
-				requestedURL = requestedURL[len(session.ID):]
-			} else {
-				requestedURL = ctxRoot + "/ui"
-			}
-		}
-
-		requestedURL = validateRedirectURL(requestedURL, ctxRoot)
-
-		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), requestedURL, sessionState.(string))
+		encodedSessionState := base64.URLEncoding.EncodeToString([]byte(session.Values[auth.SessionKeySessionState].(string)))
+		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), requestedURL, encodedSessionState)
 		if err != nil {
 			log.Error().Err(err).Msg("End session failed")
 			http.Error(w, "End session failed", http.StatusInternalServerError)
@@ -407,6 +410,8 @@ func marshalUserinfo(
 	}
 
 	userInfo := auth.Convert(info)
+	sessionStateBytes, _ := base64.URLEncoding.DecodeString(sessionState)
+	sessionState = string(sessionStateBytes)
 	log.Debug().
 		Dict("tokens", zerolog.Dict().
 			Str("issuer", tokens.IDTokenClaims.Issuer).
@@ -432,17 +437,9 @@ func marshalUserinfo(
 
 	log.Trace().Msg("Auth session saved")
 
-	redirectTo := sessionState
-	if session.ID != "" && len(sessionState) > len(session.ID) && sessionState[:len(session.ID)] == session.ID {
-		redirectTo = sessionState[len(session.ID):]
-	}
-
-	ctxRoot := "/ui"
-	if feServer != nil && feServer.HTTPOpts != nil {
-		ctxRoot = feServer.HTTPOpts.ServeOptions.ContextRoot + "/ui"
-	}
-
-	redirectTo = validateRedirectURL(redirectTo, ctxRoot)
+	useSessionState := &sessionStateStruct{}
+	json.Unmarshal([]byte(sessionState), useSessionState)
+	redirectTo := validateRedirectURL(useSessionState.RedirectTo, feServer.HTTPOpts.ServeOptions.ContextRoot)
 
 	http.Redirect(w, r, redirectTo, http.StatusFound)
 }

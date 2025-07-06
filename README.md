@@ -2,21 +2,24 @@
 
 ## Known TODO
 
-- _doing_ Test and fix OIDC integration, e.g. backchannel logout (see `internal/http/handlers/auth.go`) and redirect arguments to keep the state
 - Fix mongo monitoring (see `internal/db/monitor.go`)
 - Observability fallback to Opentracing/Jaeger using build flags
 - Observability enrich outgoing HTTP requests
 - Framework/standard to build the business request model: how logger, feserver, clients reaches the business module (*)
 - A React 19 case study with MFEs
+- KC onLogout:
+  - 2025-07-06 20:35:17,521 WARN  [org.keycloak.events] (executor-thread-87) type="LOGOUT_ERROR", realmId="c304140e-bede-4b44-b5be-8ce28e637bea", realmName="gfes", clientId="ps", userId="null", ipAddress="0:0:0:0:0:0:0:1", error="invalid_redirect_uri", redirect_uri="/fe/ui"
 
 In summary:
 
-- With HTTP session management
-- With Health endpoint
+- [x] With HTTP session management
+- [x] With Health endpoint
   - Testing HTTP serving
   - Testing Mongo connection
-- With OIDC integration
-- With Mongo integration
+- CORS options
+- CSP options
+- [x] With OIDC integration
+- [x] With Mongo integration
 - With Unleash integration <- reviewwing
   - Feature gateway for FE flags
 - With AIW logging

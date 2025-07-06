@@ -37,34 +37,38 @@ func InspectAndRenew(
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			useLogger := logger.GetLogger(r.Context(), "auth")
+
 			session, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
 			if err != nil {
-				// TODO: handle session retrieval error
-				next.ServeHTTP(w, r)
+				useLogger.Error().Err(err).Msg("Failed to get session in InspectAndRenew")
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
 
 			accessToken, ok := session.Values[SessionKeyAccessToken].(string)
 			if !ok || accessToken == "" {
-				setSessionNotAuthenticated(session, r, w)
-				next.ServeHTTP(w, r)
+				useLogger.Error().Msg("Access token not found in session downstream authentication check")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
 
 			if isTokenRecent(session) {
+				useLogger.Trace().Msg("Token is recent, proceeding with request")
 				next.ServeHTTP(w, r)
 				return
 			}
 
 			if isAccessTokenValid(r, rs, accessToken) {
+				useLogger.Trace().Msg("Access token is valid, proceeding with request")
 				next.ServeHTTP(w, r)
 				return
 			}
 
 			refreshToken, ok := session.Values[SessionKeyRefreshToken].(string)
 			if !ok || refreshToken == "" {
-				setSessionNotAuthenticated(session, r, w)
-				next.ServeHTTP(w, r)
+				useLogger.Error().Msg("Refresh token not found in session, cannot renew tokens")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
 
@@ -73,8 +77,8 @@ func InspectAndRenew(
 				return
 			}
 
-			setSessionNotAuthenticated(session, r, w)
-			next.ServeHTTP(w, r)
+			useLogger.Error().Msg("Failed to renew tokens, redirecting to login")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		})
 	}
 }
@@ -138,7 +142,6 @@ func isAuthenticateByBearerToken(
 }
 
 func isTokenRecent(session *sessions.Session) bool {
-	const maxAge = 5 * time.Minute // adjust as needed
 	issuedAtRaw, ok := session.Values[SessionKeyTokenIssuedAt]
 	if !ok {
 		return false
@@ -147,7 +150,18 @@ func isTokenRecent(session *sessions.Session) bool {
 	if !ok {
 		return false
 	}
-	return time.Now().Unix()-issuedAt < int64(maxAge.Seconds())
+
+	expireAtRaw, ok := session.Values[SessionKeyExpiresAt]
+	if !ok {
+		return false
+	}
+	expireAt, ok := expireAtRaw.(int64)
+	if !ok {
+		return false
+	}
+
+	midLife := (expireAt - issuedAt) / 2
+	return time.Now().Unix() <= (issuedAt + midLife)
 }
 
 func isAccessTokenValid(r *http.Request, resourceServer rs.ResourceServer, accessToken string) bool {
@@ -162,7 +176,7 @@ func isAccessTokenValid(r *http.Request, resourceServer rs.ResourceServer, acces
 
 func renewTokensAndStore(session *sessions.Session, r *http.Request, w http.ResponseWriter, relyingParty rp.RelyingParty, refreshToken, accessToken string) bool {
 	logger := logger.GetLogger(r.Context(), "auth")
-	logger.Debug().Msg("Attempting to renew tokens using refresh token")
+	logger.Trace().Msg("Attempting to renew tokens using refresh token")
 
 	ctx := r.Context()
 	tokens, err := rp.RefreshTokens[*oidc.IDTokenClaims](ctx, relyingParty, refreshToken, "urn:ietf:params:oauth:client-assertion-type:jwt-bearer", "")
@@ -178,7 +192,7 @@ func renewTokensAndStore(session *sessions.Session, r *http.Request, w http.Resp
 	session.Values[SessionKeyAuthenticated] = true
 	session.Save(r, w)
 
-	logger.Debug().Msg("Token renewal successful and session updated")
+	logger.Trace().Msg("Token renewal successful and session updated")
 	return true
 }
 
