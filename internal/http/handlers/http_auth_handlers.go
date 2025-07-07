@@ -117,6 +117,13 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 			return
 		}
 
+		parsedRequestedURL, err := url.Parse(requestedURL)
+		if err == nil {
+			query := parsedRequestedURL.Query()
+			query.Del("state")
+			parsedRequestedURL.RawQuery = query.Encode()
+			requestedURL = parsedRequestedURL.String()
+		}
 		rp.AuthURLHandler(func() string {
 			state, _ := json.Marshal(sessionStateStruct{
 				RedirectTo: requestedURL,
@@ -147,17 +154,18 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 		useSessionState := &sessionStateStruct{}
 		json.Unmarshal([]byte(session.Values[auth.SessionKeySessionState].(string)), useSessionState)
 		requestedURL := validateRedirectURL(useSessionState.RedirectTo, ctxRoot)
+		afterLogoutRedirect := fmt.Sprintf("%s://%s:%s%s", httpOptions.ServeOptions.Protocol, httpOptions.ServeOptions.Host, httpOptions.ServeOptions.Port, requestedURL)
 
 		log.Trace().
 			Interface("issuer", issuer).
 			Interface("subject", subject).
 			Interface("session_id", sid).
 			Interface("id_token", idToken).
-			Str("redirect_to", requestedURL).
+			Str("redirect_to", afterLogoutRedirect).
 			Msg("Start logging out")
 
 		encodedSessionState := base64.URLEncoding.EncodeToString([]byte(session.Values[auth.SessionKeySessionState].(string)))
-		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), requestedURL, encodedSessionState)
+		url, err := rp.EndSession(r.Context(), relyingParty, idToken.(string), afterLogoutRedirect, encodedSessionState)
 		if err != nil {
 			log.Error().Err(err).Msg("End session failed")
 			http.Error(w, "End session failed", http.StatusInternalServerError)

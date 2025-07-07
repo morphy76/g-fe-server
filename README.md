@@ -9,6 +9,7 @@ In summary:
   - Testing HTTP serving
   - Testing Mongo connection
 - [ ] RBAC and resource server   <----
+- [ ] Middleare and processing for tenant attribution
 - [ ] CORS options
   - Admin APIs with RBAC
 - [ ] CSP options
@@ -32,7 +33,6 @@ In summary:
 Openpoints:
 
 - Observability fallback to Opentracing/Jaeger using build flags
-- Middleare and processing for tenant attribution
 - Framework/standard to build the business request model: how logger, feserver, clients reaches the business module (*)
 - A React 19 case study with MFEs
 - TBV If Unleash is not enabled, we assume the feature is enabled by default
