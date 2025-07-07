@@ -412,13 +412,14 @@ func buildUserInfoCallback(resourceServer rs.ResourceServer) rp.CodeExchangeUser
 			return
 		}
 
-		resp, err := rs.Introspect[*oidc.IntrospectionResponse](r.Context(), resourceServer, tokens.AccessToken)
-		if err != nil {
-			http.Error(w, internalServerError, http.StatusInternalServerError)
-			return
-		}
+		// resp, err := rs.Introspect[*oidc.IntrospectionResponse](r.Context(), resourceServer, tokens.AccessToken)
+		// if err != nil {
+		// 	http.Error(w, internalServerError, http.StatusInternalServerError)
+		// 	return
+		// }
 
-		userInfo := auth.Convert(info, resp.Claims["resource_access"].(map[string][]string))
+		// // TODO resp.Claims["resource_access"].(map[string][]string)
+		userInfo := auth.Convert(info, nil)
 		sessionStateBytes, _ := base64.URLEncoding.DecodeString(sessionState)
 		sessionState = string(sessionStateBytes)
 		log.Debug().

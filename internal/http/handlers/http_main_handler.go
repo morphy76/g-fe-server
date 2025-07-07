@@ -267,7 +267,37 @@ func bindModules(
 	routerLog zerolog.Logger,
 ) error {
 	// Each resource module provides its own handlers
+	// - test
 	// - example module
+
+	sayHello := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("Hello, World!"))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	oidcMid := auth.NewOIDCMiddleWare(
+		feServer.HTTPOpts.ServeOptions.ContextRoot,
+		feServer.SessionStore,
+		feServer.HTTPOpts.SessionOptions.Name,
+		feServer.RelayingParty,
+		feServer.ResourceServer,
+	)
+
+	testRouter := apiRouter.PathPrefix("/testURI").Subrouter()
+	testRouter.Use(oidcMid.HasAuthorizationByURI(feServer.HTTPOpts.ServeOptions.ContextRoot+"/api/test", "read"))
+	testRouter.HandleFunc("/", sayHello).Methods(http.MethodGet)
+
+	typeRouter := apiRouter.PathPrefix("/testType").Subrouter()
+	typeRouter.Use(oidcMid.HasAuthorizationByType("urn:ps:resources:endpoint:test", "resource.read"))
+	typeRouter.HandleFunc("/", sayHello).Methods(http.MethodGet)
+
+	roleRouter := apiRouter.PathPrefix("/testRole").Subrouter()
+	roleRouter.Use(oidcMid.UserInRoles([]string{"GFE_USER"}, auth.RoleCheckTypeAnd))
+	roleRouter.HandleFunc("/", sayHello).Methods(http.MethodGet)
 
 	example.Handler(apiRouter, feServer, routerLog)
 	return nil

@@ -311,6 +311,14 @@
           "clientRole": true,
           "containerId": "13210674-0467-437c-8434-ada7e1dbcbf7",
           "attributes": {}
+        },
+        {
+          "id": "17cf6091-2acf-45ff-98fd-ad9a4e7e8f8c",
+          "name": "uma_protection",
+          "composite": false,
+          "clientRole": true,
+          "containerId": "13210674-0467-437c-8434-ada7e1dbcbf7",
+          "attributes": {}
         }
       ],
       "security-admin-console": [],
@@ -482,6 +490,29 @@
   "webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister": false,
   "webAuthnPolicyPasswordlessAcceptableAaguids": [],
   "webAuthnPolicyPasswordlessExtraOrigins": [],
+  "users": [
+    {
+      "id": "28202788-1a97-4bf3-95ff-aa7accc1b4c8",
+      "username": "service-account-ps",
+      "emailVerified": false,
+      "createdTimestamp": 1751838564846,
+      "enabled": true,
+      "totp": false,
+      "serviceAccountClientId": "ps",
+      "disableableCredentialTypes": [],
+      "requiredActions": [],
+      "realmRoles": [
+        "default-roles-gfes"
+      ],
+      "clientRoles": {
+        "ps": [
+          "uma_protection"
+        ]
+      },
+      "notBefore": 0,
+      "groups": []
+    }
+  ],
   "scopeMappings": [
     {
       "clientScope": "offline_access",
@@ -712,7 +743,8 @@
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
       "publicClient": false,
       "frontchannelLogout": false,
       "protocol": "openid-connect",
@@ -723,7 +755,7 @@
         "client.introspection.response.allow.jwt.claim.enabled": "false",
         "standard.token.exchange.enabled": "false",
         "frontchannel.logout.session.required": "true",
-        "post.logout.redirect.uris": "+",
+        "post.logout.redirect.uris": "http://localhost:3000/*",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.revoke.offline.tokens": "false",
         "use.refresh.tokens": "true",
@@ -782,6 +814,7 @@
         }
       ],
       "defaultClientScopes": [
+        "service_account",
         "web-origins",
         "acr",
         "profile",
@@ -794,7 +827,91 @@
         "phone",
         "offline_access",
         "microprofile-jwt"
-      ]
+      ],
+      "authorizationSettings": {
+        "allowRemoteResourceManagement": true,
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "Default Resource",
+            "type": "urn:ps:resources:default",
+            "ownerManagedAccess": false,
+            "attributes": {},
+            "uris": [
+              "/*"
+            ]
+          },
+          {
+            "name": "TestAPI",
+            "type": "urn:ps:resources:endpoint:test",
+            "ownerManagedAccess": false,
+            "displayName": "A test API which requires GFE_USER",
+            "attributes": {},
+            "uris": [
+              "/fe/api/test"
+            ],
+            "scopes": [
+              {
+                "name": "resource.read"
+              }
+            ],
+            "icon_uri": ""
+          }
+        ],
+        "policies": [
+          {
+            "name": "Default Policy",
+            "description": "A policy that grants access only for users within this realm",
+            "type": "js",
+            "logic": "POSITIVE",
+            "decisionStrategy": "AFFIRMATIVE",
+            "config": {
+              "code": "// by default, grants any permission associated with this policy\n$evaluation.grant();\n"
+            }
+          },
+          {
+            "name": "GFE users",
+            "description": "",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "fetchRoles": "false",
+              "roles": "[{\"id\":\"ps/GFE_USER\",\"required\":false}]"
+            }
+          },
+          {
+            "name": "Default Permission",
+            "description": "A permission that applies to the default resource type",
+            "type": "resource",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "defaultResourceType": "urn:ps:resources:default",
+              "applyPolicies": "[\"Default Policy\"]"
+            }
+          },
+          {
+            "name": "Read TestAPI for GFE users",
+            "description": "",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "resources": "[\"TestAPI\"]",
+              "scopes": "[\"resource.read\"]",
+              "applyPolicies": "[\"GFE users\"]"
+            }
+          }
+        ],
+        "scopes": [
+          {
+            "name": "resource.read",
+            "iconUri": ""
+          }
+        ],
+        "decisionStrategy": "UNANIMOUS"
+      }
     },
     {
       "id": "ad69ac4c-8458-4e6b-bed6-93761e372eda",

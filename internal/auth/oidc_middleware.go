@@ -374,10 +374,7 @@ func isTokenRecent(session *sessions.Session) bool {
 func isAccessTokenValid(r *http.Request, resourceServer rs.ResourceServer, accessToken string) bool {
 	ctx := r.Context()
 
-	resp, err := rs.Introspect[*oidc.IntrospectionResponse](ctx, resourceServer, accessToken)
-	if err != nil {
-		return false
-	}
+	resp, _ := rs.Introspect[*oidc.IntrospectionResponse](ctx, resourceServer, accessToken)
 
 	return resp.Active
 }
