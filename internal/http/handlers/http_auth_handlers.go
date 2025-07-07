@@ -113,7 +113,6 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 
 		isAuth, found := session.Values[auth.SessionKeyAuthenticated]
 		if found && isAuth.(bool) {
-			log.Debug().Msg("Session is already authenticated")
 			http.Redirect(w, r, requestedURL, http.StatusFound)
 			return
 		}
@@ -149,7 +148,7 @@ func onLogout(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctx
 		json.Unmarshal([]byte(session.Values[auth.SessionKeySessionState].(string)), useSessionState)
 		requestedURL := validateRedirectURL(useSessionState.RedirectTo, ctxRoot)
 
-		log.Debug().
+		log.Trace().
 			Interface("issuer", issuer).
 			Interface("subject", subject).
 			Interface("session_id", sid).
@@ -190,7 +189,7 @@ func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions) http.
 
 		authenticated, found := session.Values[auth.SessionKeyAuthenticated]
 		if !found || !authenticated.(bool) {
-			log.Debug().Msg("User is not authenticated")
+			log.Warn().Msg("User is not authenticated")
 			http.Error(w, "User is not authenticated", http.StatusUnauthorized)
 			return
 		}
@@ -212,7 +211,7 @@ func onInfo(sessionStore sessions.Store, httpOptions *options.HTTPOptions) http.
 func onBackChannelLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logger.GetLogger(r.Context(), "auth")
-		log.Debug().Msg("Back channel logout")
+		log.Trace().Msg("Start back channel logout")
 
 		w.Header().Set("Cache-Control", "no-store")
 
@@ -241,7 +240,7 @@ func onBackChannelLogout() http.HandlerFunc {
 			return
 		}
 
-		log.Debug().
+		log.Trace().
 			Str("subject", claims.Subject).
 			Str("issuer", claims.Issuer).
 			Str("session_id", claims.SessionID).
@@ -251,6 +250,7 @@ func onBackChannelLogout() http.HandlerFunc {
 		go cleanupUserSessions(claims, feServer, log)
 
 		w.WriteHeader(http.StatusOK)
+		log.Trace().Msg("Back channel logout completed successfully")
 	}
 }
 
@@ -404,6 +404,7 @@ func buildUserInfoCallback(resourceServer rs.ResourceServer) rp.CodeExchangeUser
 		info *oidc.UserInfo,
 	) {
 		log := logger.GetLogger(r.Context(), "auth")
+		log.Trace().Msg("Processing user info callback")
 
 		feServer, err := server.ExtractFEServer(r.Context())
 		if err != nil {
@@ -418,11 +419,10 @@ func buildUserInfoCallback(resourceServer rs.ResourceServer) rp.CodeExchangeUser
 		// 	return
 		// }
 
-		// // TODO resp.Claims["resource_access"].(map[string][]string)
-		userInfo := auth.Convert(info, nil)
+		userInfo := auth.Convert(info)
 		sessionStateBytes, _ := base64.URLEncoding.DecodeString(sessionState)
 		sessionState = string(sessionStateBytes)
-		log.Debug().
+		log.Trace().
 			Dict("tokens", zerolog.Dict().
 				Str("issuer", tokens.IDTokenClaims.Issuer).
 				Str("subject", tokens.IDTokenClaims.Subject).
@@ -452,6 +452,9 @@ func buildUserInfoCallback(resourceServer rs.ResourceServer) rp.CodeExchangeUser
 		redirectTo := validateRedirectURL(useSessionState.RedirectTo, feServer.HTTPOpts.ServeOptions.ContextRoot)
 
 		http.Redirect(w, r, redirectTo, http.StatusFound)
+		log.Trace().
+			Str("redirect_to", redirectTo).
+			Msg("User info callback processed successfully")
 	}
 }
 
@@ -516,7 +519,7 @@ func cleanupUserSessions(claims *oidc.LogoutTokenClaims, feServer *server.FEServ
 	ctx, cancel := context.WithTimeout(context.Background(), sessionCleanupTimeout)
 	defer cancel()
 
-	log.Debug().
+	log.Trace().
 		Interface("claims", claims).
 		Msg("Cleaning up user sessions in back channel logout")
 
@@ -527,7 +530,7 @@ func cleanupUserSessions(claims *oidc.LogoutTokenClaims, feServer *server.FEServ
 		return
 	}
 
-	log.Debug().
+	log.Trace().
 		Int64("deleted_count", res.DeletedCount).
 		Msg("Deleted sessions in back channel logout")
 }

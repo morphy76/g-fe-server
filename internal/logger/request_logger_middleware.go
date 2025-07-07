@@ -60,7 +60,7 @@ func RequestLogger(next http.Handler) http.Handler {
 			requestLogger.Trace().Dict("headers", dumpHeaders(r.Header)).Msg("Request Header")
 		}
 
-		requestLogger.Debug().Dict("request", zerolog.Dict().
+		requestLogger.Info().Dict("request", zerolog.Dict().
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
 			Dur("duration_ns", time.Duration(requestDuration)).

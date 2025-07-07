@@ -8,11 +8,12 @@ In summary:
 - [x] With Health endpoint
   - Testing HTTP serving
   - Testing Mongo connection
-- [ ] RBAC and resource server
+- [ ] RBAC and resource server   <----
 - [ ] CORS options
   - Admin APIs with RBAC
 - [ ] CSP options
   - Admin APIs with RBAC
+- [ ] CSRF with gorilla
 - [x] With OIDC integration
 - [x] With Mongo integration
 - [ ] With Unleash integration

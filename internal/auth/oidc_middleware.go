@@ -162,38 +162,38 @@ func userInRoles(
 
 			userInfo, ok := useSession.Values[SessionKeyUserInfo].(*UserInfo)
 			if !ok || userInfo == nil {
-				useLogger.Debug().Msg("Session does not contain user info")
+				useLogger.Error().Msg("Session does not contain user info")
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
 
-			if len(roles) > 0 {
-				userRoles := userInfo.ResourceAccess
-				if userRoles == nil {
-					http.Error(w, "Forbidden", http.StatusForbidden)
-					return
-				}
+			// if len(roles) > 0 {
+			// 	userRoles := userInfo.ResourceAccess
+			// 	if userRoles == nil {
+			// 		http.Error(w, "Forbidden", http.StatusForbidden)
+			// 		return
+			// 	}
 
-				roleFound := false
-				for _, role := range roles {
-					if checkType == RoleCheckTypeAnd {
-						if _, exists := userRoles[role]; !exists {
-							http.Error(w, "Forbidden", http.StatusForbidden)
-							return
-						}
-					} else if checkType == RoleCheckTypeOr {
-						if _, exists := userRoles[role]; exists {
-							roleFound = true
-							break
-						}
-					}
-				}
+			// 	roleFound := false
+			// 	for _, role := range roles {
+			// 		if checkType == RoleCheckTypeAnd {
+			// 			if _, exists := userRoles[role]; !exists {
+			// 				http.Error(w, "Forbidden", http.StatusForbidden)
+			// 				return
+			// 			}
+			// 		} else if checkType == RoleCheckTypeOr {
+			// 			if _, exists := userRoles[role]; exists {
+			// 				roleFound = true
+			// 				break
+			// 			}
+			// 		}
+			// 	}
 
-				if checkType == RoleCheckTypeOr && !roleFound {
-					http.Error(w, "Forbidden", http.StatusForbidden)
-					return
-				}
-			}
+			// 	if checkType == RoleCheckTypeOr && !roleFound {
+			// 		http.Error(w, "Forbidden", http.StatusForbidden)
+			// 		return
+			// 	}
+			// }
 
 			next.ServeHTTP(w, r)
 		})
@@ -311,7 +311,6 @@ func isAuthenticatedBySession(
 		if found && isAuth.(bool) {
 			next.ServeHTTP(w, r)
 		} else {
-			useLogger.Debug().Msg("Session is not authenticated")
 			http.Redirect(w, r,
 				ctxRoot+"/auth/login?"+AuthQueryArgsRedirectTo+"="+url.QueryEscape(r.URL.String()),
 				http.StatusTemporaryRedirect,
@@ -386,7 +385,7 @@ func renewTokensAndStore(session *sessions.Session, r *http.Request, w http.Resp
 	ctx := r.Context()
 	tokens, err := rp.RefreshTokens[*oidc.IDTokenClaims](ctx, relyingParty, refreshToken, "urn:ietf:params:oauth:client-assertion-type:jwt-bearer", "")
 	if err != nil {
-		logger.Debug().Err(err).Msg("Token renewal failed")
+		logger.Warn().Err(err).Msg("Token renewal failed")
 		return false
 	}
 

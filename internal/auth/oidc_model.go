@@ -66,11 +66,11 @@ type UserInfo struct {
 	Address             map[string]interface{} // address (OIDC address claim is a JSON object)
 	UpdatedAt           int64                  // updated_at (Unix timestamp)
 	RawClaims           map[string]interface{} // any additional claims
-	ResourceAccess      map[string][]string    // resource_access (map of resource names to scopes)
+	// ResourceAccess      map[string]any         // resource_access (map of resource names to scopes)
 }
 
 // Convert converts oidc.UserInfo to our UserInfo struct
-func Convert(userInfo *oidc.UserInfo, resourceAccess map[string][]string) *UserInfo {
+func Convert(userInfo *oidc.UserInfo) *UserInfo {
 	if userInfo == nil {
 		return nil
 	}
@@ -96,7 +96,7 @@ func Convert(userInfo *oidc.UserInfo, resourceAccess map[string][]string) *UserI
 		PhoneNumber:         userInfo.PhoneNumber,
 		PhoneNumberVerified: userInfo.PhoneNumberVerified,
 		UpdatedAt:           int64(userInfo.UpdatedAt),
-		ResourceAccess:      resourceAccess,
+		// ResourceAccess:      resourceAccess,
 	}
 
 	// Address is a struct in oidc.UserInfo, convert to map[string]interface{}
