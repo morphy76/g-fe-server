@@ -48,6 +48,8 @@ type FEServer struct {
 	RelayingParty rp.RelyingParty
 	// ResourceServer is the OIDC resource server client used for authorization
 	ResourceServer rs.ResourceServer
+	// OIDCOpts contains options for the OIDC client
+	OIDCOpts *auth.OIDCOptions
 
 	// ServiceName is the name of the service, used for logging and tracing
 	ServiceName string

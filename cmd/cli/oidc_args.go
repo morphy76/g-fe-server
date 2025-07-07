@@ -22,11 +22,12 @@ var ErrMissingClientID = errors.New("OIDC client id is required")
 var ErrMissingClientSecret = errors.New("OIDC client secret is required")
 
 const (
-	envOIDCIssuer       = "OIDC_ISSUER"
-	envOIDCClientID     = "OIDC_CLIENT_ID"
-	envOIDCClientSecret = "OIDC_CLIENT_SECRET"
-	envOIDCScopes       = "OIDC_SCOPES"
-	envExtraAuthArgs    = "OIDC_EXTRA_AUTH_ARGS"
+	envOIDCIssuer          = "OIDC_ISSUER"
+	envOIDCClientID        = "OIDC_CLIENT_ID"
+	envOIDCClientSecret    = "OIDC_CLIENT_SECRET"
+	envOIDCScopes          = "OIDC_SCOPES"
+	envExtraAuthArgs       = "OIDC_EXTRA_AUTH_ARGS"
+	envResourceAccessClaim = "OIDC_RESOURCE_ACCESS_CLAIM"
 )
 
 // OIDCOptionsBuilder returns a function that can be used to build OIDC options
@@ -37,6 +38,7 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 	oidcClientSecretArg := flag.String("oidc-client-secret", "", "OIDC client secret. Environment: "+envOIDCClientSecret)
 	oidcScopesArg := flag.String("oidc-scopes", "", "OIDC scopes. Environment: "+envOIDCScopes)
 	oidcExtraAuthArgsArg := flag.String("oidc-extra-auth-args", "", "OIDC extra auth args. Environment: "+envExtraAuthArgs)
+	oidcResourceAccessClaimArg := flag.String("oidc-resource-access-claim", "resource_access", "OIDC resource access claim. Environment: "+envResourceAccessClaim)
 
 	rv := func() (*auth.OIDCOptions, error) {
 
@@ -81,11 +83,17 @@ func OIDCOptionsBuilder() OIDCOptionsBuidlerFn {
 			}
 		}
 
+		oidcResourceAccessClaim, found := os.LookupEnv(envResourceAccessClaim)
+		if !found {
+			oidcResourceAccessClaim = *oidcResourceAccessClaimArg
+		}
+
 		rvOpts := &auth.OIDCOptions{
-			Issuer:       oidcIssuer,
-			ClientID:     oidcClientID,
-			ClientSecret: oidcClientSecret,
-			Scopes:       strings.Split(oidcScopes, ","),
+			Issuer:              oidcIssuer,
+			ClientID:            oidcClientID,
+			ClientSecret:        oidcClientSecret,
+			Scopes:              strings.Split(oidcScopes, ","),
+			ResourceAccessClaim: oidcResourceAccessClaim,
 		}
 
 		rvOpts.ExtraAuthArgs = make(map[string]string, 0)

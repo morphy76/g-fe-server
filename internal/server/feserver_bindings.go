@@ -163,6 +163,7 @@ func bindOIDC(
 		return err
 	}
 	feServer.ResourceServer = rs
+	feServer.OIDCOpts = oidcOptions
 
 	return nil
 }

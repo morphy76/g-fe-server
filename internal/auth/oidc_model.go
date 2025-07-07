@@ -35,12 +35,13 @@ const (
 
 // OIDCOptions holds the configuration for the OIDC client
 type OIDCOptions struct {
-	Disabled      bool
-	Issuer        string
-	ClientID      string
-	ClientSecret  string
-	Scopes        []string
-	ExtraAuthArgs map[string]string
+	Disabled            bool
+	Issuer              string
+	ClientID            string
+	ClientSecret        string
+	Scopes              []string
+	ExtraAuthArgs       map[string]string
+	ResourceAccessClaim string
 }
 
 // UserInfo represents the user information returned by the OIDC provider
@@ -66,11 +67,11 @@ type UserInfo struct {
 	Address             map[string]interface{} // address (OIDC address claim is a JSON object)
 	UpdatedAt           int64                  // updated_at (Unix timestamp)
 	RawClaims           map[string]interface{} // any additional claims
-	// ResourceAccess      map[string]any         // resource_access (map of resource names to scopes)
+	ResourceAccess      map[string]interface{} // resource_access (map of resource names to scopes)
 }
 
 // Convert converts oidc.UserInfo to our UserInfo struct
-func Convert(userInfo *oidc.UserInfo) *UserInfo {
+func Convert(userInfo *oidc.UserInfo, resourceAccess map[string]interface{}) *UserInfo {
 	if userInfo == nil {
 		return nil
 	}
@@ -96,10 +97,8 @@ func Convert(userInfo *oidc.UserInfo) *UserInfo {
 		PhoneNumber:         userInfo.PhoneNumber,
 		PhoneNumberVerified: userInfo.PhoneNumberVerified,
 		UpdatedAt:           int64(userInfo.UpdatedAt),
-		// ResourceAccess:      resourceAccess,
 	}
 
-	// Address is a struct in oidc.UserInfo, convert to map[string]interface{}
 	if userInfo.Address != nil {
 		addr := make(map[string]interface{})
 		if userInfo.Address.Formatted != "" {
@@ -123,11 +122,21 @@ func Convert(userInfo *oidc.UserInfo) *UserInfo {
 		ui.Address = addr
 	}
 
-	// Copy any extra claims
 	if userInfo.Claims != nil {
 		ui.RawClaims = make(map[string]interface{})
 		for k, v := range userInfo.Claims {
 			ui.RawClaims[k] = v
+		}
+	}
+
+	if resourceAccess != nil {
+		ui.ResourceAccess = make(map[string]interface{})
+		for resource, scopes := range resourceAccess {
+			if scopesMap, ok := scopes.(map[string]interface{}); ok {
+				ui.ResourceAccess[resource] = scopesMap
+			} else {
+				ui.ResourceAccess[resource] = scopes
+			}
 		}
 	}
 

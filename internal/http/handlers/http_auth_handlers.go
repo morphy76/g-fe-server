@@ -74,6 +74,7 @@ func validateRedirectURL(redirectURL string, ctxRoot string) string {
 func IAMHandlers(
 	authRouter *mux.Router,
 	httpOptions *options.HTTPOptions,
+	oidcOptions *auth.OIDCOptions,
 	sessionStore sessions.Store,
 	relyingParty rp.RelyingParty,
 	resourceServer rs.ResourceServer,
@@ -84,7 +85,7 @@ func IAMHandlers(
 	gob.Register(time.Time{})
 
 	authRouter.HandleFunc("/login", onLogin(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/login")
-	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(buildUserInfoCallback(resourceServer)), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
+	authRouter.HandleFunc("/callback", rp.CodeExchangeHandler(rp.UserinfoCallback(buildUserInfoCallback(resourceServer, oidcOptions.ResourceAccessClaim)), relyingParty)).Name("GET " + ctxRoot + "/auth/callback")
 	authRouter.HandleFunc("/logout", onLogout(sessionStore, httpOptions, ctxRoot, relyingParty)).Name("GET " + ctxRoot + "/auth/logout")
 	authRouter.HandleFunc("/info", onInfo(sessionStore, httpOptions)).Name("GET " + ctxRoot + "/auth/info")
 	authRouter.HandleFunc("/bc_logout", onBackChannelLogout()).Methods("POST").Name("POST " + ctxRoot + "/auth/bc_logout")
@@ -129,7 +130,6 @@ func onLogin(sessionStore sessions.Store, httpOptions *options.HTTPOptions, ctxR
 				RedirectTo: requestedURL,
 				SID:        session.ID,
 			})
-			// Base64 encode the state for safe transport
 			return base64.URLEncoding.EncodeToString(state)
 		}, relyingParty)(w, r)
 	}
@@ -402,7 +402,10 @@ func storeJTIForReplayProtection(claims *oidc.LogoutTokenClaims, feServer *serve
 	}()
 }
 
-func buildUserInfoCallback(resourceServer rs.ResourceServer) rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims, *oidc.UserInfo] {
+func buildUserInfoCallback(
+	resourceServer rs.ResourceServer,
+	resourceAccessClaim string,
+) rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims, *oidc.UserInfo] {
 	return func(
 		w http.ResponseWriter,
 		r *http.Request,
@@ -421,13 +424,32 @@ func buildUserInfoCallback(resourceServer rs.ResourceServer) rp.CodeExchangeUser
 			return
 		}
 
-		// resp, err := rs.Introspect[*oidc.IntrospectionResponse](r.Context(), resourceServer, tokens.AccessToken)
-		// if err != nil {
-		// 	http.Error(w, internalServerError, http.StatusInternalServerError)
-		// 	return
-		// }
+		resp, err := rs.Introspect[*oidc.IntrospectionResponse](r.Context(), resourceServer, tokens.AccessToken)
+		if err != nil {
+			http.Error(w, internalServerError, http.StatusInternalServerError)
+			return
+		}
 
-		userInfo := auth.Convert(info)
+		if resp == nil || !resp.Active || resourceAccessClaim == "" {
+			log.Warn().Msg("Introspection response is inactive or resource access claim is empty")
+			http.Error(w, "Inactive token or missing resource access claim", http.StatusUnauthorized)
+			return
+		}
+
+		resourceAccessAnyMap, ok := resp.Claims[resourceAccessClaim]
+		if !ok {
+			log.Warn().Str("resource_access_claim", resourceAccessClaim).Msg("Resource access claim not found in introspection response")
+			http.Error(w, "Resource access claim not found", http.StatusUnauthorized)
+			return
+		}
+		resourceAccessStringArrayMap, ok := resourceAccessAnyMap.(map[string]interface{})
+		if !ok {
+			log.Warn().Str("resource_access_claim", resourceAccessClaim).Msg("Resource access claim type mismatch")
+			http.Error(w, "Resource access claim type mismatch", http.StatusUnauthorized)
+			return
+		}
+
+		userInfo := auth.Convert(info, resourceAccessStringArrayMap)
 		sessionStateBytes, _ := base64.URLEncoding.DecodeString(sessionState)
 		sessionState = string(sessionStateBytes)
 		log.Trace().

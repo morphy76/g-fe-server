@@ -182,7 +182,14 @@ func addAuthHandlers(
 		routerLog.Trace().
 			Msg("Auth router registered")
 	}
-	err := IAMHandlers(authRouter, feServer.HTTPOpts, feServer.SessionStore, feServer.RelayingParty, feServer.ResourceServer)
+	err := IAMHandlers(
+		authRouter,
+		feServer.HTTPOpts,
+		feServer.OIDCOpts,
+		feServer.SessionStore,
+		feServer.RelayingParty,
+		feServer.ResourceServer,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to register IAM handlers: %w", err)
 	}
