@@ -833,15 +833,6 @@
         "policyEnforcementMode": "ENFORCING",
         "resources": [
           {
-            "name": "Default Resource",
-            "type": "urn:ps:resources:default",
-            "ownerManagedAccess": false,
-            "attributes": {},
-            "uris": [
-              "/*"
-            ]
-          },
-          {
             "name": "TestAPI",
             "type": "urn:ps:resources:endpoint:test",
             "ownerManagedAccess": false,
@@ -860,16 +851,6 @@
         ],
         "policies": [
           {
-            "name": "Default Policy",
-            "description": "A policy that grants access only for users within this realm",
-            "type": "js",
-            "logic": "POSITIVE",
-            "decisionStrategy": "AFFIRMATIVE",
-            "config": {
-              "code": "// by default, grants any permission associated with this policy\n$evaluation.grant();\n"
-            }
-          },
-          {
             "name": "GFE users",
             "description": "",
             "type": "role",
@@ -878,17 +859,6 @@
             "config": {
               "fetchRoles": "false",
               "roles": "[{\"id\":\"ps/GFE_USER\",\"required\":false}]"
-            }
-          },
-          {
-            "name": "Default Permission",
-            "description": "A permission that applies to the default resource type",
-            "type": "resource",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "defaultResourceType": "urn:ps:resources:default",
-              "applyPolicies": "[\"Default Policy\"]"
             }
           },
           {
