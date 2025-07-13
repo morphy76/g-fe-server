@@ -497,7 +497,7 @@ func createOrGetSession(feServer *server.FEServer, r *http.Request, log zerolog.
 	return session, nil
 }
 
-func populateSessionValues(session *sessions.Session, tokens *oidc.Tokens[*oidc.IDTokenClaims], userInfo *auth.UserInfo, session_state string) {
+func populateSessionValues(session *sessions.Session, tokens *oidc.Tokens[*oidc.IDTokenClaims], userInfo *auth.UserInfo, sessionState string) {
 	session.Values[auth.SessionKeyAuthenticated] = true
 	session.Values[auth.SessionKeyIssuer] = tokens.IDTokenClaims.Issuer
 	session.Values[auth.SessionKeySubject] = tokens.IDTokenClaims.Subject
@@ -509,7 +509,7 @@ func populateSessionValues(session *sessions.Session, tokens *oidc.Tokens[*oidc.
 	session.Values[auth.SessionKeyExpiresIn] = tokens.ExpiresIn
 	session.Values[auth.SessionKeyJTI] = tokens.IDTokenClaims.JWTID
 	session.Values[auth.SessionKeyExpiresAt] = tokens.IDTokenClaims.Expiration.AsTime()
-	session.Values[auth.SessionKeySessionState] = session_state
+	session.Values[auth.SessionKeySessionState] = sessionState
 	session.Values[auth.SessionKeyTokenIssuedAt] = time.Now()
 }
 
