@@ -16,6 +16,8 @@ import (
 const (
 	// AuthQueryArgsRedirectTo is the query argument used to redirect after login
 	AuthQueryArgsRedirectTo = "redirect_to"
+
+	startSessionError = "Start session failed"
 )
 
 // RoleCheckType defines the type for role checking logic.
@@ -150,53 +152,70 @@ func userInRoles(
 ) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 			useLogger := logger.GetLogger(r.Context(), "auth")
 
 			useSession, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
 			if err != nil {
-				useLogger.Error().Err(err).Msg("Start session failed")
+				useLogger.Error().Err(err).Msg(startSessionError)
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
 
-			userInfo, ok := useSession.Values[SessionKeyUserInfo].(*UserInfo)
-			if !ok || userInfo == nil {
+			userInfo, ok := useSession.Values[SessionKeyUserInfo].(UserInfo)
+			if !ok {
 				useLogger.Error().Msg("Session does not contain user info")
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
 
-			// if len(roles) > 0 {
-			// 	userRoles := userInfo.ResourceAccess
-			// 	if userRoles == nil {
-			// 		http.Error(w, "Forbidden", http.StatusForbidden)
-			// 		return
-			// 	}
+			if len(roles) > 0 {
+				userRoleSet := extractUserRoles(userInfo.ResourceAccess)
+				if len(userRoleSet) == 0 {
+					http.Error(w, "Forbidden", http.StatusForbidden)
+					return
+				}
 
-			// 	roleFound := false
-			// 	for _, role := range roles {
-			// 		if checkType == RoleCheckTypeAnd {
-			// 			if _, exists := userRoles[role]; !exists {
-			// 				http.Error(w, "Forbidden", http.StatusForbidden)
-			// 				return
-			// 			}
-			// 		} else if checkType == RoleCheckTypeOr {
-			// 			if _, exists := userRoles[role]; exists {
-			// 				roleFound = true
-			// 				break
-			// 			}
-			// 		}
-			// 	}
-
-			// 	if checkType == RoleCheckTypeOr && !roleFound {
-			// 		http.Error(w, "Forbidden", http.StatusForbidden)
-			// 		return
-			// 	}
-			// }
+				if !rolesMatch(userRoleSet, roles, checkType) {
+					http.Error(w, "Forbidden", http.StatusForbidden)
+					return
+				}
+			}
 
 			next.ServeHTTP(w, r)
 		})
+	}
+}
+
+func extractUserRoles(resourceAccess map[string]map[string][]string) map[string]struct{} {
+	roleSet := make(map[string]struct{})
+	for _, res := range resourceAccess {
+		if roles, ok := res["roles"]; ok {
+			for _, role := range roles {
+				roleSet[role] = struct{}{}
+			}
+		}
+	}
+	return roleSet
+}
+
+func rolesMatch(userRoleSet map[string]struct{}, requiredRoles []string, checkType RoleCheckType) bool {
+	switch checkType {
+	case RoleCheckTypeAnd:
+		for _, role := range requiredRoles {
+			if _, ok := userRoleSet[role]; !ok {
+				return false
+			}
+		}
+		return true
+	case RoleCheckTypeOr:
+		for _, role := range requiredRoles {
+			if _, ok := userRoleSet[role]; ok {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
 	}
 }
 
@@ -208,13 +227,14 @@ func hasAuthorizationByURI(
 	relyingParty rp.RelyingParty,
 	resourceServer rs.ResourceServer,
 ) mux.MiddlewareFunc {
+	// TODO: Implement UMA resource access check by URI
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			useLogger := logger.GetLogger(r.Context(), "auth")
 
 			useSession, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
 			if err != nil {
-				useLogger.Error().Err(err).Msg("Start session failed")
+				useLogger.Error().Err(err).Msg(startSessionError)
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
@@ -253,13 +273,14 @@ func hasAuthorizationByType(
 	relyingParty rp.RelyingParty,
 	resourceServer rs.ResourceServer,
 ) mux.MiddlewareFunc {
+	// TODO: Implement UMA resource access check by type
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			useLogger := logger.GetLogger(r.Context(), "auth")
 
 			useSession, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
 			if err != nil {
-				useLogger.Error().Err(err).Msg("Start session failed")
+				useLogger.Error().Err(err).Msg(startSessionError)
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
@@ -302,8 +323,8 @@ func isAuthenticatedBySession(
 
 		useSession, err := sessions.GetRegistry(r).Get(sessionStore, sessionName)
 		if err != nil {
-			useLogger.Error().Err(err).Msg("Start session failed")
-			http.Error(w, "Start session failed", http.StatusInternalServerError)
+			useLogger.Error().Err(err).Msg(startSessionError)
+			http.Error(w, startSessionError, http.StatusInternalServerError)
 			return
 		}
 

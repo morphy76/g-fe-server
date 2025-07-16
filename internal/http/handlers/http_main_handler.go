@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -277,12 +278,15 @@ func bindModules(
 	// - test
 	// - example module
 
-	sayHello := func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, err := w.Write([]byte("Hello, World!"))
-		if err != nil {
-			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
-			return
+	sayHello := func(mex string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			strAsJSON, _ := json.Marshal(mex)
+			_, err := w.Write(strAsJSON)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 
@@ -295,16 +299,22 @@ func bindModules(
 	)
 
 	testRouter := apiRouter.PathPrefix("/testURI").Subrouter()
-	testRouter.Use(oidcMid.HasAuthorizationByURI(feServer.HTTPOpts.ServeOptions.ContextRoot+"/api/test", "read"))
-	testRouter.HandleFunc("/", sayHello).Methods(http.MethodGet)
+	testRouter.Use(oidcMid.HasAuthorizationByURI(feServer.HTTPOpts.ServeOptions.ContextRoot+"/api/testURI/test", "read"))
+	testRouter.HandleFunc("/test", sayHello("Hello from testURI")).Methods(http.MethodGet)
 
 	typeRouter := apiRouter.PathPrefix("/testType").Subrouter()
 	typeRouter.Use(oidcMid.HasAuthorizationByType("urn:ps:resources:endpoint:test", "resource.read"))
-	typeRouter.HandleFunc("/", sayHello).Methods(http.MethodGet)
+	typeRouter.HandleFunc("/test", sayHello("Hello from testType")).Methods(http.MethodGet)
 
 	roleRouter := apiRouter.PathPrefix("/testRole").Subrouter()
-	roleRouter.Use(oidcMid.UserInRoles([]string{"GFE_USER"}, auth.RoleCheckTypeAnd))
-	roleRouter.HandleFunc("/", sayHello).Methods(http.MethodGet)
+
+	roleRouterAnd := roleRouter.PathPrefix("/").Subrouter()
+	roleRouterAnd.Use(oidcMid.UserInRoles([]string{"GFE_USER"}, auth.RoleCheckTypeAnd))
+	roleRouterAnd.HandleFunc("/testAnd", sayHello("Hello from testRoleAnd")).Methods(http.MethodGet)
+
+	roleRouterOr := roleRouter.PathPrefix("/").Subrouter()
+	roleRouterOr.Use(oidcMid.UserInRoles([]string{"GFE_USER"}, auth.RoleCheckTypeOr))
+	roleRouterOr.HandleFunc("/testOr", sayHello("Hello from testRoleOr")).Methods(http.MethodGet)
 
 	example.Handler(apiRouter, feServer, routerLog)
 	return nil
