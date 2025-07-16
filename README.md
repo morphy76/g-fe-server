@@ -8,8 +8,11 @@ In summary:
 - [x] With Health endpoint
   - Testing HTTP serving
   - Testing Mongo connection
-- [ ] RBAC and resource server   <----
+- [x] RBAC (userInRoles) and resource server
+  - [ ] Implement UMA resource access check by URI
+  - [ ] Implement UMA resource access check by Type
 - [ ] Middleare and processing for tenant attribution
+  - [ ] Logger with tenant attribution
 - [ ] CORS options
   - Admin APIs with RBAC
 - [ ] CSP options
@@ -18,15 +21,15 @@ In summary:
 - [x] With OIDC integration
 - [x] With Mongo integration
 - [ ] With Unleash integration
-  - Feature gateway for FE flags
+  - [ ] Feature gateway for FE flags
 - [ ] Review monitoring (http clients)
   - MongoDB monitoring (Fix mongo monitoring (see `internal/db/monitor.go`))
   - OIDC monitoring
   - Unleash monitoring
   - add business events and errors to spans
-- (With AIW logging)
-- (With AIW tracing)
-- (With AIW audit)
+- (With AIW logging using build flags)
+- (With AIW audit with build flags to determine the transport)
+- (With AIW client using build flags)
 - With OpenAPI endpoint
 - [x] No business logic included
 
