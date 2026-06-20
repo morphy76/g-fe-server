@@ -11,7 +11,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/zitadel/oidc/v3 v3.39.0
-	go.mongodb.org/mongo-driver/v2 v2.2.2
+	go.mongodb.org/mongo-driver/v2 v2.4.2
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.62.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.62.0
 	go.opentelemetry.io/otel v1.43.0
@@ -63,7 +63,7 @@ require (
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
